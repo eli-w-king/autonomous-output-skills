@@ -410,3 +410,7 @@ build should auto-advance.
 
 When you discover a new gotcha or the user corrects the output (ordering, tone, format, hosting), fold
 the fix back into this SKILL.md (and scripts) so the next run starts from the improved baseline.
+
+**Keep the frontmatter `description` under ~1024 characters.** A longer description can make the skill
+registry silently skip the skill (it still installs on disk and works when read manually, but does not
+register as invocable). This skill's description is intentionally kept under that limit.

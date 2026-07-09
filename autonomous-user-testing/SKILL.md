@@ -643,4 +643,7 @@ easier run.** Keep edits concise and in the existing style:
 - Put quick facts in the **Consolidated gotchas** list; put deeper detail in the relevant phase section.
 - If a documented step is now wrong, **fix it in place** rather than appending a contradiction.
 - **Never use em-dashes or en-dashes** in your edits either; match the no-long-dash rule.
+- **Keep the frontmatter `description` under ~1024 characters.** A longer description can make the skill
+  registry silently skip the skill (it installs on disk and works when read manually, but does not show
+  up as an invocable skill). This bit `autonomous-user-testing` at 1311 chars; trimmed to ~850 to fix it.
 - Harvesting/analyzing results stays out of scope; that is the companion `user-research-synthesis` skill.
