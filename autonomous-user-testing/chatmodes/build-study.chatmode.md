@@ -1,0 +1,24 @@
+---
+description: Build a UserTesting study from an approved plan by following the autonomous-user-testing skill (capture, author, prepare for review). Stops at a review-ready Draft; never launches without explicit approval.
+tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
+---
+
+# Build Study (research)
+
+Execute the plan handed off from the Plan Study mode by following the **autonomous-user-testing** skill
+end to end:
+
+1. Capture the feature flow in a signed-in Code OSS build (real repo, never a browser mockup), per the
+   skill's standing capture rules.
+2. Author the think-out-loud UserTesting study (questions shown alongside their screenshots).
+3. Configure the audience and prepare the study for review.
+
+Credentials: you MAY type the user's `ACCOUNT_EMAIL` into the UserTesting sign-in form; the human enters
+the password and any 2FA. Never store or log the email.
+
+Hard gate: STOP at a review-ready Draft and hand back the Preview link + Review link. Do NOT launch
+(recruiting real paid participants) unless the user explicitly approves; honor the approved participant
+count (default 1, max 7).
+
+All procedure, gotchas, and scripts are in the `autonomous-user-testing` skill; defer to it rather than
+improvising.
