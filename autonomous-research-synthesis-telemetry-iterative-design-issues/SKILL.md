@@ -1,16 +1,16 @@
 ---
-name: user-research-synthesis
-description: "Autonomously turn completed UserTesting.com studies into a decision: harvest transcripts + audience, run an A/B thematic analysis, triangulate with product telemetry, build up to 3 candidate redesign solutions (A/B/C) in real Code OSS switchable via a developer Command-Palette toggle (use fewer when the problem does not warrant three, never a browser mockup), record a real high-resolution demo VIDEO of the running build (walking the A/B/C toggle when there is more than one option), and open a review-ready draft GitHub issue that leads with the recommendation and embeds the demo. This is the back half of the VS Code UX research loop and pairs with the `autonomous-user-testing` skill (which creates and launches the studies) and the `launch` skill (which boots a signed-in Code OSS build). Use when asked to 'analyze the user test results', 'synthesize the study', 'what did we learn and what should we build', or 'write up the research as an issue'."
+name: autonomous-research-synthesis-telemetry-iterative-design-issues
+description: "Autonomous: Research Synthesis, Telemetry Data, Iterative Design Build, Issue Documentation. Turn completed UserTesting.com studies into a decision: harvest transcripts and audience, run thematic analysis, triangulate with product telemetry, build up to 3 redesign solutions in real Code OSS, record a high-resolution demo video, and open a review-ready draft GitHub issue that leads with the recommendation and embeds the demo. This is the back half of the VS Code UX research loop and pairs with autonomous-design-build-record-demo-unmoderated-research and launch. Use when asked to analyze user test results, synthesize a study, decide what to build, or document the research in an issue."
 ---
 
-# User Research Synthesis (VS Code UX Research Loop, back half)
+# Autonomous: Research Synthesis, Telemetry Data, Iterative Design Build, Issue Documentation
 
 Turn one or more **completed UserTesting studies** into a **review-ready draft GitHub issue** that a
 human can act on: recommendation first, a real demo video of the change running, findings backed by
 verbatim quotes and telemetry, an A/B decision, and honest caveats, with the redesign spiked in the
 real repo.
 
-The front half (create + launch studies) is the `autonomous-user-testing` skill. This skill starts
+The front half (create + launch studies) is the `autonomous-design-build-record-demo-unmoderated-research` skill. This skill starts
 once studies have **completed** and results are available.
 
 Pipeline:
@@ -113,7 +113,7 @@ with `send: true`; in autopilot it is fully automatic, otherwise it is a single 
 ## Composability: run phases independently and out of order
 
 These phases are a **default order, not a locked pipeline**. Run only the phases you need, and chain
-with the `autonomous-user-testing` skill in any order. The phases talk to each other through a shared
+with the `autonomous-design-build-record-demo-unmoderated-research` skill in any order. The phases talk to each other through a shared
 **artifact contract**, not through required state:
 
 - **Shared root:** keep everything for a piece of work under `~/Desktop/Automated User Testing/<slug>/`
@@ -128,7 +128,7 @@ Common non-linear entry points:
   (summary of the change, the demo video, what it does and why, and how to try it), not a research
   findings issue. Drop the findings/telemetry/A-B sections until research exists.
 - **Record once, research later.** The `new-ui-demo.mp4` you record here is exactly the real-build
-  stimulus the `autonomous-user-testing` skill needs. Hand it off to that skill to run a study on the
+  stimulus the `autonomous-design-build-record-demo-unmoderated-research` skill needs. Hand it off to that skill to run a study on the
   video (its capture phase can be skipped, see that skill's "compose" note), then come back and run
   **Phases 1 to 3** here to fold the results into the issue.
 - **Analyze an existing study without rebuilding.** Run **Phases 1 to 3** and **Phase 6** only, no spike.
@@ -153,7 +153,7 @@ boundary is simple:
   credential entry is needed at all.
 - **Do not persist the email** into committed files, the issue body, logs, screenshots, or the session
   DB. Keep it in memory for the current run only. Never put any personal identifier in a public artifact.
-- Type the email into the specific login target (see `autonomous-user-testing` for the Chrome-over-CDP
+- Type the email into the specific login target (see `autonomous-design-build-record-demo-unmoderated-research` for the Chrome-over-CDP
   driver); if the driver keeps snapping to the wrong tab, target the login tab directly rather than
   guessing.
 
@@ -165,7 +165,7 @@ Only the **transcript** and the **audience** matter. The rest of the UserTesting
 do not build the write-up around it.
 
 Drive a **dedicated Chrome** signed into UserTesting with `playwright-core` over CDP (see
-`autonomous-user-testing` for the full driver setup; do not depend on the chrome-devtools MCP). Then,
+`autonomous-design-build-record-demo-unmoderated-research` for the full driver setup; do not depend on the chrome-devtools MCP). Then,
 per study, on the study's **Results** tab:
 
 1. Click **Export data** to download the XLSX (sheet name `Data`).
@@ -227,6 +227,18 @@ that matches `WINDOW`:
 - Agents window logic lives under `src/vs/sessions/**` (e.g. layout orchestration in
   `src/vs/sessions/contrib/layout/browser/desktopSessionLayoutController.ts`).
 - Editor-window browser lives under `src/vs/workbench/contrib/browserView/**`.
+
+### Required project skills before UI implementation
+
+Load the relevant project skills before editing. Reference them as the source of truth rather than
+copying their guidance:
+
+- Always load `accessibility` for new or changed interactive UI.
+- Load `ux-css-layout` before writing CSS, changing layout, or changing control sizing.
+- Load `ux-theming` before changing colors, theme tokens, focus indicators, or high-contrast behavior.
+- Load `sessions` before changing code under `src/vs/sessions/**`.
+
+Then read every path-specific instruction file required by the checkout.
 
 ### Generate up to 3 solutions behind a dev command toggle
 
@@ -295,6 +307,7 @@ Capture (scripts live next to this SKILL.md in `scripts/`; resolve relative to t
     `fromSurface:true` (what caploop uses) composites the native overlay into every frame. This is the
     single most important gotcha in this phase.
   - `scale=2` on a retina display yields ~4x the CSS resolution (very crisp).
+  - **Crop math: caploop frames are `dpr × scale` times the CSS size** (on a retina 2x display with `scale=2` that is 4x). So a panel at CSS `x=520,y=36,w=293,h=570` maps to an ffmpeg `crop=1172:2280:2080:144` (multiply every number by 4). Read the actual frame dimensions with `ffprobe` on one `.jpg` before writing the crop, and get the CSS rect with a `getBoundingClientRect()` eval on the running window. That said, prefer a full-window demo over a cropped one (see Standing rules); crop only when explicitly asked.
 - To animate content INSIDE the preview (e.g. navigate a slide deck), use
   `scripts/presskeys.js <cdpPort> <preview-url-substr> ArrowRight <count> <delayMs>`. This targets the
   preview's own CDP target directly, because `@playwright/cli` snaps to the focused tab and cannot
@@ -310,7 +323,19 @@ Encode:
 
 ffmpeg lives at `/opt/homebrew/bin/ffmpeg`; `export PATH="/opt/homebrew/bin:$PATH"`.
 
+**Pace for humans, do NOT aggressively dedupe.** Reviewers complained that clips felt "rushed" and too fast to follow. Two rules:
+- Build the pacing into the **driver**, not the encoder: put deliberate `sleep`s between steps (e.g. ~3s to read the first screen, ~2s after each action, ~2s after typing) and type text at a **human delay** (`keyboard.type(text, {delay: 95})`, roughly 80-110ms/char). A good full flow is ~20-25s, not 3-5s.
+- Encode with `frames-to-mp4.sh` (preserves real per-frame timestamps). **Avoid `mpdecimate`/`setpts` to "trim dead air"**: even capped, it collapses the natural holds a viewer needs and produces an unwatchable 2-4s blur. If a clip genuinely drags, re-record with tighter driver timing rather than post-trimming.
+
+**Drive with real physical actions, not injected DOM clicks.** When recording (caploop) and driving the same window over CDP, use Playwright's physical APIs on the visible element (`locator(sel).last().click()`, `.selectOption(...)`, `keyboard.type(...)`). Fire-and-forget in-page `el.click()` / setTimeout choreography frequently updates a **hidden** DOM node while the visible UI never changes, so the recording shows nothing happening. Physical clicks/keystrokes always hit the topmost rendered element.
+
+**Overlay/modal apps: relaunch fresh instead of re-triggering.** For flows shown as an overlay (e.g. the sessions/onboarding walkthrough), repeatedly running the dev "reset/show" command **stacks multiple overlays**; a `.last()` locator then targets a stale hidden copy. A fresh Code OSS launch starts with exactly one (or zero) overlay. Verify with `document.querySelectorAll('.<overlay-class>').length === 1` before recording; if a password/secret field won't visibly accept typed characters over CDP, capture that state as a **static screenshot** instead and lean on the video for the rest.
+
+**Clear dev-build toasts/banners before (and during) recording.** A Code OSS dev build pops toasts that would never ship, most often *"Extension host did not start in 10 seconds, that might be a problem."*, plus the *"Run tasks in the background with the Copilot CLI"* banner and update/telemetry prompts. None of these may appear in the demo video. Run `workbench.action.clearNotifications` (F1) and dismiss any inline banner right before caploop starts, and confirm the status-bar notification bell is empty. The ext-host toast can reappear ~10s after launch/reload, so clear it again immediately before the take (or wait for the ext host to finish starting); do not record around it.
+
 Verify by extracting a couple of frames from the final MP4 and eyeballing them before proceeding.
+
+**Prefer big static screenshots over looping GIFs as study stimulus.** Feedback from real sessions: participants feel rushed watching a GIF loop in front of them, and small images are hard to read. For UserTesting image pages, capture a **card/element screenshot** (`locator('.card').screenshot(...)`), not a full-window shot: it is far larger and cleaner. Use the static image as the primary stimulus so the participant paces themselves; keep the MP4/GIF for the issue write-up.
 
 Clean up: kill the Code OSS instance and any local server you started (pass literal numeric PIDs; the
 bash tool refuses `kill "$VAR"`), and close your playwright daemon (`@playwright/cli -s=... close`).
@@ -373,15 +398,35 @@ short PUBLISH-NOTES with the exact remaining steps (title, drag-in file, submit)
 
 ## Standing rules
 
+> **See also the shared [`autonomous-skill-glossary`](../autonomous-skill-glossary/SKILL.md)** for
+> cross-cutting, reusable gotchas across this loop: recording cleanly (bind dev commands to keys
+> instead of using the command palette, clear dev-build toasts), forcing/simulating VS Code UI states
+> via a render-layer observable, persistent driver + detached Chrome that survive shell churn, pinning
+> your own tab by CDP target id, and getting a demo video into a GitHub issue (native player limits,
+> raw-embed fallback, cache-busting filenames). Read it before recording a demo or drafting the issue,
+> and add new gotchas there.
+
 - Real Code OSS only, never a browser mockup of the UI. Agents window vs editor per the research.
 - Offer up to 3 solutions (A/B/C) switchable via a dev Command-Palette toggle; use 1 or 2 when the
   problem does not warrant three, and never ship three near-duplicates.
 - Demos are videos. GIF is only an inline fallback. Demo the A/B/C toggle when there is more than one option.
+- **Show full context in demos, not a tight crop.** Frame the demo on the whole relevant surface (e.g. the
+  entire Agents window: chat pane + the panel under test + files pane), not just the single control. A tight
+  crop reads as a mockup and hides where the feature lives; reviewers asked for full context.
+- **Issue order (reinforced): recommendation FIRST, then the demo directly under it**, then problem,
+  findings, next steps, telemetry, method. Do NOT open with the problem or bury the demo below findings.
+  When there is more than one variant, put the recommended one's demo first.
 - Keep artifacts organized per project in one folder; move all downloads there.
 - No em/en dashes in anything the user or reviewers read.
 - Telemetry must relate to the study topic; present prototype-adjacent numbers honestly with caveats.
+- **If telemetry is unreachable, say so; never fabricate.** The `ddtelvscode` cluster needs the Azure VPN;
+  if the Data agent returns `TELEMETRY_UNAVAILABLE`, state plainly in the issue that no live numbers were
+  pulled and none were estimated, and keep the prepared query set for a later run.
+- **When the reader asks for approximations, use only magnitude words** (most / more than half / some / a
+  small number / around N out of 7) and omit exact counts and percentages, even if you have them.
 - Launch your own isolated Code OSS and your own browser; never touch windows you did not open; pass
-  literal PIDs to `kill`.
+  literal PIDs to `kill`. **The dedicated 9333 Chrome is shared by other agents:** leave it running, and
+  close only your own tabs (match your study id / preview participantId); do not close the browser.
 - Confirm before any public-repo post. Prefer a reversible interim over an unattended public action.
 - Credentials: you may ask for and type an email/username into a login form; never ask for, type,
   store, or log a password or 2FA code (the human enters those). Never persist the email to any file,
@@ -400,7 +445,7 @@ Wrap it in a **custom agent / chat mode** only for what a skill cannot do:
 - You want a **scoped tool set, pinned model, or gating** for a phase.
 
 The right shape is a **thin** chat mode that defers to this skill (its body is essentially "follow the
-`user-research-synthesis` skill"), never a copy of the procedure. Ready-to-use templates live in
+`autonomous-research-synthesis-telemetry-iterative-design-issues` skill"), never a copy of the procedure. Ready-to-use templates live in
 `chatmodes/` next to this file; activate by copying them into a workspace `.github/chatmodes/` or your
 user prompt-files location. **Guardrail:** never put an irreversible step behind an auto-send handoff.
 Recruiting real participants and posting to a public repo stay explicitly human-gated; only plan to

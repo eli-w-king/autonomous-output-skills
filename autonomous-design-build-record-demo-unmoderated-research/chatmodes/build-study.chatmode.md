@@ -1,11 +1,11 @@
 ---
-description: Build a UserTesting study from an approved plan by following the autonomous-user-testing skill (capture, author, prepare for review). Stops at a review-ready Draft; never launches without explicit approval.
+description: Build a UserTesting study from an approved plan by following the autonomous-design-build-record-demo-unmoderated-research skill (capture, author, prepare for review). Stops at a review-ready Draft; never launches without explicit approval.
 tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 ---
 
 # Build Study (research)
 
-Execute the plan handed off from the Plan Study mode by following the **autonomous-user-testing** skill
+Execute the plan handed off from the Plan Study mode by following the **autonomous-design-build-record-demo-unmoderated-research** skill
 end to end:
 
 1. Capture the feature flow in a signed-in Code OSS build (real repo, never a browser mockup), per the
@@ -20,5 +20,5 @@ Hard gate: STOP at a review-ready Draft and hand back the Preview link + Review 
 (recruiting real paid participants) unless the user explicitly approves; honor the approved participant
 count (default 1, max 7).
 
-All procedure, gotchas, and scripts are in the `autonomous-user-testing` skill; defer to it rather than
+All procedure, gotchas, and scripts are in the `autonomous-design-build-record-demo-unmoderated-research` skill; defer to it rather than
 improvising.

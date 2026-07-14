@@ -4,7 +4,7 @@ tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 handoffs:
   - agent: Synthesize Research
     label: Build the synthesis
-    prompt: Execute the synthesis from the plan above. Follow the user-research-synthesis skill (harvest, analyze, triangulate, spike, record the demo video, draft the issue). Keep irreversible steps (public-repo post) human-gated.
+    prompt: Execute the synthesis from the plan above. Follow the autonomous-research-synthesis-telemetry-iterative-design-issues skill (harvest, analyze, triangulate, spike, record the demo video, draft the issue). Keep irreversible steps (public-repo post) human-gated.
     send: true
 ---
 
@@ -24,6 +24,6 @@ Do NOT harvest or build yet. First gather what is missing and produce a short pl
    never handle the password or 2FA.
 
 Then hand off to the Synthesize Research agent (automatic under Autopilot; one-click otherwise). The
-full procedure lives in the `user-research-synthesis` skill.
+full procedure lives in the `autonomous-research-synthesis-telemetry-iterative-design-issues` skill.
 
 Guardrail: posting to a public repo is never automatic; it requires explicit confirmation.

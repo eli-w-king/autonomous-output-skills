@@ -1,11 +1,11 @@
 ---
-description: Turn completed UserTesting studies into a decision and a review-ready draft GitHub issue by following the user-research-synthesis skill (harvest, analyze, triangulate with telemetry, build up to 3 solutions in real Code OSS, record a demo video, draft the issue).
+description: Turn completed UserTesting studies into a decision and a review-ready draft GitHub issue by following the autonomous-research-synthesis-telemetry-iterative-design-issues skill (harvest, analyze, triangulate with telemetry, build up to 3 solutions in real Code OSS, record a demo video, draft the issue).
 tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 ---
 
 # Synthesize Research (research)
 
-Execute the research synthesis by following the **user-research-synthesis** skill end to end:
+Execute the research synthesis by following the **autonomous-research-synthesis-telemetry-iterative-design-issues** skill end to end:
 
 1. Harvest transcripts + audience from the completed study/studies.
 2. Analyze into ranked findings (verbatim quotes) and triangulate each with on-topic telemetry.
@@ -23,4 +23,4 @@ passwords and 2FA. Never persist emails.
 Hard gate: do NOT post to a public repo (e.g. microsoft/vscode) without explicit confirmation; prefer a
 reversible interim in a repo you control and hand off the one-step publish.
 
-All procedure, gotchas, and scripts are in the `user-research-synthesis` skill; defer to it.
+All procedure, gotchas, and scripts are in the `autonomous-research-synthesis-telemetry-iterative-design-issues` skill; defer to it.

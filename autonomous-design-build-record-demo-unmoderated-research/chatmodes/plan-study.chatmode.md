@@ -4,7 +4,7 @@ tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 handoffs:
   - agent: Build Study
     label: Build the study
-    prompt: Capture the flow and author the UserTesting study from the approved plan above. Follow the autonomous-user-testing skill. Stop at a review-ready Draft and hand back the Preview + Review links. Do NOT launch.
+    prompt: Capture the flow and author the UserTesting study from the approved plan above. Follow the autonomous-design-build-record-demo-unmoderated-research skill. Stop at a review-ready Draft and hand back the Preview + Review links. Do NOT launch.
     send: true
 ---
 
@@ -27,7 +27,7 @@ concrete plan:
 
 Then hand off to the Build Study agent (automatic under Autopilot; a one-click "Continue on Agent"
 button otherwise). Everything about the actual capture and authoring lives in the
-`autonomous-user-testing` skill; the build agent follows it.
+`autonomous-design-build-record-demo-unmoderated-research` skill; the build agent follows it.
 
 Guardrail: launching (recruiting real paid participants) is never automatic, it always requires an
 explicit human okay in the build phase.

@@ -1,9 +1,9 @@
 ---
-name: autonomous-user-testing
-description: "Autonomously create a review-ready UserTesting.com study for a VS Code feature. Can start in a plan phase that gathers missing inputs (topic, audience, participant count, and the account email) then auto-hands off to build. Drives a signed-in Code OSS build (Agents window or editor window) in the microsoft-vscode repo to capture the real UI flow (screenshots + walkthrough GIF), then authors a think-out-loud study whose questions sit alongside their screenshots. Stops at a review-ready Draft; launches (1 to 7 real paid participants) only on explicit approval. May type the account email into the sign-in form but never the password or 2FA. Use for 'run a user test', 'create a UserTesting study', or 'get user feedback on <feature>'. Pairs with the launch skill (drives Code OSS) and the companion user-research-synthesis skill (analyzes results)."
+name: autonomous-design-build-record-demo-unmoderated-research
+description: "Autonomous: Design Build, Record Demo, Unmoderated Research. Autonomously create a review-ready UserTesting.com study for a VS Code feature. Can start in a plan phase that gathers missing inputs (topic, audience, participant count, and account email), then auto-hands off to build. Drives a signed-in Code OSS build to capture the real UI flow, then authors a think-out-loud study whose questions sit alongside screenshots. Stops at a review-ready Draft; launches 1 to 7 paid participants only on explicit approval. May type the account email into the sign-in form, but never the password or 2FA. Use for 'run a user test', 'create a UserTesting study', or 'get user feedback on <feature>'. Pairs with the launch skill and autonomous-research-synthesis-telemetry-iterative-design-issues."
 ---
 
-# Autonomous User Testing (VS Code UX Research Loop)
+# Autonomous: Design Build, Record Demo, Unmoderated Research
 
 Turn a one-line research topic, e.g. *"I want to know how users interact with the new bidirectional voice mode in the editor window"*, into a **review-ready UserTesting.com study**, with **zero human clicks up to the launch gate**:
 
@@ -30,7 +30,7 @@ This skill encodes the exact procedure plus every non-obvious gotcha discovered 
 > (Phases 1 to 4). The default endpoint is a **review-ready Draft with a Preview link**, not a live
 > study; launching is a separate, explicitly-gated step. Harvesting results and analyzing
 > transcripts/videos (scraping the Results tab, extracting insights, prototyping redesigns, recording a
-> demo video, drafting the issue) is the companion **`user-research-synthesis`** skill, the back half of
+> demo video, drafting the issue) is the companion **`autonomous-research-synthesis-telemetry-iterative-design-issues`** skill, the back half of
 > this loop.
 
 ---
@@ -115,7 +115,7 @@ approval regardless of how plan hands off to build.
 ## Composability: run phases independently and out of order
 
 These phases are a **default order, not a locked pipeline**. Run only what you need and chain with the
-`user-research-synthesis` skill in any order, via a shared **artifact contract**:
+`autonomous-research-synthesis-telemetry-iterative-design-issues` skill in any order, via a shared **artifact contract**:
 
 - **Shared root:** everything lives under `~/Desktop/Automated User Testing/<slug>/`. Both skills use
   this root, so a video/frames produced by one are found by the other.
@@ -185,6 +185,19 @@ Goal: an ordered set of screenshots (one per meaningful UI state) plus a walkthr
 > existing real Code OSS recording + screenshots and jump to Phase 2. Only capture fresh when you do not
 > already have suitable real-build media.
 
+### Required project skills before UI implementation
+
+If the feature must be implemented or adjusted before capture, load the relevant project skills before
+editing. Reference them as the source of truth rather than copying their guidance:
+
+- Always load `accessibility` for new or changed interactive UI.
+- Load `ux-css-layout` before writing CSS, changing layout, or changing control sizing.
+- Load `ux-theming` before changing colors, theme tokens, focus indicators, or high-contrast behavior.
+- Load `sessions` before changing code under `src/vs/sessions/**`.
+
+Then read every path-specific instruction file required by the checkout. This checklist applies only
+when building or changing the product; capture-only runs can proceed directly to the standing rules.
+
 ### 1.0 Standing demo-capture rules (ALWAYS enforced)
 
 These are fixed policies, do not vary them per topic. They exist so every demo is
@@ -197,9 +210,10 @@ consistent, legible, private-safe, and comparable across studies.
   capturing a single frame: screenshot and confirm the account avatar is present and there is no
   "Sign in to use Agents" modal. If unauthenticated, stop and ask the user to sign in.
 - **Model:** always a **Claude** model. Select it in the session type / model picker before starting.
-- **Theme:** always **light**. The launched profile is a clone of the user's, so force it after
-  launch, e.g. set `"workbench.colorTheme": "Default Light Modern"` in the launched profile's
-  `User/settings.json`, or run *Preferences: Color Theme → Light*, and confirm via a screenshot.
+- **Theme:** always **Dark 2026** (the 2026 dark theme, it reads best on camera). The launched
+  profile is a clone of the user's, so force it after launch, e.g. set
+  `"workbench.colorTheme": "Dark 2026"` in the launched profile's `User/settings.json`, or run
+  *Preferences: Color Theme → Dark 2026*, and confirm via a screenshot.
 - **Window size:** aim for **1280×800** for reproducible framing, but **capture at a consistent size
   across all frames** for a given study rather than forcing an exact number. On Electron, resizing via
   CDP does **not** work (`Browser.getWindowForTarget` is absent), and AppleScript window control needs
@@ -238,6 +252,16 @@ consistent, legible, private-safe, and comparable across studies.
   cursor.) **Park the mouse away** (e.g. `page.mouse.move(650,400)`) before each shot so a hover
   tooltip doesn't pollute the frame.
 - **Wait for async UI to settle** before each shot (e.g. agent *"Working…" → completed*).
+- **No stray notifications/toasts or warning banners in frame (dev-build noise).** A Code OSS dev
+  build routinely pops toasts that would never be in the shipped product, most commonly
+  *"Extension host did not start in 10 seconds, that might be a problem."*, plus update/telemetry
+  prompts and the *"Run tasks in the background with the Copilot CLI"* banner. These must NOT appear
+  in any screenshot or video frame. Before every capture: clear all toasts
+  (`workbench.action.clearNotifications` via F1, or click each toast's clear/✕), dismiss inline
+  banners, and verify the notification bell in the status bar shows none. Re-check right before
+  recording, since the ext-host toast can reappear ~10s after launch/reload. If a toast keeps
+  returning, wait for the ext host to finish starting (or reload once and clear again) rather than
+  recording around it.
 - **Verify every screenshot** with the `view` tool before advancing.
 - **End on an unambiguous success state.**
 
@@ -333,6 +357,17 @@ Do NOT rely on a pre-made copy; each run creates its own study. From the UserTes
 3. The first step is always the **canonical intro** (Instructions) from §2.0 (verbatim).
 4. Build out the rest of the study per §2.0 to §2.3 (one Image "Question page" per captured screen,
    with the question as a spoken Instruction-text prompt; conceptual questions as Verbal steps).
+
+**Create-menu flyout gotcha (this trips up every automated run).** The **Think-out-loud** row in the
+Create menu opens a **hover-triggered submenu to the right** ("Classic experience" / "New experience").
+Do NOT click Think-out-loud (that collapses the menu). Instead: click **Create test**, then **hover**
+the Think-out-loud row (`getByText('Think-out-loud test').hover()`), wait ~1.5s for the flyout, then
+click **New experience**. That opens an intro modal ("Try our updated think-out-loud experience") whose
+CTA is **Create a test** -> that opens the create dialog (Name / Device / Language) whose button is
+**Create**. Use Playwright's `.click()` (proper trusted event sequence) on these modal buttons; raw
+`mouse.down()/up()` at coordinates often does not register. Poll `page.url()` for `/test/` (up to ~40s)
+to confirm the builder opened; the dialog is transient, so do all of hover -> New experience -> Create a
+test -> fill name -> Create in **one script**, not across separate invocations.
 
 Once the tasks are built, do the audience in Phase 3.
 
@@ -464,6 +499,20 @@ DOM**, never DOM scraping:
   your question').last()`).
 - **Verify before moving on:** re-read all `getByRole('textbox')` values and the header
   *"Tasks & questions: N"* count; scan every value for `—`/`–` (must be none).
+- **Confirm each new step actually got created before filling it (critical).** Clicking a panel item
+  sometimes does NOT create a step, and then your "fill the new field" code silently overwrites the
+  **previous** step's textbox instead (e.g. a wrap-up prompt clobbering the terminology question). Read
+  the *"Tasks & questions: N"* count **before and after** adding a step and confirm it incremented; only
+  then fill. When targeting the just-added field, match by its **empty/seed value** (e.g. the Image page
+  seeds instruction text `Image`; a new Verbal has an empty `Add your question` placeholder), not by
+  index. After building, re-list every textbox value to confirm no step got overwritten.
+- **Swapping an image later:** each Image page exposes a **"Delete image"** button (aria-label) and,
+  after deletion, an **Upload image** control; both are shadow-DOM, reach them with role/text locators.
+  To replace GIFs with static screenshots, delete then re-upload in order (first Delete image = first
+  Image page, etc.), verifying the new filename label appears before moving on.
+- **Static screenshots beat looping GIFs** as stimulus (see the synthesis skill's Phase 5): participants
+  feel rushed by a GIF looping in front of them. Prefer a large card/element screenshot per screen; add
+  scenario context and **numbered** sub-questions (1., 2., 3.) so participants do not get lost.
 
 ### 2.3 Recommended study shape
 ```
@@ -585,13 +634,26 @@ preview/review links, gives an explicit go-ahead (e.g. "okay", "launch it", "shi
 
 ## Consolidated gotchas (quick reference)
 
-- **Standing capture rules (§1.0):** microsoft-vscode repo · signed in (real profile, verify avatar) · Claude model · **light** theme · consistent window size (~1280×800, exact not required) · ≤45s / 8-12 frames · no cursor overlay (park the mouse before each shot) · one shot per state.
+> **See also the shared [`autonomous-skill-glossary`](../autonomous-skill-glossary/SKILL.md)** for
+> cross-cutting, reusable gotchas across this loop: forcing/simulating VS Code UI states for demos,
+> clean recording (keybindings instead of the palette, clearing dev toasts), the shadow-DOM
+> UserTesting builder (`menuitem` panel selectors, image-page-needs-a-question, rating-scale defaults,
+> tab pinning by CDP target id), persistent driver + detached Chrome, and hosting demo videos in a
+> GitHub issue. Read it before capturing UI or building a study, and add new gotchas there.
+
+- **Standing capture rules (§1.0):** microsoft-vscode repo · signed in (real profile, verify avatar) · Claude model · **Dark 2026** theme · consistent window size (~1280×800, exact not required) · ≤45s / 8-12 frames · no cursor overlay (park the mouse before each shot) · one shot per state.
+- **No dev-build toasts/banners in frame (§1.0):** clear notifications (`workbench.action.clearNotifications`) and dismiss banners before every capture; the *"Extension host did not start in 10 seconds"* toast and the Copilot CLI banner are the usual offenders and the ext-host one can reappear ~10s after launch/reload, so re-check right before recording.
 - **NEVER recreate VS Code / Agents UI in a browser (hard rule).** No HTML/CSS/JS mockups of the UI. All capture and any real build happens in Code OSS from the microsoft-vscode repo (Agents window or editor window). Browser use is only for driving UserTesting.com.
 - **Prefer the feature's simulate/dev command (§1.0):** for voice/camera/backend/agent features, run the built-in dev command (e.g. `agentsVoice.simulateConnection`) instead of driving the real thing; clicking the real control in a throwaway build usually shows nothing.
 - **Driver = dedicated Chrome + `playwright-core` over CDP (§2.1a):** own `--user-data-dir` + `--remote-debugging-port=9333`; never touch the shared `chrome-devtools-mcp` profile (other sessions use it); the chrome-devtools MCP may be uncallable and the integrated browser is logged out.
+- **Multi-agent tab safety (the 9333 Chrome is shared):** several agents drive the same dedicated Chrome at once, so it will have many `.../test/<id>/...` tabs, GitHub tabs, and preview tabs that are NOT yours. Pin your driver's `connect()` to YOUR study id (`page.url().includes(TID)`); if that tab is missing, open a brand-new tab with `ctx.newPage()` and navigate it, never repurpose an existing tab. Assert `page.url().includes(TID)` before any write action. When cleaning up, close ONLY tabs whose URL contains your `TID` or your own preview `participantId`; leave everything else open.
+- **Driver files in `/tmp` can vanish mid-run:** your own housekeeping (e.g. `rm -rf /tmp/shots`) or another process can delete helper `.mjs` files while `node_modules` survives. Keep the driver in a stable dir, and make each script self-contained or re-create the tiny `connect()` lib at the start of a step rather than assuming earlier files still exist.
+- **Adding a step matches TWO places (§2.2):** `getByText('Image'|'Verbal response', {exact:true})` matches BOTH the left Add-panel item AND the left-rail step label of an already-added step, so a blind click can hit the wrong one and the count never increments. Disambiguate the panel item by x-position (panel items sit at x < ~300) or by proximity to a panel-only heading like "Balanced comparison"; verify the panel is actually open first (poll for a panel-only label).
+- **Swapping an Image page's image (§2.2):** the `tk-expandable-image` overlay intercepts pointer events, so a normal Playwright click on "Delete image" times out. Hover the image, then do a deep shadow-DOM JS click on the element whose `aria-label` is `delete image`, press `Enter` to confirm the dialog (or JS-click the confirm "Delete" button), then the "Upload image" control reappears for a fresh `filechooser` upload. After deleting, you MUST re-upload; the instruction text seed reverts to `Image`, so refill it and re-scan for a stray appended fragment.
 - **UserTesting is shadow-DOM (§2.1a):** `document.querySelectorAll` finds nothing; use `getByRole('textbox')` / `getByText` / `getByPlaceholder`, identify fields by current value, click non-button controls via `getByText(...).boundingBox()` + `mouse.click`. No stale-uid bookkeeping.
 - **Node version (§1.2):** build Code OSS with the exact `.nvmrc` Node (preinstall hard-fails on wrong major). A built sibling only helps if it actually contains the feature, siblings go stale; verify or build the feature branch yourself.
-- **Create from scratch (§2.0a):** Create test > Think out loud test > New experience > Create test; name it; Device Computer, Language English; step 1 = canonical intro.
+- **Create from scratch (§2.0a):** Create test > **hover** Think-out-loud (flyout opens right) > New experience > intro modal **Create a test** > dialog **Create**. Do it all in one script; use `.click()` (not raw mouse down/up) on modal buttons; poll `url()` for `/test/`.
+- **Verify step count delta (§2.2):** adding a panel item can silently fail and your fill then overwrites the **previous** step. Check *"Tasks & questions: N"* before/after; target the new field by empty/seed value, not index; re-list all textbox values at the end.
 - **No long dashes (§2.0):** never type `—` or `–` in any study text; use commas/periods; "1 to 7" not "1–7".
 - **Audience (§3):** reuse a fitting shared audience OR create a new one tailored to the feature; recruit people who code or vibe code (not necessarily pros); screen for current tools (Claude Code, Cursor, Codex, Copilot, Google Antigravity, etc.); name it clearly and make it shared/reusable; **max 7 participants** (default 1).
 - **Default endpoint = review-ready Draft, NOT live (§3):** stop after capturing the **Preview link** + Review link and handing them back. Never auto-launch.
@@ -624,7 +686,7 @@ Wrap it in a **custom agent / chat mode** only for what a skill cannot do:
   the skill.
 - A **scoped tool set, pinned model, or gating** per phase.
 
-Use a **thin** chat mode that defers to this skill (body: "follow the `autonomous-user-testing` skill"),
+Use a **thin** chat mode that defers to this skill (body: "follow the `autonomous-design-build-record-demo-unmoderated-research` skill"),
 never a copy of the procedure. Ready-to-use templates are in `chatmodes/` next to this file; activate by
 copying them into a workspace `.github/chatmodes/` or your user prompt-files location. **Guardrail:**
 never put the Phase 4 launch (recruiting real paid participants) behind an auto-send handoff, only plan
@@ -645,5 +707,5 @@ easier run.** Keep edits concise and in the existing style:
 - **Never use em-dashes or en-dashes** in your edits either; match the no-long-dash rule.
 - **Keep the frontmatter `description` under ~1024 characters.** A longer description can make the skill
   registry silently skip the skill (it installs on disk and works when read manually, but does not show
-  up as an invocable skill). This bit `autonomous-user-testing` at 1311 chars; trimmed to ~850 to fix it.
-- Harvesting/analyzing results stays out of scope; that is the companion `user-research-synthesis` skill.
+  up as an invocable skill). This bit this skill at 1311 chars; trimmed to ~850 to fix it.
+- Harvesting/analyzing results stays out of scope; that is the companion `autonomous-research-synthesis-telemetry-iterative-design-issues` skill.

@@ -1,6 +1,6 @@
 # Chat-mode templates (optional wrappers)
 
-These are **optional** thin custom chat modes that wrap the `user-research-synthesis` skill so you get
+These are **optional** thin custom chat modes that wrap the `autonomous-research-synthesis-telemetry-iterative-design-issues` skill so you get
 the native "plan then auto-handoff to build" UX and a discoverable entry in the chat mode picker. The
 procedure and scripts stay in the skill; these files just add the mode UI and the handoff.
 
