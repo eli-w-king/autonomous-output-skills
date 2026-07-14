@@ -1,14 +1,17 @@
 # Install the autonomous output skills
 
-This private repository contains three user-global skills for the VS Code UX research loop:
+This private repository contains four user-global skills for the VS Code UX research loop:
 
 - `autonomous-design-build-record-demo-unmoderated-research`
 - `autonomous-research-synthesis-telemetry-iterative-design-issues`
 - `autonomous-skill-glossary`
+- `automation-windows-os`
 
 The first skill creates and prepares unmoderated studies. The second synthesizes completed research,
 triangulates it with telemetry, builds and records candidate solutions, and drafts issues. The
 glossary contains shared guidance used by both.
+The Windows automation skill is an optional platform adapter for native Windows and Windows-through-UTM
+build, interaction, validation, recording, and restoration.
 
 Installing means cloning the private repository, copying those folders into the agent runtime's skill
 directory, and starting a fresh agent session.
@@ -50,6 +53,8 @@ export NODE_PATH="<vscode-repo>/node_modules"
 Optional:
 
 - `dap-cli` for breakpoint debugging while capturing Code OSS.
+- A Windows host or Windows VM in UTM for `automation-windows-os`.
+- UTM Guest Tools and macOS Automation permission for the app invoking UTM when using that transport.
 
 ## 3. Clone and install
 
@@ -62,14 +67,15 @@ gh repo clone eli-w-king/autonomous-output-skills ~/.copilot/autonomous-output-s
 for skill in \
   autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues \
-  autonomous-skill-glossary
+  autonomous-skill-glossary \
+  automation-windows-os
 do
   rm -rf "$HOME/.copilot/skills/$skill"
   cp -R "$HOME/.copilot/autonomous-output-skills/$skill" "$HOME/.copilot/skills/"
 done
 ```
 
-If that runtime uses a different skill discovery directory, copy the same three folders there instead.
+If that runtime uses a different skill discovery directory, copy the same four folders there instead.
 The folders are self-contained and do not hardcode a user-specific absolute path.
 
 The Git clone preserves helper-script permissions. If another transfer method strips them, run:
@@ -85,7 +91,8 @@ chmod +x ~/.copilot/skills/autonomous-research-synthesis-telemetry-iterative-des
 for skill in \
   autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues \
-  autonomous-skill-glossary
+  autonomous-skill-glossary \
+  automation-windows-os
 do
   test -f "$HOME/.copilot/skills/$skill/SKILL.md" && echo "ok $skill"
 done
@@ -103,7 +110,7 @@ done
 command -v ffmpeg
 ```
 
-Start a new agent session and confirm all three canonical names appear in the available-skills list.
+Start a new agent session and confirm all four canonical names appear in the available-skills list.
 
 ## 5. Optional chat modes
 
@@ -129,7 +136,8 @@ git -C ~/.copilot/autonomous-output-skills pull --ff-only
 for skill in \
   autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues \
-  autonomous-skill-glossary
+  autonomous-skill-glossary \
+  automation-windows-os
 do
   rm -rf "$HOME/.copilot/skills/$skill"
   cp -R "$HOME/.copilot/autonomous-output-skills/$skill" "$HOME/.copilot/skills/"

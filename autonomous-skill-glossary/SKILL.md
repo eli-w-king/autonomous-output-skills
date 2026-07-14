@@ -5,10 +5,12 @@ description: "Autonomous: Skill Glossary. Shared cross-cutting gotcha reference 
 
 # Autonomous: Skill Glossary
 
-A cross-cutting knowledge base for the two-skill VS Code UX research loop:
+A cross-cutting knowledge base for the VS Code UX research loop:
 [`autonomous-design-build-record-demo-unmoderated-research`](../autonomous-design-build-record-demo-unmoderated-research/SKILL.md) (capture + build + launch a
 study) and [`autonomous-research-synthesis-telemetry-iterative-design-issues`](../autonomous-research-synthesis-telemetry-iterative-design-issues/SKILL.md) (analyze results +
 build a redesign spike + record a demo + draft the issue).
+When either workflow needs Windows-specific execution or evidence, it can optionally hand off to
+[`automation-windows-os`](../automation-windows-os/SKILL.md), including Windows through UTM.
 
 Those skills own the *procedure*. This file collects the **reusable, non-obvious facts** that
 otherwise get rediscovered from scratch each run. When you hit a new one, add it here and,
@@ -547,6 +549,30 @@ writing any redesign code, get explicit answers to three questions and write the
 These are cheap to ask and expensive to discover after a full build-and-demo loop. A 30-second
 contract up front would have caught "redundant entry points" and "click opens the generic list"
 in round 1 instead of round 4.
+
+---
+
+## 10. Optional Windows / UTM validation
+
+**Windows is an optional validation target, not a tax on every autonomous run.** At any point where
+native Windows behavior would strengthen the result, hand the built scenario to
+[`automation-windows-os`](../automation-windows-os/SKILL.md). Common triggers are native caption
+controls, active/inactive windows, high contrast, DPI scaling, keyboard/accessibility behavior,
+Windows-only regressions, or a reviewer who needs real Windows media.
+
+The calling autonomous skill keeps ownership of the design or research decision. The Windows skill
+owns the transport, including UTM guest execution, interactive-session bridging, native UI
+automation, evidence, and restoration. Its strongest reusable lessons:
+
+- never race the user for the host's single macOS pointer when a guest-local path exists;
+- prove that the Windows build contains the change before interpreting screenshots;
+- dry-run the full state matrix before recording;
+- compare surfaces side-by-side when the bug is a visual inconsistency;
+- verify screenshot labels and fully decode the final video;
+- restore modified binaries, settings, and state with hash evidence.
+
+Use the returned Windows screenshots or video directly in the study or issue artifact contract.
+Do not recapture the same flow locally unless a cross-platform comparison is itself the goal.
 
 ---
 

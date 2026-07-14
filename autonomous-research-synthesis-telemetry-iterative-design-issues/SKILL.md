@@ -136,6 +136,24 @@ Common non-linear entry points:
 When you run a subset, say which phases you ran and which you skipped, and keep the issue honest about
 what is evidence-backed versus a proposal.
 
+### Optional Windows / UTM validation handoff
+
+Windows validation is **optional, not mandatory** for every redesign. Invoke
+[`automation-windows-os`](../automation-windows-os/SKILL.md) at any point in the build, comparison,
+or recording phases when Windows adds meaningful evidence:
+
+- the finding is Windows-specific;
+- the redesign touches native window controls or Electron window behavior;
+- accessibility, high contrast, scaling, focus, hover, maximize, or restore behavior needs checking;
+- a real Windows demo is more representative than the normal local Code OSS capture;
+- the only available Windows environment is a UTM VM.
+
+This skill still owns synthesis, telemetry, design choices, source implementation, and issue
+documentation. `automation-windows-os` owns the Windows transport, build provenance, interactive
+execution, state matrix, evidence capture, and reversible cleanup. Its video and screenshots can
+become `<PROJECT_DIR>/new-ui-demo.mp4` and the corresponding frames when Windows is the intended
+review surface.
+
 ---
 
 

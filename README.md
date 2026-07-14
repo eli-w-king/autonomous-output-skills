@@ -1,6 +1,6 @@
 # Autonomous output skills
 
-Three portable agent skills for the VS Code UX research loop:
+Four portable agent skills for the VS Code UX research loop:
 
 - **`autonomous-design-build-record-demo-unmoderated-research`**: capture a feature flow in a real
   Code OSS build, author a UserTesting.com study, prepare it for review, and launch only on explicit
@@ -9,9 +9,12 @@ Three portable agent skills for the VS Code UX research loop:
   analyze and triangulate them with telemetry, build candidate solutions in real Code OSS, record a
   demo video, and draft a GitHub issue.
 - **`autonomous-skill-glossary`**: shared hard-won guidance used by both procedural skills.
+- **`automation-windows-os`**: optional Windows execution, validation, native UI automation, evidence
+  capture, and reversible cleanup, either on a Windows host or through a Windows VM in UTM.
 
-The procedural skills pair with the `launch` skill, which drives Code OSS from source. Keep this
-repository in sync across machines because the skills and glossary improve as they are used.
+The procedural skills pair with the `launch` skill, which drives Code OSS from source, and may hand
+off to `automation-windows-os` whenever Windows-specific evidence is useful. Keep this repository in
+sync across machines because the skills and glossary improve as they are used.
 
 ## Access
 
@@ -36,7 +39,8 @@ gh repo clone eli-w-king/autonomous-output-skills ~/.copilot/autonomous-output-s
 for skill in \
   autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues \
-  autonomous-skill-glossary
+  autonomous-skill-glossary \
+  automation-windows-os
 do
   rm -rf "$HOME/.copilot/skills/$skill"
   cp -R "$HOME/.copilot/autonomous-output-skills/$skill" "$HOME/.copilot/skills/"
@@ -52,7 +56,7 @@ chmod +x ~/.copilot/skills/autonomous-research-synthesis-telemetry-iterative-des
 ```
 
 Start a fresh agent session after installing. If the runtime uses a different skills directory, copy
-the same three self-contained folders there instead.
+the same four self-contained folders there instead.
 
 ## Update later
 
@@ -62,7 +66,8 @@ git -C ~/.copilot/autonomous-output-skills pull --ff-only
 for skill in \
   autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues \
-  autonomous-skill-glossary
+  autonomous-skill-glossary \
+  automation-windows-os
 do
   rm -rf "$HOME/.copilot/skills/$skill"
   cp -R "$HOME/.copilot/autonomous-output-skills/$skill" "$HOME/.copilot/skills/"
@@ -92,6 +97,8 @@ autonomous-design-build-record-demo-unmoderated-research/
 autonomous-research-synthesis-telemetry-iterative-design-issues/
   SKILL.md, scripts/, chatmodes/
 autonomous-skill-glossary/
+  SKILL.md
+automation-windows-os/
   SKILL.md
 INSTALL.md
 ```

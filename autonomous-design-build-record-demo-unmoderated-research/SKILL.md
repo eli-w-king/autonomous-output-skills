@@ -135,6 +135,24 @@ into synthesis Phases 1 to 3 to enrich the issue.
 
 When you run a subset, say which phases you ran and which you skipped.
 
+### Optional Windows / UTM validation handoff
+
+Windows validation is **optional, not a standing requirement** for every study. At any point after a
+feature builds, invoke
+[`automation-windows-os`](../automation-windows-os/SKILL.md) when the research question or demo would
+benefit from:
+
+- a Windows-only behavior check;
+- native Windows window controls, accessibility, high contrast, or scaling;
+- comparison between editor and Agents windows on Windows;
+- a Windows screenshot/video stimulus;
+- validation in a Windows VM through UTM without competing for the host mouse.
+
+This skill continues to own the research brief, study stimulus, audience, and UserTesting workflow.
+`automation-windows-os` acts only as the Windows execution adapter: prove the build, deploy it, run
+the requested state matrix, return evidence, and restore the Windows environment. Reuse its output
+media here instead of recapturing Phase 1.
+
 ---
 
 ## Credentials: email yes, password never
