@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Designing the Loop</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+	<!-- HERO -->
+	<header class="hero">
+		<div class="wrap">
+			<p class="eyebrow reveal">A new system for design work</p>
+			<h1 class="reveal">Designing<br />the <span class="em">Loop.</span></h1>
+			<p class="lead reveal">Telemetry pours in every second. Real needs fill our issues and studies.
+				The signal is already here. The scarce, valuable part is the judgment about what to do with it.</p>
+		</div>
+	</header>
+
+	<!-- SETUP -->
+	<section class="band">
+		<div class="wrap narrow">
+			<p class="eyebrow reveal">The manual reality</p>
+			<h2 class="reveal">Design is a long list of tasks<br />we do by hand, one at a time.</h2>
+			<p class="body reveal">Frame the problem. Read the research. Explore directions. Build a prototype.
+				Recruit users. Run the study. Read the transcripts. Cross-check the data. Write it up.
+				Every step waits on the last one. Below is that same work, re-sorted as you scroll.</p>
+		</div>
+	</section>
+
+	<!-- ANIMATED DIAGRAM (scroll-driven) -->
+	<section class="diagram-scroll" id="diagramScroll">
+		<div class="diagram-sticky">
+			<div class="diagram-head wrap">
+				<p class="eyebrow" id="sortEyebrow">THE RAW INVENTORY</p>
+				<h2 id="sortTitle">Forty-eight tasks.<br />Before any grouping.</h2>
+				<div class="steps" id="sortSteps" aria-hidden="true"></div>
+			</div>
+			<div class="sort-stage" id="sortStage">
+				<div class="sort-regions" id="sortRegions"></div>
+				<div class="sort-cards" id="sortCards"></div>
+			</div>
+		</div>
+	</section>
+
+	<!-- THE RECEIPT -->
+	<section class="band">
+		<div class="wrap narrow">
+			<p class="eyebrow reveal">The receipt</p>
+			<h2 class="reveal">One issue. Produced start to finish,<br />while I watched.</h2>
+			<p class="body reveal">I gave it a goal, the problem I was trying to solve. Then I stepped back.</p>
+			<ol class="receipt reveal">
+				<li><b>I set the intent.</b> The goal and the constraints. One paragraph.</li>
+				<li><b>The loop ran.</b> It explored, built in real Code OSS, and recorded the walkthrough.</li>
+				<li><b>Real users weighed in.</b> It launched a study and collected genuine feedback.</li>
+				<li><b>It revised the design.</b> Synthesizing the feedback with the telemetry data.</li>
+				<li><b>It documented everything.</b> A GitHub issue with the demo, test results, insights, and criteria.</li>
+				<li><b>I brought it to the team.</b> Devs and PM, starting from evidence instead of a blank page.</li>
+			</ol>
+			<p class="body reveal"><span class="hand">people stay on the decisions. the machine carries the busywork.</span></p>
+		</div>
+	</section>
+
+	<!-- CTA -->
+	<section class="band band--dark">
+		<div class="wrap cta-wrap">
+			<div class="cta-copy">
+				<p class="eyebrow reveal">Install / run / improve</p>
+				<h2 class="reveal">Download it. Run one real task.<br />Make the process your own.</h2>
+			</div>
+			<a class="qr reveal" href="https://github.com/eli-w-king/autonomous-output-skills" target="_blank" rel="noopener">
+				<span class="qr__tile"><img src="assets/repo-qr.svg" alt="QR code linking to github.com/eli-w-king/autonomous-output-skills" /></span>
+				<span class="qr__meta">
+					<span class="qr__label">Scan for the repo</span>
+					<span class="qr__url">github.com/eli-w-king/autonomous-output-skills</span>
+				</span>
+			</a>
+		</div>
+	</section>
+
+	<script src="script.js"></script>
+</body>
+</html>
