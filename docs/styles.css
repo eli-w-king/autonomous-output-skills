@@ -113,6 +113,40 @@ strong { font-weight: 600; }
 .qr__url { font: 400 13px/1.4 var(--mono); opacity: .9; transition: opacity .2s ease; }
 .qr:hover .qr__url { opacity: 1; }
 
+/* Example issues */
+.examples {
+	margin-top: clamp(48px, 8vh, 104px);
+	padding-top: clamp(30px, 4vh, 52px);
+	border-top: 1px solid rgba(255, 255, 255, .16);
+}
+.ex-list { list-style: none; margin-top: 22px; }
+.ex-list li { border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.ex {
+	display: flex;
+	align-items: baseline;
+	gap: 24px;
+	padding: 20px 0;
+	color: var(--white);
+	text-decoration: none;
+	transition: opacity .2s ease;
+}
+.ex:hover { opacity: .68; }
+.ex__num {
+	flex: 0 0 auto;
+	min-width: 78px;
+	font: 500 12px/1 var(--mono);
+	letter-spacing: .06em;
+	opacity: .55;
+}
+.ex__title {
+	flex: 1 1 auto;
+	font-family: var(--serif);
+	font-size: clamp(19px, 2.1vw, 28px);
+	line-height: 1.02;
+	letter-spacing: -.01em;
+}
+.ex__go { flex: 0 0 auto; margin-left: auto; font: 400 16px/1 var(--mono); opacity: .5; }
+
 /* ---------- DIAGRAM (scroll-driven) ---------- */
 .diagram-scroll { position: relative; background: var(--white); }
 .diagram-sticky {
