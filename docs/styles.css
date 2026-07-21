@@ -224,6 +224,28 @@ strong { font-weight: 600; }
 }
 .sort-chevron.visible { opacity: .75; }
 
+/* Return loop arrow (iterate) beneath the system, pointing back to the start */
+.sort-return {
+	position: absolute;
+	z-index: 3;
+	height: 0;
+	border-top: 1.5px dashed var(--ink);
+	opacity: 0;
+	transition: opacity .3s ease .4s;
+	pointer-events: none;
+}
+.sort-return.visible { opacity: .7; }
+.sort-return__head {
+	position: absolute;
+	left: -1px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 0; height: 0;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	border-right: 7px solid var(--ink);
+}
+
 /* ---------- REVEAL ---------- */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.22, .61, .36, 1); }
 .reveal.in { opacity: 1; transform: none; }

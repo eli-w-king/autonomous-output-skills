@@ -128,7 +128,7 @@
 			decision: ['HUMAN DECISION', 'Documented issue and PR', 'human']
 		};
 		const regions = sysOrder.map(key => ({
-			box: { ...sysBoxes[key], h: 100 },
+			box: { ...sysBoxes[key], h: 88 },
 			label: labels[key][0], title: labels[key][1], kind: labels[key][2]
 		}));
 		return { positions: sysPositions(100), regions, flow: true, plainCards: true };
@@ -144,7 +144,7 @@
 			decision: ['HUMAN', 'Documented issue + engineering ready PR', 'human']
 		};
 		const regions = sysOrder.map(key => ({
-			box: { ...sysBoxes[key], h: 100 },
+			box: { ...sysBoxes[key], h: 88 },
 			role: labels[key][0], title: labels[key][1], kind: labels[key][2]
 		}));
 		return { positions: sysPositions(100), regions, flow: true, titlesOnly: true, hideCards: true };
@@ -199,10 +199,17 @@
 				const chev = document.createElement('div');
 				chev.className = 'sort-chevron';
 				chev.textContent = '\u2192';
-				Object.assign(chev.style, { left: `${cx}%`, top: '46%' });
+				Object.assign(chev.style, { left: `${cx}%`, top: '44%' });
 				regionsLayer.appendChild(chev);
 				requestAnimationFrame(() => chev.classList.add('visible'));
 			});
+			// Return loop: from the second automation stage back to the first.
+			const ret = document.createElement('div');
+			ret.className = 'sort-return';
+			Object.assign(ret.style, { left: '33%', width: '43%', top: '94%' });
+			ret.innerHTML = '<span class="sort-return__head"></span>';
+			regionsLayer.appendChild(ret);
+			requestAnimationFrame(() => ret.classList.add('visible'));
 		}
 	}
 
