@@ -1,6 +1,6 @@
 ---
 name: autonomous-skill-glossary
-description: "Autonomous: Skill Glossary. Shared cross-cutting gotcha reference for the VS Code UX research loop. A durable knowledge base of hard-won, non-obvious facts: identifying the real VS Code component behind a named UI before building, forcing or simulating UI states for demos, clean screen-recording technique, driving the shadow-DOM UserTesting.com builder, persistent driver and Chrome setup, running Code OSS, hosting demo videos in a GitHub issue, and writing or editing a public research issue. Read alongside autonomous-design-build-record-demo-unmoderated-research and autonomous-research-synthesis-telemetry-iterative-design-issues before capturing UI, recording, building a study, or drafting an issue. Update it whenever a run surfaces a reusable gotcha."
+description: "Autonomous: Skill Glossary. Shared gotcha reference for the VS Code UX research loop: real target-surface fidelity, concurrent-session ownership, durable run ledgers, evidence traceability, stimulus versioning, media validation, Code OSS capture, UserTesting's shadow-DOM builder, and GitHub publishing. Read alongside autonomous-design-build-record-demo-unmoderated-research and autonomous-research-synthesis-telemetry-iterative-design-issues before capturing UI, recording, building a study, synthesizing findings, or drafting an issue. Update it whenever a run surfaces a reusable gotcha."
 ---
 
 # Autonomous: Skill Glossary
@@ -291,7 +291,8 @@ driver in the **session `files/` folder** (persists across shells and checkpoint
 `~/.copilot/session-state/<id>/files/ut-driver/`.
 
 **A Chrome launched inline dies when its parent bash shell ends.** Launch the dedicated
-debug Chrome **detached** (the bash tool's `detach: true` async mode) so it persists:
+debug Chrome **detached** (the bash tool's `detach: true` async mode) so it persists. Give each run
+its own profile and debug port; a shared browser is a legacy fallback, not the default:
 
 ```bash
 nohup "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
@@ -302,8 +303,8 @@ nohup "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
 
 Login persists in `--user-data-dir`, so relaunching to the same profile keeps you signed in.
 
-**Pin YOUR tab by its CDP target id, not URL/title.** The 9333 Chrome is shared by other agents
-and the UserTesting SPA rewrites URL/title, so URL/title markers are unreliable. Capture the tab
+**Pin YOUR tab by its CDP target id, not URL/title.** If a legacy shared Chrome is unavoidable,
+the UserTesting SPA rewrites URL/title, so URL/title markers are unreliable. Capture the tab
 once and match it by `Target.getTargetInfo`:
 
 ```js
@@ -319,6 +320,12 @@ for (const p of ctx.pages()) {
 Re-save the id after any relaunch (it changes). Assert you are on your own study id before any
 write, and when cleaning up close only tabs whose URL contains your study id / your preview
 `participantId`, never the whole browser.
+
+**Keep an ownership receipt.** In the project `run.json`, record every process this run starts:
+purpose, numeric PID, CDP port, target id, profile path, URL, and cleanup state. Before any navigation,
+focus, close, or kill, match the live target back to that receipt. Never use name-based process kills,
+repurpose an existing tab, or "clean up" a window merely because it looks related. If ownership is
+unclear, leave it alone and start a new isolated target.
 
 **Node on PATH:** fresh shells do not have node; source nvm each time
 (`export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use <.nvmrc>`).
@@ -437,15 +444,15 @@ its blob page (which has a player):
 ```
 
 **A dedicated media BRANCH in the same repo as the issue also works, and keeps everything in one
-place.** When the issue lives in a repo the user owns (e.g. their `eli-vscode` fork), push the
-binaries to a `*-demo-media` branch of that same repo and reference
+place.** When the issue lives in a repo the user owns (e.g. their fork), push the binaries to a
+`*-demo-media` branch of that same repo and reference
 `raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>` for the inline GIF and the `blob` URL for
 the MP4 player. Do the media work on a throwaway branch so the user's working branch and uncommitted
-code stay untouched: record current branch, `git switch -c media-branch`, add only the media, commit
-with `-c core.hooksPath=/dev/null` (skips the repo's pre-commit hygiene hook on binaries),
-`git push --no-verify`, then `git switch` back and `rm -rf` the local media dir. **Always verify the
-raw URLs return HTTP 200 before/after editing the issue** (`curl -s -o /dev/null -w "%{http_code}"`);
-a 404 renders as a broken image.
+code stay untouched: record current branch, `git switch -c media-branch`, add only the media, commit,
+push with the repository's normal hooks, then switch back and remove only the run-owned local media
+copy. If the repository's normal validation rejects binary media, use a dedicated media repository
+instead of bypassing hooks. **Always verify the raw URLs return HTTP 200 before/after editing the
+issue** (`curl -s -o /dev/null -w "%{http_code}"`); a 404 renders as a broken image.
 
 **When you replace a clip, delete the old file and update every reference.** This session left a
 comment section pointing at a deleted clip after a re-record. Grep the issue body AND every comment
@@ -454,8 +461,9 @@ for the old filename, and prefer a NEW filename over overwriting (GitHub caches 
 **GitHub caches raw images hard.** When you update a demo, push it under a **new filename**
 (e.g. `…-v2.gif`) and point the issue at the new name, otherwise the old frame keeps showing.
 
-**Binary push:** `git push` (not the GitHub MCP file APIs, which corrupt binaries). If a
-git-lfs pre-push hook fails without lfs installed, `git push --no-verify`.
+**Binary push:** use normal `git push`, not a text-oriented file API. If a git-lfs hook requires a
+missing tool, install/configure it or choose a media repository whose normal validation accepts the
+file; do not bypass verification.
 
 **Public-repo posts are irreversible**, so confirm before posting to a flagship repo; when the
 user is unavailable, hosting media in your own repo + creating the issue via `gh issue create`
@@ -573,6 +581,69 @@ automation, evidence, and restoration. Its strongest reusable lessons:
 
 Use the returned Windows screenshots or video directly in the study or issue artifact contract.
 Do not recapture the same flow locally unless a cross-platform comparison is itself the goal.
+
+---
+
+## 11. Match the artifact to the real research surface
+
+**"Never build a browser mockup" applies to desktop-app research, not to websites.** Use the real
+surface named by the study:
+
+- VS Code app feature: Code OSS built from the source commit under test.
+- Deployed website: the actual deployed URL, with redirects and final URL recorded.
+- Website prototype: the actual hosted/local prototype artifact, pinned to a commit/deployment and
+  tested at the same viewport participants will see.
+
+The invalid substitution is a facsimile that changes the product category, such as HTML standing in
+for the Agents window or a static design image standing in for a functioning website. Capture a
+source/version receipt before the first participant and never overwrite a stimulus between rounds.
+
+---
+
+## 12. Persist a run ledger outside chat history
+
+**Chat/session history is not a durable artifact store.** A later session may retain media and git
+changes while the original transcript is unavailable. At project creation, write:
+
+- `run.json` for ids, source versions, URLs, owned processes/targets, and phase status;
+- `decisions.md` for assumptions, approvals, revisions, and rejected paths;
+- `artifacts.json` for each stimulus/output path, role, source version, and checksum;
+- `resume.md` for the last completed phase and next safe action.
+
+Update the ledger before handoffs and after irreversible or expensive steps. Keep participant PII,
+credentials, and private transcript text out of it. This makes recovery evidence-based instead of
+guessing from filenames or stale browser tabs.
+
+---
+
+## 13. Build an evidence chain, not just a findings document
+
+**Every recommendation should be traceable backward and forward.** Link:
+
+`study round + stimulus version -> participant/source -> quote/response/observed behavior ->
+finding -> recommendation -> implementation version -> rerun result`
+
+Transcripts are necessary but not sufficient. Preserve structured answers, task context, timestamped
+behavior/video observations, contradictions, and completion state when they affect interpretation.
+Give each finding a confidence level with a reason. Quantitative evidence may support, weaken, or be
+unable to test a finding; all three outcomes are useful if stated honestly.
+
+Keep product-specific conclusions in the project report. Only promote the reusable method or gotcha
+to this glossary.
+
+---
+
+## 14. Version and fully validate stimuli and media
+
+**A successful upload is not proof that media works.** Before publishing an MP4, run `ffprobe` to
+inspect duration/codec/dimensions and decode the full file with `ffmpeg -v error -i <file> -f null -`.
+Inspect opening, midpoint, and ending frames, then verify playback from a fresh browser session after
+upload.
+
+Use a new filename for every replacement (`prototype-a-v2.mp4`) because GitHub/raw/CDN caches can
+serve the old bytes. Update every issue/comment/study reference plus `artifacts.json`; verify the
+old filename is no longer referenced. For comparative or rerun studies, keep prior stimuli immutable
+and record checksums so results cannot be attributed to the wrong version.
 
 ---
 

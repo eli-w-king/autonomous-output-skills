@@ -1,13 +1,13 @@
 ---
 name: autonomous-research-synthesis-telemetry-iterative-design-issues
-description: "Autonomous: Research Synthesis, Telemetry Data, Iterative Design Build, Issue Documentation. Turn completed UserTesting.com studies into a decision: harvest transcripts and audience, run thematic analysis, triangulate with product telemetry, build up to 3 redesign solutions in real Code OSS, record a high-resolution demo video, and open a review-ready draft GitHub issue that leads with the recommendation and embeds the demo. This is the back half of the VS Code UX research loop and pairs with autonomous-design-build-record-demo-unmoderated-research and launch. Use when asked to analyze user test results, synthesize a study, decide what to build, or document the research in an issue."
+description: "Autonomous: Research Synthesis, Telemetry, Iterative Design, Issue Documentation. Turn completed VS Code app, website, or prototype studies into a traceable decision: preserve the evidence bundle, analyze findings, triangulate with surface-appropriate quantitative data, iterate in the real target repo, validate media, and draft a review-ready issue. This is the back half of the VS Code UX research loop and pairs with autonomous-design-build-record-demo-unmoderated-research. Use when asked to analyze user test results, synthesize a study, decide what to build, or document research."
 ---
 
 # Autonomous: Research Synthesis, Telemetry Data, Iterative Design Build, Issue Documentation
 
 Turn one or more **completed UserTesting studies** into a **review-ready draft GitHub issue** that a
 human can act on: recommendation first, a real demo video of the change running, findings backed by
-verbatim quotes and telemetry, an A/B decision, and honest caveats, with the redesign spiked in the
+verbatim quotes and quantitative evidence, a clear decision, and honest caveats, with the redesign spiked in the
 real repo.
 
 The front half (create + launch studies) is the `autonomous-design-build-record-demo-unmoderated-research` skill. This skill starts
@@ -15,28 +15,25 @@ once studies have **completed** and results are available.
 
 Pipeline:
 
-1. **Harvest** transcripts + audience from the UserTesting Results tab (Export data XLSX).
-2. **Analyze** into ranked findings (A/B thematic analysis; store in SQLite with qual + quant evidence).
-3. **Triangulate** each finding with product telemetry (Data agent / Kusto), staying on the study's topic.
-4. **Build** up to 3 redesign solutions (A/B/C) in **real Code OSS** (microsoft-vscode repo), switchable
-   via a dev command; use fewer options when the problem does not warrant three.
-5. **Record** a real high-resolution demo **video** of the running build (demo the A/B/C toggle if there
-   is more than one option); not a slideshow, not a GIF.
-6. **Draft** the GitHub issue: recommendation/summary first, then the video, then findings, A/B, method + study links.
+1. **Harvest** the complete evidence bundle: study metadata, stimuli, questions/answers, audience,
+   transcripts, and behavior/video observations.
+2. **Analyze** into ranked, traceable findings with contradictions and confidence.
+3. **Triangulate** each finding with quantitative data appropriate to the target surface.
+4. **Iterate** in the real target repo: Code OSS for app work, the website/prototype repo for web work.
+5. **Record** a real high-resolution demo **video** of the running target and validate the file.
+6. **Draft** the GitHub issue: recommendation first, then video, findings, decision, method, and study links.
 
-> **HARD RULE, never recreate VS Code UI in a browser.** Do NOT build an HTML/CSS/JS mockup of the
-> VS Code / Agents window to illustrate a redesign. Every spike and every demo comes from **Code OSS
-> launched from the microsoft-vscode repo** (Agents window or editor window, matching where the
-> research applies). Building a mockup was tried once and explicitly rejected. The only legitimate
-> browser use here is (a) driving UserTesting.com to harvest results and (b) driving a signed-in
-> GitHub session to upload the demo video.
+> **HARD RULE, iterate in the real target surface.** App redesigns and demos come from **Code OSS
+> launched from microsoft-vscode**. Website redesigns come from the actual website/prototype repo and
+> are demonstrated at the real hosted/local URL. Never use a browser facsimile to stand in for the
+> desktop app, and never use a static mock to claim a web implementation works.
 
 > **HARD RULE, demos by the agent are VIDEOS.** Deliver an MP4 recorded from the running build. A GIF
 > is only ever an inline fallback preview, never the primary demo.
 
-> **Launch your own Code OSS.** Other agents run their own OSS and their own Chrome. Always launch a
-> fresh, isolated instance (the `launch` skill handles ports/profile isolation) and drive your own
-> browser window. Never resize/close windows you did not open (there may be a second `Code - OSS`).
+> **Own every automation target.** Other agents run their own Code OSS, browsers, and local servers.
+> Always launch fresh isolated targets and record their numeric PIDs, ports, profile paths, and CDP
+> target ids. Never focus, resize, navigate, close, or kill a target you did not create.
 
 ---
 
@@ -46,9 +43,11 @@ Pipeline:
 |-------|---------|-------|
 | `STUDIES` | study names or ids, or the Results-tab URL(s) | The completed study/studies to harvest. A/B = two related studies. |
 | `TOPIC` | "the Agents-window browser preview" | The feature under study; keeps telemetry and the spike on-topic. |
-| `WINDOW` | `agents` or `editor` | Which Code OSS surface the research applies to. Build + demo there, not the other one. |
+| `SURFACE` | `agents`, `editor`, `website`, or `prototype` | The real target surface. `WINDOW` remains a compatible alias for app studies. |
+| `TARGET_URL` | deployed site or hosted/local prototype URL | Required for web studies; pin the exact version used for each round. |
 | `REPO` | `microsoft/vscode` | Where the draft issue goes. **Confirm before posting to a public flagship repo.** |
-| `WORKSPACE` | a real project to demo against, e.g. `~/Code/live-slides` | An HTML/app project that shows the change well (a live preview target, etc.). |
+| `SOURCE_REPO` | `microsoft/vscode` or the website/prototype repo | Where the implementation under test lives. |
+| `WORKSPACE` | a real project to demo against, e.g. `~/Code/live-slides` | Optional supporting workspace for app demonstrations. |
 | `PROJECT_DIR` | `~/Desktop/Automated User Testing/<study>/` | Keep ALL artifacts per project: downloads, transcripts, analysis, demo, issue body. |
 
 If a required input is missing and there is no reasonable default, ask **once**, then proceed. In
@@ -118,7 +117,7 @@ with the `autonomous-design-build-record-demo-unmoderated-research` skill in any
 
 - **Shared root:** keep everything for a piece of work under `~/Desktop/Automated User Testing/<slug>/`
   (`PROJECT_DIR`). Both skills use this root, so artifacts produced by one are found by the other.
-- **Demo video:** the real-build recording lives at `<PROJECT_DIR>/new-ui-demo.mp4` (+ `.gif`, + the
+- **Demo video:** the real-target recording lives at `<PROJECT_DIR>/new-ui-demo.mp4` (+ `.gif`, + the
   `frames/` dir). This is the hand-off token between skills.
 
 Common non-linear entry points:
@@ -179,23 +178,32 @@ boundary is simple:
 
 ## Phase 1, Harvest results
 
-Only the **transcript** and the **audience** matter. The rest of the UserTesting export is low value;
-do not build the write-up around it.
+Preserve the evidence needed to trace every recommendation. Transcripts and audience are essential,
+but they are not the whole study: structured answers, task context, stimulus versions, observed
+behavior, completion state, and video moments can change the interpretation.
 
 Drive a **dedicated Chrome** signed into UserTesting with `playwright-core` over CDP (see
 `autonomous-design-build-record-demo-unmoderated-research` for the full driver setup; do not depend on the chrome-devtools MCP). Then,
 per study, on the study's **Results** tab:
 
-1. Click **Export data** to download the XLSX (sheet name `Data`).
+1. Record the study id, title, status, field dates, audience, exact question/task text, and stimulus
+   checksums/URLs in `PROJECT_DIR/run.json` and `PROJECT_DIR/artifacts.json`.
+2. Click **Export data** to download the XLSX (sheet name `Data`).
    - Row 0/1 are section + question headers; row 2 has sub-labels; rows 3+ are participants.
    - The "Participant ID" column looks like `P## - handle`; `Complete` appears in col 0/1.
-2. Save the XLSX into `PROJECT_DIR/downloads/`.
-3. Extract the **transcripts** (speech-to-text, per participant) into
+3. Save the XLSX into `PROJECT_DIR/downloads/`.
+4. Extract structured task/question answers plus completion metadata into `_responses.json`.
+5. Extract the **transcripts** (speech-to-text, per participant) into
    `PROJECT_DIR/transcripts/<variant>-transcripts.md` and a machine-readable
    `_extracted.json`; extract **audience/screener** answers into `_audience.json`.
+6. When a claim depends on what a participant did rather than what they said, record a timestamped
+   observation linked to the participant, task, stimulus version, and source recording. Do not infer
+   behavior from transcript text alone.
 
-Store the study metadata in SQLite (`ut_study`, `ut_participant`, `ut_transcript`) so later phases and
-future runs can query it.
+Store study metadata in SQLite (`ut_study`, `ut_participant`, `ut_transcript`, `ut_response`,
+`ut_stimulus`, `ut_observation`) so later phases and future runs can query it. Use stable synthetic
+participant ids in exported reports; do not persist names or handles unless access to the source
+requires them.
 
 Playwright download handling gotcha: attach a `page.waitForEvent('download')` and `saveAs(exactPath)`;
 the default download UI cannot be driven blind.
@@ -207,14 +215,20 @@ the default download UI cannot be driven blind.
 Run the heavy thematic analysis as a **subagent** (keeps the main context clean). For an A/B pair,
 analyze both variants together and look for signals that show up in BOTH.
 
-For each finding capture:
+Build an evidence matrix before writing prose. For each finding capture:
 - a short claim (one sentence),
 - **qual_evidence**: 2 to 4 verbatim participant quotes with `P##` attribution,
 - **quant_evidence**: the telemetry that supports (or fails to support) it (filled in Phase 3),
+- **observations**: linked behavior/video moments and structured responses,
+- **contradictions**: evidence that does not fit the claim,
+- **stimulus_version** and study round,
+- **confidence**: high/medium/low with a one-line reason,
 - a rank (1 = strongest).
 
-Persist to a SQLite `finding` table (`id, rank, claim, qual_evidence, quant_evidence`). Minimize
-assertions; prefer the participants' own words over paraphrase.
+Persist normalized sources plus links between `finding`, `evidence`, `recommendation`, and
+`validation` records. A recommendation must be navigable back to its participant/source and forward
+to the prototype change and rerun result. Minimize assertions; prefer participants' own words and
+observed behavior over paraphrase.
 
 Write the human-readable analysis to `PROJECT_DIR/analysis.md`.
 
@@ -222,9 +236,15 @@ Write the human-readable analysis to `PROJECT_DIR/analysis.md`.
 
 ## Phase 3, Triangulate with telemetry
 
-Consult the **Data agent** (Kusto). Keep every query **on the study's topic**, e.g. for a browser
-preview: side-by-side editor usage, diff/changes-view opens, preview-and-chat overlap, competing
-extension adoption (Live Preview vs Simple Browser). Do not pad the issue with unrelated metrics.
+Choose the quantitative source by surface:
+
+- **VS Code app:** consult the **Data agent** (Kusto) for adjacent shipping behavior.
+- **VS Code website:** use the approved web analytics source (for example CJA) and preserve the
+  segment, date range, filters, and metric definition with each result.
+- **Prototype:** state that direct product telemetry does not exist unless the prototype itself was
+  instrumented; use baseline or adjacent behavior only as context.
+
+Keep every query on the study's topic. Do not pad the issue with unrelated metrics.
 
 Caveats to bake into the write-up:
 - VS Code Stable desktop; raw events retained ~45 days, so use a ~42-day window for adoption and ~7
@@ -236,20 +256,28 @@ Caveats to bake into the write-up:
 
 Fold the numbers into each finding's `quant_evidence`.
 
+Quantitative disagreement is not a failed triangulation. Record whether data supports, weakens, or
+cannot test the qualitative finding. Keep exact internal figures out of public write-ups; publish
+approved rounded ranges or qualitative summaries.
+
 ---
 
-## Phase 4, Build the redesign spike(s) (real Code OSS)
+## Phase 4, Build the redesign spike(s) in the real target repo
 
-Implement the top finding(s) as small, real spikes in the **microsoft-vscode** checkout, in the layer
-that matches `WINDOW`:
+Implement the top finding(s) as small, real spikes in `SOURCE_REPO`:
+- `agents` / `editor`: use **microsoft-vscode** in the layer matching the surface.
+- `website` / `prototype`: use the actual site/prototype source and run the real target at
+  `TARGET_URL` (or its documented local equivalent).
+
+For Code OSS:
 - Agents window logic lives under `src/vs/sessions/**` (e.g. layout orchestration in
   `src/vs/sessions/contrib/layout/browser/desktopSessionLayoutController.ts`).
 - Editor-window browser lives under `src/vs/workbench/contrib/browserView/**`.
 
 ### Required project skills before UI implementation
 
-Load the relevant project skills before editing. Reference them as the source of truth rather than
-copying their guidance:
+For VS Code source changes, load the relevant project skills before editing. Reference them as the
+source of truth rather than copying their guidance:
 
 - Always load `accessibility` for new or changed interactive UI.
 - Load `ux-css-layout` before writing CSS, changing layout, or changing control sizing.
@@ -258,7 +286,7 @@ copying their guidance:
 
 Then read every path-specific instruction file required by the checkout.
 
-### Generate up to 3 solutions behind a dev command toggle
+### Iterate deliberately; generate only meaningful alternatives
 
 When a finding has more than one credible design response, build **up to three** distinct solutions
 (A, B, C) rather than committing to one, and make them **switchable at runtime via a developer
@@ -288,6 +316,11 @@ worth a reviewer's time. State in the issue how many options exist and how to sw
 (the exact palette command names). Prefer fewer, sharply differentiated options over three
 near-duplicates.
 
+Treat baseline, alternatives, and revisions as immutable rounds. Pin each round to a source commit,
+stimulus checksum, study id, and field date. When feedback changes a prototype, create a new version
+and rerun only the questions needed to test that change; never overwrite the earlier stimulus and
+then compare results as if nothing changed.
+
 Each option should be independently coherent (each one compiles and demos on its own). Mirror existing
 patterns (e.g. reuse the existing reveal/guard rules rather than inventing new control flow). Then
 validate before claiming anything:
@@ -305,7 +338,7 @@ from the palette). Keep each option focused; open questions go in the issue, not
 The output must be a smooth, high-resolution MP4 of the **real** running build, showing the change in
 context. A 5-frame slideshow upscaled to 720p reads as blurry and low-effort; do not ship that.
 
-Setup:
+Setup for `agents` / `editor`:
 1. Launch the target surface with the `launch` skill (`--agents` for the Agents window), pointing at
    `WORKSPACE`. Env gotchas: `TMPDIR=/tmp`; node exactly 24.x and >=24.17.0 (`nvm use 24.17.0`);
    `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"` in every shell.
@@ -317,7 +350,12 @@ Setup:
    how a reviewer reaches them. Either record one continuous clip that walks all options, or one clip
    per option; a single clip showing the palette switch is usually the most convincing.
 
-Capture (scripts live next to this SKILL.md in `scripts/`; resolve relative to the skill dir):
+For `website` / `prototype`, open `TARGET_URL` in the run-owned browser at the pinned viewport and
+record the actual rendered flow. Use the website repo's existing development server and browser test
+tools when available. Do not record a design file or static screenshot and present it as a working
+web implementation.
+
+Code OSS capture (scripts live next to this SKILL.md in `scripts/`; resolve relative to the skill dir):
 - Use `scripts/caploop.js <cdpPort> <outDir> <seconds> [fps=12] [scale=2]` to record the **workbench**
   target. Run with `NODE_PATH="$REPO/node_modules"` so `ws` resolves.
   - **Why not startScreencast:** `Page.startScreencast` only captures the page's own layer, i.e. just
@@ -333,6 +371,11 @@ Capture (scripts live next to this SKILL.md in `scripts/`; resolve relative to t
 - Drive the workbench itself (focus chat, paste a prompt to show the control loop) with the `launch`
   skill's playwright patterns (`monaco-paste.sh`, `Control+Meta+i` to focus chat). Typing a prompt you
   do not send is fine and safe; do not fire an agent run mid-demo.
+
+Web capture: use the target repo's existing browser recorder when available. Otherwise, drive only
+the run-owned page and capture timestamped full-viewport frames with Playwright `page.screenshot()`;
+write the timestamps to the same manifest format consumed by `frames-to-mp4.sh`. Record navigation,
+scroll, pointer, and keyboard actions through visible Playwright APIs, not DOM mutation.
 
 Encode:
 - `scripts/frames-to-mp4.sh <outDir> <PROJECT_DIR>/new-ui-demo.mp4 1920` (uses the manifest's real
@@ -351,7 +394,17 @@ ffmpeg lives at `/opt/homebrew/bin/ffmpeg`; `export PATH="/opt/homebrew/bin:$PAT
 
 **Clear dev-build toasts/banners before (and during) recording.** A Code OSS dev build pops toasts that would never ship, most often *"Extension host did not start in 10 seconds, that might be a problem."*, plus the *"Run tasks in the background with the Copilot CLI"* banner and update/telemetry prompts. None of these may appear in the demo video. Run `workbench.action.clearNotifications` (F1) and dismiss any inline banner right before caploop starts, and confirm the status-bar notification bell is empty. The ext-host toast can reappear ~10s after launch/reload, so clear it again immediately before the take (or wait for the ext host to finish starting); do not record around it.
 
-Verify by extracting a couple of frames from the final MP4 and eyeballing them before proceeding.
+Verify the media before publishing:
+
+```bash
+ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,pix_fmt \
+  -of json "$PROJECT_DIR/new-ui-demo.mp4"
+ffmpeg -v error -i "$PROJECT_DIR/new-ui-demo.mp4" -f null -
+```
+
+Then extract opening, midpoint, and ending frames and inspect them. Use a versioned filename for every
+replacement (`new-ui-demo-v2.mp4`), update `artifacts.json`, and verify the uploaded URL plays from a
+fresh browser session. HTTP 200 alone does not prove a video decodes.
 
 **Prefer big static screenshots over looping GIFs as study stimulus.** Feedback from real sessions: participants feel rushed watching a GIF loop in front of them, and small images are hard to read. For UserTesting image pages, capture a **card/element screenshot** (`locator('.card').screenshot(...)`), not a full-window shot: it is far larger and cleaner. Use the static image as the primary stimulus so the participant paces themselves; keep the MP4/GIF for the issue write-up.
 
@@ -368,13 +421,13 @@ Write for a human already on GitHub who expects a demo. Concise, plain, decision
 1. **Executive summary** with the recommendation up top.
 2. **Demo** (the video), directly under the summary.
 3. **What we heard** (findings), each with verbatim `P##` quotes + the telemetry line.
-4. **A vs B** decision (state it is directional at small n, then give the direction).
+4. **Decision / iteration result** (state when it is directional at small n, then give the direction).
 5. **Options to try** (only if you built more than one solution): briefly describe each option (A/B/C),
    what makes it different, and the **exact Command Palette command(s)** to switch between them
    (Cmd+Shift+P / Ctrl+Shift+P). Note it is a developer/experimental toggle. Skip this section entirely
    when there is a single solution.
-6. **Method and caveats**, including a **link to each UserTesting study** so reviewers can watch the
-   sessions.
+6. **Method and caveats**, including study round, stimulus version, sample limits, contradictions,
+   and a **link to each UserTesting study** so reviewers can watch the sessions.
 
 **Copy rules (learned from review):**
 - Lead with the summary/recommendation, then the demo. Do not open with the demo.
@@ -383,6 +436,8 @@ Write for a human already on GitHub who expects a demo. Concise, plain, decision
 - **No em dashes or en dashes** anywhere. Use commas, parentheses, or a plain hyphen with spaces.
 - Include the **UserTesting study link(s)** in Method (URL form:
   `https://app.usertesting.com/workspaces/<workspaceId>/test/<studyId>`).
+- Keep the evidence matrix in the project artifacts; the issue gets the concise claims, representative
+  evidence, confidence/caveats, and links needed to audit them.
 
 **The video (native inline player):**
 - A native inline `<video>` player in an issue comes ONLY from GitHub's web upload
@@ -402,9 +457,9 @@ Write for a human already on GitHub who expects a demo. Concise, plain, decision
   `... patch <owner> <repo> <num> <bodyFile>` to iterate.
 - Traps this helper handles: the GitHub MCP `issue_write` only **renders a form** (it does not create
   anything), and **forks have Issues disabled** (POST -> HTTP 410; pass `--enable-issues`).
-- `git push` fails on the git-lfs pre-push hook when git-lfs is not installed; push with
-  `git push --no-verify`. Binary assets (mp4/gif) go via a normal `git push` of a branch, not the
-  GitHub MCP file APIs (which corrupt binaries).
+- Binary assets (mp4/gif) go via a normal `git push` of a branch, not text-oriented file APIs. Honor
+  the repository's hooks; if a required git-lfs tool is missing, install/configure it or use a
+  dedicated media repository whose normal validation accepts the files.
 - GitHub issues have no native "draft" state. "Draft" = an open issue clearly labeled a preview, for
   review. **Do not post to `microsoft/vscode` without explicit confirmation**; when unsure, stage an
   interim reviewable copy in a repo you control and hand off the one-step publish.
@@ -424,7 +479,7 @@ short PUBLISH-NOTES with the exact remaining steps (title, drag-in file, submit)
 > raw-embed fallback, cache-busting filenames). Read it before recording a demo or drafting the issue,
 > and add new gotchas there.
 
-- Real Code OSS only, never a browser mockup of the UI. Agents window vs editor per the research.
+- Real target only: Code OSS for app surfaces, actual site/prototype source for web surfaces.
 - Offer up to 3 solutions (A/B/C) switchable via a dev Command-Palette toggle; use 1 or 2 when the
   problem does not warrant three, and never ship three near-duplicates.
 - Demos are videos. GIF is only an inline fallback. Demo the A/B/C toggle when there is more than one option.
@@ -434,17 +489,20 @@ short PUBLISH-NOTES with the exact remaining steps (title, drag-in file, submit)
 - **Issue order (reinforced): recommendation FIRST, then the demo directly under it**, then problem,
   findings, next steps, telemetry, method. Do NOT open with the problem or bury the demo below findings.
   When there is more than one variant, put the recommended one's demo first.
-- Keep artifacts organized per project in one folder; move all downloads there.
+- Keep the complete evidence bundle and durable manifests organized per project in one folder.
+- Link findings to source evidence, contradictions, stimulus version, recommendation, and rerun result.
 - No em/en dashes in anything the user or reviewers read.
-- Telemetry must relate to the study topic; present prototype-adjacent numbers honestly with caveats.
+- Quantitative evidence must relate to the study topic and match the surface. Present adjacent
+  numbers honestly and say whether they support, weaken, or cannot test the finding.
 - **If telemetry is unreachable, say so; never fabricate.** The `ddtelvscode` cluster needs the Azure VPN;
   if the Data agent returns `TELEMETRY_UNAVAILABLE`, state plainly in the issue that no live numbers were
   pulled and none were estimated, and keep the prepared query set for a later run.
 - **When the reader asks for approximations, use only magnitude words** (most / more than half / some / a
   small number / around N out of 7) and omit exact counts and percentages, even if you have them.
-- Launch your own isolated Code OSS and your own browser; never touch windows you did not open; pass
-  literal PIDs to `kill`. **The dedicated 9333 Chrome is shared by other agents:** leave it running, and
-  close only your own tabs (match your study id / preview participantId); do not close the browser.
+- Launch your own isolated Code OSS, browser/profile, and local server; record their ownership receipt
+  in `run.json`, never touch windows you did not open, and pass literal PIDs to `kill`. If a legacy
+  shared Chrome is unavoidable, close only your own tabs (match target id plus study id/participantId)
+  and leave the browser running.
 - Confirm before any public-repo post. Prefer a reversible interim over an unattended public action.
 - Credentials: you may ask for and type an email/username into a login form; never ask for, type,
   store, or log a password or 2FA code (the human enters those). Never persist the email to any file,

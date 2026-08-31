@@ -1,25 +1,25 @@
 ---
 name: autonomous-design-build-record-demo-unmoderated-research
-description: "Autonomous: Design Build, Record Demo, Unmoderated Research. Autonomously create a review-ready UserTesting.com study for a VS Code feature. Can start in a plan phase that gathers missing inputs (topic, audience, participant count, and account email), then auto-hands off to build. Drives a signed-in Code OSS build to capture the real UI flow, then authors a think-out-loud study whose questions sit alongside screenshots. Stops at a review-ready Draft; launches 1 to 7 paid participants only on explicit approval. May type the account email into the sign-in form, but never the password or 2FA. Use for 'run a user test', 'create a UserTesting study', or 'get user feedback on <feature>'. Pairs with the launch skill and autonomous-research-synthesis-telemetry-iterative-design-issues."
+description: "Autonomous: Design Build, Record Demo, Unmoderated Research. Create a review-ready UserTesting.com study for a VS Code app feature, website, or hosted prototype. Capture the real target surface, author a think-out-loud study, configure its audience, and stop at a review-ready Draft. Launch 1 to 7 paid participants only on explicit approval. May type the account email into sign-in, but never the password or 2FA. Use for 'run a user test', 'create a UserTesting study', or 'get user feedback on <feature>'. Pairs with launch and autonomous-research-synthesis-telemetry-iterative-design-issues."
 ---
 
 # Autonomous: Design Build, Record Demo, Unmoderated Research
 
 Turn a one-line research topic, e.g. *"I want to know how users interact with the new bidirectional voice mode in the editor window"*, into a **review-ready UserTesting.com study**, with **zero human clicks up to the launch gate**:
 
-1. **Capture** the real feature flow inside a signed-in Code OSS build (screenshots per step + a stitched walkthrough GIF).
+1. **Capture** the real target surface: a signed-in Code OSS build for app features, or the actual
+   website/hosted prototype for web studies.
 2. **Author** a think-out-loud UserTesting study where every question is shown **on the same screen as its screenshot**.
 3. **Configure** the audience, then **prepare the study for review** (leave it as a Draft and hand back a Preview link + Review link). **Do NOT launch.**
 4. **Launch only on explicit approval**, once the user says okay (or after you incorporate their comments), launch with the requested participant count (1 to 7).
 
 This skill encodes the exact procedure plus every non-obvious gotcha discovered building the first study by hand. Follow it top to bottom; it is designed so a fresh agent can run it unattended **up to the launch gate**, which always requires a human okay.
 
-> **HARD RULE, never recreate VS Code UI in a browser.** Do NOT build HTML/CSS/JS mockups or
-> facsimiles of the VS Code / Agents window UI in a web page, ever. All capture (and any real
-> implementation or redesign) happens in **Code OSS launched from the microsoft-vscode repo**, in the
-> **Agents window or the editor window**. The only legitimate use of a browser in this workflow is to
-> drive **UserTesting.com** (Phase 2+). Screenshots and demos must come from the real launched VS Code
-> build, not a recreated UI.
+> **HARD RULE, capture the real target surface.** For a VS Code app feature, do NOT recreate the
+> editor or Agents window in HTML/CSS/JS; capture **Code OSS launched from microsoft-vscode**. For a
+> website study, capture the real deployed site or the actual hosted prototype being evaluated.
+> A browser is therefore valid both for web targets and for driving **UserTesting.com**, but it must
+> never stand in for an app surface.
 
 > **When this runs.** The typical trigger is *"go test this"* right after an agent has been building
 > or prototyping a feature. That means the invoking agent usually has **rich context** about the
@@ -45,7 +45,8 @@ The orchestrator provides:
 | `FEATURE_FLOW` (optional) | "open editor, start voice mode, speak a command, hear the reply" | The concrete steps to capture. If omitted, derive from `TOPIC` by exploring the feature in the repo/UI. |
 | `PARTICIPANTS` (default `1`) | `1` | How many panelists to recruit **at launch**. Never more than 7. Only used in Phase 4, after the user approves; the study is set to this count but not launched until then. |
 | `AUDIENCE` (optional) | "voice-first vibe coders + devs who use agentic AI tools" | Who should evaluate this. If omitted, infer from `TOPIC` + prototype context (see Phase 3). Reuse a fitting shared audience or create a new clearly-named, reusable one. |
-| `WINDOW` (optional, default agents) | `agents` or `editor` | Which signed-in Code OSS surface to capture (Agents window vs regular editor window). Usually stated in the prompt. |
+| `SURFACE` (optional) | `agents`, `editor`, `website`, or `prototype` | The real surface under test. Infer it from the topic when clear. `WINDOW` remains a compatible alias for app studies. |
+| `TARGET_URL` (web studies) | deployed website or hosted prototype URL | Required for `website` or `prototype`; record the exact URL and version in the run manifest. |
 | `WORKSPACE_URL` (optional) | the UserTesting test-plan URL | An existing study to edit. If omitted, **create a new study from scratch** (Phase 2.0a). |
 | `TRACK_IN_GITHUB` (optional, default off) | `true` | If set, also mirror the study as a card on the shared **"VS Code UX Research"** GitHub Project and move its Status as it progresses (Phase 3.5). Optional, additive; never block the core loop on it. |
 | `ACCOUNT_EMAIL` (optional) | `you@example.com` | The user's UserTesting account email. Ask for it in plan mode if not provided. The agent may **type** it into the sign-in form, but the human enters the password and any 2FA (see "Credentials"). |
@@ -63,7 +64,8 @@ define *what* to capture; the standing rules in §1.0 define *how*.
 4. **Prompt/goal text**, the realistic-but-generic goal to type (reveals nothing private).
 5. **What we're probing**, the 1-2 UX questions this demo must surface (keeps capture focused).
 6. **Edge states**, whether to intentionally show an error/empty state, or happy-path only.
-7. **Preconditions**, does the flow need a git repo, a file open, or a specific panel visible?
+7. **Preconditions**, does the flow need a git repo, a file open, a specific panel visible, a
+   deployment, or a prototype URL?
 8. **Who should test this**, the target audience for the feature (feeds Phase 3): people who code or vibe code, screened for the tools relevant to this surface.
 
 ---
@@ -75,7 +77,7 @@ automatically to the build/execute phase. Two ways, neither needs the user to fl
 
 **Option 1, one agent, two phases (default, always works).** This skill runs as a single agent. Open by
 resolving the inputs and Demo Brief with the user via `ask_user`, the `TOPIC`/`FEATURE_FLOW`, the
-`AUDIENCE`, `PARTICIPANTS` (default 1), `WINDOW`, and the **`ACCOUNT_EMAIL`** for UserTesting, then flow
+`AUDIENCE`, `PARTICIPANTS` (default 1), `SURFACE`/`TARGET_URL`, and the **`ACCOUNT_EMAIL`** for UserTesting, then flow
 straight into Phase 1 to 4. No mode machinery. Ask only for what is genuinely missing; in autopilot,
 state assumptions and continue.
 
@@ -119,15 +121,15 @@ These phases are a **default order, not a locked pipeline**. Run only what you n
 
 - **Shared root:** everything lives under `~/Desktop/Automated User Testing/<slug>/`. Both skills use
   this root, so a video/frames produced by one are found by the other.
-- **Study stimulus:** a real-build recording (`walkthrough.mp4`/`.gif` here, or `new-ui-demo.mp4` from
-  the synthesis skill) plus per-state screenshots.
+- **Study stimulus:** a recording or screenshot set from the pinned real target (`walkthrough.mp4`
+  here, or `new-ui-demo.mp4` from the synthesis skill) plus per-state screenshots.
 
-**Skip Phase 1 capture when you already have real-build media.** If a change was built from your own
+**Skip Phase 1 capture when you already have verified target media.** If a change was built from your own
 instructions and the demo was already recorded (e.g. the synthesis skill's `new-ui-demo.mp4` + `frames/`,
-or any real Code OSS recording), do NOT recapture. Reuse that media as the study stimulus and jump
+or an existing Code OSS/site/prototype recording), do NOT recapture. Reuse that media as the study stimulus and jump
 straight to **Phase 2** (author the study), using the existing clip in the "watch this clip, then tell
-us" step (§2.3 step K, a concept/reaction study). The only hard requirement is that the media came from
-a **real Code OSS build**, never a browser mockup, which the synthesis recording already satisfies.
+us" step (§2.3 step K, a concept/reaction study). The hard requirement is that `artifacts.json`
+proves the media came from the pinned real target version.
 
 Common non-linear flow: build from instructions, then use the synthesis skill for record + issue only,
 then hand the recorded video here to run a study on it (capture skipped), then loop the results back
@@ -175,7 +177,9 @@ Signing into UserTesting is fine to do in the dedicated Chrome you drive. The bo
 
 ## Prerequisites (verify before starting)
 
-- **`launch` skill** available at `.agents/skills/launch/scripts/launch.sh`, used to boot a **signed-in** Code OSS build. Read that skill; this one depends on it.
+- For `agents` / `editor`, the **`launch` skill** available at
+  `.agents/skills/launch/scripts/launch.sh`, used to boot a **signed-in** Code OSS build.
+- For `website` / `prototype`, a reachable `TARGET_URL` and the target source/version receipt.
 - **A way to drive a logged-in Chrome for UserTesting.** The **recommended, battle-tested** approach
   (works even when no chrome-devtools/Playwright MCP is callable) is a **dedicated Chrome instance you
   control over CDP** with `playwright-core` (see §2.1a). Do **not** rely on the `chrome-devtools` MCP
@@ -184,8 +188,9 @@ Signing into UserTesting is fine to do in the dedicated Chrome you drive. The bo
   browser is logged out** of UserTesting, and the shared devtools profile is often **in use by other
   agent sessions** (touching it disrupts them). A dedicated instance sidesteps all three.
 - **`ffmpeg`** on PATH (stitch frames into a video and convert to GIF).
-- **`jq`**, **`rsync`**, **`git`**, and **Node**, note the Code OSS build needs the **exact Node from
-  `.nvmrc`** (e.g. 24.17.0); the VS Code `preinstall` hard-fails on a wrong major (see §1.2).
+- **`jq`**, **`rsync`**, **`git`**, and **Node**. For app studies, the Code OSS build needs the
+  **exact Node from `.nvmrc`** (e.g. 24.17.0); the VS Code `preinstall` hard-fails on a wrong major
+  (see §1.2).
   `playwright-core` also runs fine under that Node.
 - A **UserTesting study open** in that dedicated Chrome, on the `.../test/<id>/test-plan` page, with
   the user already signed in. Confirm the login persists (navigating there should NOT redirect to
@@ -195,18 +200,18 @@ Signing into UserTesting is fine to do in the dedicated Chrome you drive. The bo
 
 ---
 
-## Phase 1, Capture the feature flow in Code OSS
+## Phase 1, Capture the feature flow on the real target surface
 
 Goal: an ordered set of screenshots (one per meaningful UI state) plus a walkthrough video, saved to a per-topic media folder.
 
-> **Skip this phase if you already have real-build media** (see "Composability" above): reuse an
-> existing real Code OSS recording + screenshots and jump to Phase 2. Only capture fresh when you do not
-> already have suitable real-build media.
+> **Skip this phase if you already have verified real-target media** (see "Composability" above):
+> reuse the pinned Code OSS/site/prototype recording + screenshots and jump to Phase 2. Only capture
+> fresh when `artifacts.json` does not already identify suitable media and its source version.
 
 ### Required project skills before UI implementation
 
-If the feature must be implemented or adjusted before capture, load the relevant project skills before
-editing. Reference them as the source of truth rather than copying their guidance:
+If an app feature must be implemented or adjusted before capture, load the relevant VS Code project
+skills before editing. Reference them as the source of truth rather than copying their guidance:
 
 - Always load `accessibility` for new or changed interactive UI.
 - Load `ux-css-layout` before writing CSS, changing layout, or changing control sizing.
@@ -214,15 +219,23 @@ editing. Reference them as the source of truth rather than copying their guidanc
 - Load `sessions` before changing code under `src/vs/sessions/**`.
 
 Then read every path-specific instruction file required by the checkout. This checklist applies only
-when building or changing the product; capture-only runs can proceed directly to the standing rules.
+to VS Code source changes. For website/prototype changes, follow that source repo's own instructions
+and existing validation tools. Capture-only runs can proceed directly to the standing rules.
 
 ### 1.0 Standing demo-capture rules (ALWAYS enforced)
 
 These are fixed policies, do not vary them per topic. They exist so every demo is
 consistent, legible, private-safe, and comparable across studies.
 
-**Environment (locked):**
-- **Repo/workspace:** always **microsoft-vscode** (the user's primary vscode checkout/worktree).
+**Target fidelity (locked):**
+- **Agents/editor studies:** use **microsoft-vscode** and a real Code OSS build that contains the
+  feature. Never substitute a browser recreation.
+- **Website studies:** use the real deployed site.
+- **Prototype studies:** use the exact hosted/local prototype artifact the participant will evaluate.
+  Record its URL plus commit/deployment/version identifier; never silently replace it between
+  participants or reruns.
+
+**App environment (locked for `agents` / `editor`):**
 - **Auth:** always **signed in**, using the **user's real signed-in profile** (the launch skill's
   default source profile, do **not** pass `--use-mock-keychain`). **Verify** sign-in before
   capturing a single frame: screenshot and confirm the account avatar is present and there is no
@@ -240,8 +253,16 @@ consistent, legible, private-safe, and comparable across studies.
 - **DPI/zoom:** capture at **2× DPI** and keep default editor zoom so text stays legible when the
   GIF is downscaled to ~900px wide.
 
+**Web environment (locked for `website` / `prototype`):**
+- Open `TARGET_URL` in a dedicated browser/profile owned by this run, at one stable viewport.
+- Capture the page itself, not a screenshot pasted into a different shell.
+- Do not mutate production data or inject temporary DOM/CSS into a baseline. A local prototype may
+  be changed only by changing its source, recording the version, and reloading the tested artifact.
+- Record redirects and the final URL. Verify all stimulus links in a fresh tab before authoring the
+  study.
+
 **Content / privacy:**
-- Always use the **microsoft-vscode** folder/repo (the user's primary checkout). Because the user's
+- For app studies, use the **microsoft-vscode** folder/repo. Because the user's
   real profile is in use, the Sessions sidebar and Files panel may show real work, and **the user's
   own name appearing in frame is fine**. Still keep **no secrets, tokens, other people's private
   data, or unrelated private repo contents** in frame; pick a benign folder/goal and avoid panning
@@ -283,15 +304,28 @@ consistent, legible, private-safe, and comparable across studies.
 - **Verify every screenshot** with the `view` tool before advancing.
 - **End on an unambiguous success state.**
 
-### 1.1 Pick a media folder
+### 1.1 Pick a project folder and checkpoint the run
 ```bash
 SLUG=$(echo "$TOPIC" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-40)
 MEDIA="$HOME/Desktop/Automated User Testing/$SLUG"
 mkdir -p "$MEDIA/frames"
 ```
 
-### 1.2 Launch a signed-in Code OSS window (Agents window OR editor window)
-Use the `launch` skill. **Choose the window type from the prompt:** the **Agents window** (pass
+Create these durable files immediately, before opening the target or study builder:
+
+- `run.json`: topic, surface, target URL/version, source repo/commit, study id/status, participant
+  target, and timestamps.
+- `decisions.md`: assumptions, approvals, study revisions, and why a stimulus changed.
+- `artifacts.json`: relative paths, stimulus role, source version, and checksum for every image/video.
+- `resume.md`: the last completed phase and the exact next safe action.
+
+Update them after every phase and before handing work to another session. Do not rely on chat/session
+history as the source of truth; older session transcripts may be unavailable even when their media
+survives. Never put credentials, participant PII, or private transcript text in the manifest.
+
+### 1.2 Open an isolated target
+
+For `agents` / `editor`, use the `launch` skill. **Choose the window type from the prompt:** the **Agents window** (pass
 `--agents`) or a **regular signed-in VS Code editor window** (omit `--agents`). Not every feature
 lives in the Agents window, and the initial prompt will usually specify which surface to capture;
 default to whichever matches the feature under test.
@@ -325,6 +359,10 @@ If the current worktree isn't built (`no node_modules`/`out/`), you have two opt
    npm run compile        # ~1-2 min incremental; do NOT use for typecheck loops
    ```
    `npm install` + compile is well under 10 min on a warm machine; budget more on a cold one.
+
+For `website` / `prototype`, launch a dedicated Chrome profile and CDP port as in §2.1a, but open
+`TARGET_URL`. Save the numeric Chrome PID and the page's CDP target id in `run.json`. Reconnect only
+to that target id or exact URL. Never reuse, navigate, focus, or close another session's tab.
 
 ### 1.3 Drive the UI and screenshot each step
 Attach to the Code OSS window over `$CDP` with **`playwright-core` `chromium.connectOverCDP`** (same
@@ -511,8 +549,8 @@ DOM**, never DOM scraping:
 - **Set the spoken prompt:** fill the page's **Instruction text** (a `getByRole('textbox')`) with the
   context + question. To overwrite prefilled text (Image pages seed *"Review the image, then answer…"*),
   focus it, `Meta+a` then `Backspace`, then `fill()`.
-- **Upload media:** use the filechooser pattern in §2.1a with the PNG (or the **GIF** for the
-  walkthrough).
+- **Upload media:** use the filechooser pattern in §2.1a with a PNG. Use a short video only when
+  motion itself is the research question.
 - **Standalone verbal:** add **Verbal response** → fill its "Question text" (`getByPlaceholder('Add
   your question').last()`).
 - **Verify before moving on:** re-read all `getByRole('textbox')` values and the header
@@ -538,7 +576,7 @@ DOM**, never DOM scraping:
 2. Image: first screen   + spoken question     , first impressions / what is this / where to start
 3. Verbal: terminology                         , is the naming clear? (conceptual, no image)
 4..N. Image: each flow screen + spoken question, one Image page per captured screenshot
-K. Image: walkthrough GIF + spoken question    , "watch this clip, then tell us…"
+K. Optional motion stimulus                     , only when timing/animation is what is being tested
 last-1. Image: end-state screen + spoken question
 last. Verbal: overall wrap-up                  , 1-7 ease rating + biggest confusion + one change
 ```
@@ -551,6 +589,10 @@ For 1-7 rating questions you can either bake the scale into the spoken prompt ("
 same `--user-data-dir=/tmp/ut-chrome-profile` (login survives via the profile) and re-navigate to the
 `.../test/<id>/test-plan` URL. Only kill a Chrome PID by its **numeric pid**; never use name-based
 kills. Warn the user first if they might be mid-preview in that window.
+
+On reconnect, read `run.json` first and assert the browser PID, CDP target, study id, surface, and
+target version all match. If they do not, open a new owned tab/process rather than guessing which
+existing target belongs to the run.
 
 ---
 
@@ -659,9 +701,17 @@ preview/review links, gives an explicit go-ahead (e.g. "okay", "launch it", "shi
 > tab pinning by CDP target id), persistent driver + detached Chrome, and hosting demo videos in a
 > GitHub issue. Read it before capturing UI or building a study, and add new gotchas there.
 
-- **Standing capture rules (§1.0):** microsoft-vscode repo · signed in (real profile, verify avatar) · Claude model · **Dark 2026** theme · consistent window size (~1280×800, exact not required) · ≤45s / 8-12 frames · no cursor overlay (park the mouse before each shot) · one shot per state.
+- **Standing capture rules (§1.0):** capture the real target surface and pin its version. App studies
+  use microsoft-vscode, a signed-in real profile, Claude, and Dark 2026. Web studies use the actual
+  site/prototype in an owned browser at a stable viewport. Keep one shot per meaningful state.
 - **No dev-build toasts/banners in frame (§1.0):** clear notifications (`workbench.action.clearNotifications`) and dismiss banners before every capture; the *"Extension host did not start in 10 seconds"* toast and the Copilot CLI banner are the usual offenders and the ext-host one can reappear ~10s after launch/reload, so re-check right before recording.
-- **NEVER recreate VS Code / Agents UI in a browser (hard rule).** No HTML/CSS/JS mockups of the UI. All capture and any real build happens in Code OSS from the microsoft-vscode repo (Agents window or editor window). Browser use is only for driving UserTesting.com.
+- **Never counterfeit the target (hard rule).** App UI comes from Code OSS. Website/prototype stimuli
+  come from the actual tested URL/version. A browser is valid for web studies and UserTesting, never
+  as a recreation of the desktop app.
+- **Checkpoint every phase (§1.1):** keep `run.json`, `decisions.md`, `artifacts.json`, and `resume.md`
+  current. Session history is not a durable artifact store.
+- **Own every automation target:** record numeric PIDs and CDP target ids; touch only the Code OSS
+  instance, browser process, tabs, and local servers created by this run.
 - **Prefer the feature's simulate/dev command (§1.0):** for voice/camera/backend/agent features, run the built-in dev command (e.g. `agentsVoice.simulateConnection`) instead of driving the real thing; clicking the real control in a throwaway build usually shows nothing.
 - **Driver = dedicated Chrome + `playwright-core` over CDP (§2.1a):** own `--user-data-dir` + `--remote-debugging-port=9333`; never touch the shared `chrome-devtools-mcp` profile (other sessions use it); the chrome-devtools MCP may be uncallable and the integrated browser is logged out.
 - **Multi-agent tab safety (the 9333 Chrome is shared):** several agents drive the same dedicated Chrome at once, so it will have many `.../test/<id>/...` tabs, GitHub tabs, and preview tabs that are NOT yours. Pin your driver's `connect()` to YOUR study id (`page.url().includes(TID)`); if that tab is missing, open a brand-new tab with `ctx.newPage()` and navigate it, never repurpose an existing tab. Assert `page.url().includes(TID)` before any write action. When cleaning up, close ONLY tabs whose URL contains your `TID` or your own preview `participantId`; leave everything else open.
@@ -681,7 +731,11 @@ preview/review links, gives an explicit go-ahead (e.g. "okay", "launch it", "shi
 - **Question-writing (§2.0):** open-ended story prompts only, *What/How/Walk me through/Tell me about a time*; never yes-no, "do you like", "would you", or "how would you design"; end each with a *why*; move 1-7 ratings to their own Rating-scale step.
 - `TMPDIR=/tmp` when launching Code OSS (socket-path length).
 - Omit `--use-mock-keychain` for the signed-in variant.
-- **Plan first, auto-handoff (Modes):** default is one agent, two phases, gather inputs (incl. `ACCOUNT_EMAIL`) then build. For native Plan to Agent UX, ship a `*.chatmode.md` with a `handoffs:` entry to `agent` `send: true`; auto-fires under Autopilot, one-click "Continue on Agent" otherwise; plan to agent keeps context. Launch (Phase 4) is still human-gated.
+- **Plan first, auto-handoff (Modes):** default is one agent, two phases, gather inputs (including
+  `SURFACE`, `TARGET_URL` when web, and `ACCOUNT_EMAIL`) then build. For native Plan to Agent UX, ship
+  a `*.chatmode.md` with a `handoffs:` entry to `agent` `send: true`; auto-fires under Autopilot,
+  one-click "Continue on Agent" otherwise; plan to agent keeps context. Launch (Phase 4) is still
+  human-gated.
 - **Credentials: email yes, password never.** You MAY ask for and type the UserTesting `ACCOUNT_EMAIL` into the login form; NEVER ask for, type, store, or log the password or 2FA (the human enters those). Never persist the email to files/logs/study content. Prefer an already-signed-in profile.
 - **Verbal-response steps can't hold images**; merge questions into Image "Question pages" as spoken Instruction text.
 - **UserTesting media = JPEG/PNG/GIF only**, convert MP4 → GIF before upload.

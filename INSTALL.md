@@ -7,9 +7,10 @@ This private repository contains four user-global skills for the VS Code UX rese
 - `autonomous-skill-glossary`
 - `automation-windows-os`
 
-The first skill creates and prepares unmoderated studies. The second synthesizes completed research,
-triangulates it with telemetry, builds and records candidate solutions, and drafts issues. The
-glossary contains shared guidance used by both.
+The first skill creates and prepares unmoderated app, website, or hosted-prototype studies. The
+second preserves a traceable evidence bundle, synthesizes completed research, triangulates it with
+surface-appropriate quantitative data, iterates in the real target repo, validates media, and drafts
+issues. The glossary contains shared guidance used by both.
 The Windows automation skill is an optional platform adapter for native Windows and Windows-through-UTM
 build, interaction, validation, recording, and restoration.
 
@@ -34,9 +35,9 @@ adjustments.
 
 Required:
 
-- A built `microsoft/vscode` checkout with `node_modules` installed.
-- The `launch` skill, used to start and drive an isolated Code OSS instance.
-- Node matching the VS Code checkout's `.nvmrc`.
+- For app studies, a built `microsoft/vscode` checkout with `node_modules` installed.
+- For app studies, the `launch` skill, used to start and drive an isolated Code OSS instance.
+- Node matching the target source repository's requirements.
 - `ffmpeg` on `PATH`.
 - GitHub CLI, git, curl, jq, and rsync.
 - Google Chrome.

@@ -1,5 +1,5 @@
 ---
-description: Turn completed UserTesting studies into a decision and a review-ready draft GitHub issue by following the autonomous-research-synthesis-telemetry-iterative-design-issues skill (harvest, analyze, triangulate with telemetry, build up to 3 solutions in real Code OSS, record a demo video, draft the issue).
+description: Turn completed app, website, or prototype studies into a traceable decision and review-ready draft issue by following the autonomous research synthesis skill.
 tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 ---
 
@@ -7,15 +7,15 @@ tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 
 Execute the research synthesis by following the **autonomous-research-synthesis-telemetry-iterative-design-issues** skill end to end:
 
-1. Harvest transcripts + audience from the completed study/studies.
-2. Analyze into ranked findings (verbatim quotes) and triangulate each with on-topic telemetry.
-3. Build up to 3 candidate solutions (A/B/C) in real Code OSS (never a browser mockup), switchable via a
-   developer Command-Palette toggle; use fewer when the problem does not warrant three.
-4. Record a real high-resolution demo VIDEO of the running build (walk the A/B/C toggle when there is
-   more than one option).
-5. Draft the GitHub issue: recommendation/summary first, then the video, then findings, the A/B
-   decision, an Options-to-try section (if multiple solutions), and Method with the UserTesting study
-   links. No em/en dashes.
+1. Harvest the complete evidence bundle: metadata, stimulus versions, questions/answers, audience,
+   transcripts, and behavior/video observations.
+2. Analyze into ranked findings with source links, contradictions, and confidence; triangulate with
+   quantitative data appropriate to the surface.
+3. Build up to 3 meaningful candidate solutions in the real target repo: Code OSS for app work or
+   the actual website/prototype source for web work.
+4. Record and fully validate a high-resolution demo VIDEO of the running target.
+5. Draft the GitHub issue: recommendation/summary first, then the video, findings, decision/iteration
+   result, options (if multiple), and Method with study rounds, stimulus versions, caveats, and links.
 
 Credentials: you MAY type the user's `ACCOUNT_EMAIL` / GitHub email into sign-in forms; the human enters
 passwords and 2FA. Never persist emails.

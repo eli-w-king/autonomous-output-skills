@@ -2,19 +2,22 @@
 
 Four portable agent skills for the VS Code UX research loop:
 
-- **`autonomous-design-build-record-demo-unmoderated-research`**: capture a feature flow in a real
-  Code OSS build, author a UserTesting.com study, prepare it for review, and launch only on explicit
-  approval.
+- **`autonomous-design-build-record-demo-unmoderated-research`**: capture the real target surface
+  (Code OSS, deployed website, or hosted prototype), author a UserTesting.com study, prepare it for
+  review, and launch only on explicit approval.
 - **`autonomous-research-synthesis-telemetry-iterative-design-issues`**: harvest study results,
-  analyze and triangulate them with telemetry, build candidate solutions in real Code OSS, record a
-  demo video, and draft a GitHub issue.
+  preserve a traceable evidence bundle, triangulate with surface-appropriate quantitative data,
+  iterate in the real target repo, validate the demo video, and draft a GitHub issue.
 - **`autonomous-skill-glossary`**: shared hard-won guidance used by both procedural skills.
 - **`automation-windows-os`**: optional Windows execution, validation, native UI automation, evidence
   capture, and reversible cleanup, either on a Windows host or through a Windows VM in UTM.
 
-The procedural skills pair with the `launch` skill, which drives Code OSS from source, and may hand
-off to `automation-windows-os` whenever Windows-specific evidence is useful. Keep this repository in
-sync across machines because the skills and glossary improve as they are used.
+For app studies, the procedural skills pair with the `launch` skill, which drives Code OSS from
+source. Website studies use the real deployed site or actual hosted/local prototype. Either workflow
+may hand off to `automation-windows-os` when Windows-specific evidence is useful.
+
+Every run keeps a durable project ledger (`run.json`, `decisions.md`, `artifacts.json`, and
+`resume.md`) alongside its evidence. Do not rely on chat history to resume a study.
 
 ## Access
 
@@ -78,10 +81,10 @@ Start a fresh agent session after updating.
 
 ## Prerequisites
 
-See [INSTALL.md](INSTALL.md) for the full checklist. In short: a built `microsoft/vscode` checkout,
-the `launch` skill, Node matching the checkout's `.nvmrc`, `ffmpeg`, GitHub CLI, git, curl, jq, rsync,
-Chrome, and a GitHub credential. The `caploop.js` and `presskeys.js` drivers need the `ws` module at
-runtime; point `NODE_PATH` at the VS Code checkout's `node_modules`.
+See [INSTALL.md](INSTALL.md) for the full checklist. All studies need `ffmpeg`, GitHub CLI, git,
+curl, jq, rsync, Chrome, and a GitHub credential. App studies additionally need a built
+`microsoft/vscode` checkout, the `launch` skill, and Node matching `.nvmrc`. The `caploop.js` and
+`presskeys.js` drivers need the checkout's `ws` module through `NODE_PATH`.
 
 ## Optional chat modes
 
