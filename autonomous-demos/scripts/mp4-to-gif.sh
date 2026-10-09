@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mp4-to-gif.sh — convert an MP4 to an upload-safe animated GIF.
+# mp4-to-gif.sh: convert an MP4 to an upload-safe animated GIF.
 #
 # UserTesting's media uploader accepts ONLY JPEG / PNG / GIF (MP4 is rejected),
 # so any walkthrough video must be converted to GIF before it can be attached

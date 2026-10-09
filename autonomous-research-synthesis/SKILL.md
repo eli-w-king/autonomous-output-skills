@@ -1,27 +1,33 @@
 ---
-name: autonomous-research-synthesis-telemetry-iterative-design-issues
-description: "Autonomous: Research Synthesis, Telemetry, Iterative Design, Issue Documentation. Turn completed VS Code app, website, or prototype studies into a traceable decision: preserve the evidence bundle, analyze findings, triangulate with surface-appropriate quantitative data, iterate in the real target repo, validate media, and draft a review-ready issue. This is the back half of the VS Code UX research loop and pairs with autonomous-design-build-record-demo-unmoderated-research. Use when asked to analyze user test results, synthesize a study, decide what to build, or document research."
+name: autonomous-research-synthesis
+description: "Autonomous: Research Synthesis. Turn research into decisions without supervision: harvest completed Outset studies (MCP or the results watcher), UserTesting exports, or local export folders; screen participant quality; run traceable thematic analysis with verbatim, attributed quotes; triangulate with telemetry from the VS Code data agent; then deliver what was asked: a light Markdown readout organized by feature, a quote pull, a minimal HTML slideshow, a decision digest of an issue epic, or the full loop (redesign spikes in real code, a demo video, and a review-ready GitHub issue that leads with the recommendation). Never invents quotes or metrics and never cites synthetic participants. Use for 'analyze these studies', 'pull quotes that support X', 'make a slideshow of the results', 'summarize what was decided in these issues', or 'turn the findings into an issue'. Pairs with research-platforms, autonomous-user-studies, autonomous-demos, and autonomous-prototypes."
 ---
 
-# Autonomous: Research Synthesis, Telemetry Data, Iterative Design Build, Issue Documentation
+# Autonomous: Research Synthesis
 
-Turn one or more **completed UserTesting studies** into a **review-ready draft GitHub issue** that a
-human can act on: recommendation first, a real demo video of the change running, findings backed by
-verbatim quotes and quantitative evidence, a clear decision, and honest caveats, with the redesign spiked in the
-real repo.
+Turn completed studies (Outset, UserTesting, or exported transcripts) and related research into
+decisions. The output ranges from a light readout or a quote pull to the full loop: a
+**review-ready draft GitHub issue** that a human can act on, with the recommendation first, a real
+demo video of the change running, findings backed by verbatim quotes and quantitative evidence, a
+clear decision, and honest caveats, with the redesign spiked in the real repo.
 
-The front half (create + launch studies) is the `autonomous-design-build-record-demo-unmoderated-research` skill. This skill starts
+The front half (create + launch studies) is the `autonomous-user-studies` skill. This skill starts
 once studies have **completed** and results are available.
 
 Pipeline:
 
-1. **Harvest** the complete evidence bundle: study metadata, stimuli, questions/answers, audience,
-   transcripts, and behavior/video observations.
-2. **Analyze** into ranked, traceable findings with contradictions and confidence.
+1. **Harvest** the complete evidence bundle: study metadata, stimuli, questions and answers,
+   audience, transcripts, and behavior or video observations (Outset, UserTesting, or local exports).
+2. **Analyze** into ranked, traceable findings with verbatim quotes, contradictions, and confidence.
 3. **Triangulate** each finding with quantitative data appropriate to the target surface.
-4. **Iterate** in the real target repo: Code OSS for app work, the website/prototype repo for web work.
-5. **Record** a real high-resolution demo **video** of the running target and validate the file.
-6. **Draft** the GitHub issue: recommendation first, then video, findings, decision, method, and study links.
+4. **Iterate** in the real target repo: Code OSS for app work, the website/prototype repo for web
+   work, up to 3 switchable solutions when the problem warrants them.
+5. **Record** a real high-resolution demo **video** of the running target (per `autonomous-demos`)
+   and validate the file.
+6. **Draft** the GitHub issue: recommendation first, then video, findings, decision, method, and
+   study links.
+
+Most requests need only part of this. See "Pick the output" below before starting.
 
 > **HARD RULE, iterate in the real target surface.** App redesigns and demos come from **Code OSS
 > launched from microsoft-vscode**. Website redesigns come from the actual website/prototype repo and
@@ -37,11 +43,58 @@ Pipeline:
 
 ---
 
+## Pick the output
+
+| Ask | Output | Phases |
+|-----|--------|--------|
+| "Light analysis", "interim readout" | `analysis.md` with metrics, verbatim quotes, and insights, organized by feature section | 1, 2 (3 if telemetry helps) |
+| "Pull quotes that support X" | a quote pull in a `.txt` or `.md`, opened on request | 1, quote rules |
+| "Make a slideshow of the results" | a minimal self-contained HTML deck, visually QA'd | 1, 2, slideshow rules |
+| "What was decided in these issues" | a decision digest of an issue epic | decision digest rules |
+| "Turn the findings into an issue", "decide what to build" | spikes, demo video, review-ready issue | 1 to 6 |
+
+### Quote rules
+
+- Verbatim only, attributed to the participant and paragraph (`D-0007, P0176`), never invented,
+  never from synthetic interviews. Trim only for repetition and say so ("lightly trimmed for
+  repetition").
+- Lead with the claim and the count ("5 of 8 participants asked to see the models in the pool"),
+  then the best headline quote, then supporting quotes grouped by sub-theme, then counter-evidence.
+- Keep the variant visible (default versus experimental) when the study is a comparison.
+
+### Light readouts
+
+- Organize by feature section (the user asked for this) with per-participant metrics where the
+  guide has ratings, the strongest quotes, and plain insights. Name the sample size and caveats
+  (in-progress, monadic, no media in exports) up front. No em or en dashes.
+
+### Slideshows
+
+- One self-contained HTML file, minimal and calm ("cute minimal"), one idea per slide, real quotes
+  and numbers only, keyboard navigation, readable on small screens and in dark mode. Render it to
+  images and look at them before handing it over.
+
+### Decision digests from issues and epics
+
+- Read the epic, every linked issue, and their comments; the latest comment beats the original
+  proposal. Output simple action bullets ("change the menu order to X", "rename Y to Z"), grouped by
+  UI section (for example composer, session list), each with a link to its source comment.
+- Mark state per item: done items get a checkmark at the start of the first line and a second,
+  indented line naming the PR or reason; items under investigation get a clear marker. Keep the
+  checklist format the user approved rather than switching to tables or columns.
+- Compare each decision with the current product (an upstream build) and list gaps as action items.
+  If asked for a demo of the current state, record it per `autonomous-demos` from a clean upstream
+  build, covering every state discussed, and never fix or fake the product to make the demo complete.
+- Put the demos in one row at the top when the user asks, and keep internal telemetry out of public
+  or shared issues unless the user asks for it (and remove it when asked).
+
+---
+
 ## Inputs
 
 | Input | Example | Notes |
 |-------|---------|-------|
-| `STUDIES` | study names or ids, or the Results-tab URL(s) | The completed study/studies to harvest. A/B = two related studies. |
+| `STUDIES` | Outset study ids or names, UserTesting study URLs, or local export folders | The completed studies to harvest. A/B = two related studies. Resolve Outset names with `search` or `list_studies`. |
 | `TOPIC` | "the Agents-window browser preview" | The feature under study; keeps telemetry and the spike on-topic. |
 | `SURFACE` | `agents`, `editor`, `website`, or `prototype` | The real target surface. `WINDOW` remains a compatible alias for app studies. |
 | `TARGET_URL` | deployed site or hosted/local prototype URL | Required for web studies; pin the exact version used for each round. |
@@ -112,7 +165,7 @@ with `send: true`; in autopilot it is fully automatic, otherwise it is a single 
 ## Composability: run phases independently and out of order
 
 These phases are a **default order, not a locked pipeline**. Run only the phases you need, and chain
-with the `autonomous-design-build-record-demo-unmoderated-research` skill in any order. The phases talk to each other through a shared
+with the `autonomous-user-studies` skill in any order. The phases talk to each other through a shared
 **artifact contract**, not through required state:
 
 - **Shared root:** keep everything for a piece of work under `~/Desktop/Automated User Testing/<slug>/`
@@ -127,7 +180,7 @@ Common non-linear entry points:
   (summary of the change, the demo video, what it does and why, and how to try it), not a research
   findings issue. Drop the findings/telemetry/A-B sections until research exists.
 - **Record once, research later.** The `new-ui-demo.mp4` you record here is exactly the real-build
-  stimulus the `autonomous-design-build-record-demo-unmoderated-research` skill needs. Hand it off to that skill to run a study on the
+  stimulus the `autonomous-user-studies` skill needs. Hand it off to that skill to run a study on the
   video (its capture phase can be skipped, see that skill's "compose" note), then come back and run
   **Phases 1 to 3** here to fold the results into the issue.
 - **Analyze an existing study without rebuilding.** Run **Phases 1 to 3** and **Phase 6** only, no spike.
@@ -158,8 +211,8 @@ review surface.
 
 ## Credentials: email yes, password never
 
-Signing into UserTesting (Phase 1) and GitHub (Phase 6) is fine to do in a browser you drive. The
-boundary is simple:
+Outset harvesting needs no login (API calls via `research-platforms`). UserTesting harvesting and
+GitHub uploads (Phase 6) use a browser you drive. The boundary is simple:
 
 - **The agent MAY ask for and type a non-secret identifier**, an email address or username, into a
   login form. Ask for it in plan mode (or via `ask_user`) and type it into the Chrome field. An email
@@ -170,7 +223,7 @@ boundary is simple:
   credential entry is needed at all.
 - **Do not persist the email** into committed files, the issue body, logs, screenshots, or the session
   DB. Keep it in memory for the current run only. Never put any personal identifier in a public artifact.
-- Type the email into the specific login target (see `autonomous-design-build-record-demo-unmoderated-research` for the Chrome-over-CDP
+- Type the email into the specific login target (see `autonomous-user-studies` for the Chrome-over-CDP
   driver); if the driver keeps snapping to the wrong tab, target the login tab directly rather than
   guessing.
 
@@ -182,9 +235,107 @@ Preserve the evidence needed to trace every recommendation. Transcripts and audi
 but they are not the whole study: structured answers, task context, stimulus versions, observed
 behavior, completion state, and video moments can change the interpretation.
 
-Drive a **dedicated Chrome** signed into UserTesting with `playwright-core` over CDP (see
-`autonomous-design-build-record-demo-unmoderated-research` for the full driver setup; do not depend on the chrome-devtools MCP). Then,
-per study, on the study's **Results** tab:
+Results come from one of three sources; use the matching subsection:
+
+- **1A Outset**: the results watcher or the Outset MCP via [`research-platforms`](../research-platforms/SKILL.md).
+- **1B UserTesting**: the study's Results tab export from a dedicated signed-in Chrome.
+- **1C Local exports**: folders the user downloaded (for example
+  `~/Downloads/Outset Study - <name>/` with one DOCX per interview).
+
+### 1A Outset
+
+```js
+const { outsetMcp } = await import(`${process.env.HOME}/.copilot/skills/research-platforms/scripts/research-client.mjs`);
+const outset = await outsetMcp();
+```
+
+#### 1.0 Prefer the watcher: the transcripts may already be on disk
+
+The results watcher polls for completed interviews and harvests them automatically, so a study that
+finished overnight is usually already staged:
+
+```bash
+node ~/.copilot/skills/research-platforms/scripts/watch-studies.mjs --status
+node ~/.copilot/skills/research-platforms/scripts/watch-studies.mjs --dry-run   # harvest now
+```
+
+Transcripts land in `PROJECT_DIR/transcripts/` as one JSON per interview. **Check there before
+calling the API**; re-harvesting wastes time and quota.
+
+#### 1.1 Harvest directly (when the watcher has not run)
+
+```js
+const ivs = await outset.callJson('list_interviews', {
+  study_id: STUDY_ID,
+  completed_only: true,
+  interview_types: ['USER'],   // REQUIRED, see below
+  limit: 50,
+});
+for (const iv of ivs.interviews) {
+  const t = await outset.callJson('get_interview_transcript', { interview_id: iv.id });
+  // write to PROJECT_DIR/transcripts/
+}
+```
+Pagination is cursor-based: pass back `next_cursor` until it is null.
+
+> **Always filter `interview_types: ['USER']`.** SYNTH interviews are LLM-simulated participants used
+> for guide QA. They are **not research data**: their answers are a model's prior about a persona, not
+> evidence, and nothing they say is falsifiable. A synthetic quote in an issue is worse than no quote,
+> because it looks like evidence. Never cite one, never let one into the finding set.
+
+#### 1.2 Screen for participant quality BEFORE analyzing
+
+Every interview carries `is_low_quality`, `fraud_score`, `screened_out`, and
+`total_engagement_time_seconds`. Check them first:
+
+- Exclude `is_fraud` / high `fraud_score` outright.
+- Treat `is_low_quality` as suspect: read it, but do not build a finding on it alone.
+- A very short `total_engagement_time_seconds` relative to the others usually means a skimmer.
+
+**Say in the write-up how many interviews you harvested and how many you excluded, and why.** A
+finding drawn from 3 of 7 participants is a different claim than one drawn from 7 of 7.
+
+#### 1.3 Pull the analysis Outset already did
+
+Outset runs its own analysis passes. Use them as **leads to verify against transcripts**, never as
+findings to copy:
+
+- `peek_report` / `list_reports` / `get_topline_insights`, the AI executive summary.
+- `search_report_answers` -> `list_answer_messages`, an answer plus its source quotes.
+- `search_vision_observations` / `list_vision_aggregated_insights`, observed UX behavior for
+  screenshare studies (where the participant struggled, what they missed).
+- `search_vision_task_results`, per-question task-completion verdicts.
+- `search_emotion_observations` / `get_emotion_crosstab`, emotion signal.
+- `search_project_highlight_clips`, quotable moments with timestamps.
+
+These have no UserTesting equivalent and are the biggest analysis upgrade in the new pipeline. Treat
+every AI-generated claim as a hypothesis and confirm it in the transcript before it becomes a finding.
+
+#### 1.4 Historical context from Marvin (read-only)
+
+Marvin holds prior studies. Before writing findings, check whether this is already known:
+
+```js
+const { marvinMcp } = await import(`${process.env.HOME}/.copilot/skills/research-platforms/scripts/research-client.mjs`);
+const marvin = await marvinMcp();
+await marvin.call('ask', { question: 'What have we learned about <topic>?' });
+```
+`ask` is async: if it returns `in_progress`, poll `get_ask_status`. Also useful: `search`,
+`list_projects`, `get_file_summary`.
+
+A finding that **replicates** an earlier study is stronger, and worth saying so explicitly.
+
+> **Marvin is read-only right now.** The key carries `mcp:read` only, so new Outset transcripts
+> **cannot be pushed into Marvin** until a broader key is minted (Settings -> MCP, add `file:write` +
+> `project:write`). Outset remains the system of record for new studies. Do not describe the loop as
+> if it round-trips, and do not silently skip this step: if cross-study context would have mattered,
+> say that it was unavailable.
+
+### 1B UserTesting
+
+Drive a dedicated Chrome signed into UserTesting with `playwright-core` over CDP (see
+`autonomous-user-studies`; do not depend on the chrome-devtools MCP). Then, per study, on the
+**Results** tab:
 
 1. Record the study id, title, status, field dates, audience, exact question/task text, and stimulus
    checksums/URLs in `PROJECT_DIR/run.json` and `PROJECT_DIR/artifacts.json`.
@@ -205,10 +356,28 @@ Store study metadata in SQLite (`ut_study`, `ut_participant`, `ut_transcript`, `
 participant ids in exported reports; do not persist names or handles unless access to the source
 requires them.
 
-Playwright download handling gotcha: attach a `page.waitForEvent('download')` and `saveAs(exactPath)`;
-the default download UI cannot be driven blind.
+Playwright download gotcha: attach `page.waitForEvent('download')` and `saveAs(exactPath)`; the
+default download UI cannot be driven blind.
+
+### 1C Local exports (DOCX or ZIP folders the user downloaded)
+
+- Copy the folders into `PROJECT_DIR/downloads/` first; never edit the originals.
+- Extract DOCX text losslessly from the `w:t` runs of `word/document.xml` into one JSON and one TXT
+  per interview, numbering paragraphs (`P0001`, `P0002`, ...) with the speaker role, so every quote
+  cites `<interview id>, P###` (for example `D-0007, P0176`).
+- Interview ids encode the study variant (for example `C-` default and `D-` experimental in a
+  monadic pair); keep that mapping in `run.json`.
+- In-progress studies grow: when the user adds new completed interviews, add them and say what
+  changed in the readout. Exports carry no screenshots or video, so do not describe what
+  participants saw beyond what the transcript states.
+
+### 1D Persist
+
+Store study metadata and per-interview rows in SQLite (`study`, `participant`, `transcript`) so later
+phases and future runs can query it without re-fetching. Keep every artifact under `PROJECT_DIR`.
 
 ---
+
 
 ## Phase 2, Analyze into ranked findings
 
@@ -355,8 +524,11 @@ record the actual rendered flow. Use the website repo's existing development ser
 tools when available. Do not record a design file or static screenshot and present it as a working
 web implementation.
 
-Code OSS capture (scripts live next to this SKILL.md in `scripts/`; resolve relative to the skill dir):
-- Use `scripts/caploop.js <cdpPort> <outDir> <seconds> [fps=12] [scale=2]` to record the **workbench**
+Record per [`autonomous-demos`](../autonomous-demos/SKILL.md): its rules, brief, driver, encoder, speed
+ramps, and QA apply here. The capture scripts below now live in `../autonomous-demos/scripts/`.
+Use the composited `caploop.js` path only when the integrated browser preview (a native overlay)
+must be in frame:
+- Use `caploop.js <cdpPort> <outDir> <seconds> [fps=12] [scale=2]` to record the **workbench**
   target. Run with `NODE_PATH="$REPO/node_modules"` so `ws` resolves.
   - **Why not startScreencast:** `Page.startScreencast` only captures the page's own layer, i.e. just
     the embedded browser preview's webContents, NOT the whole window. `Page.captureScreenshot` with
@@ -365,12 +537,13 @@ Code OSS capture (scripts live next to this SKILL.md in `scripts/`; resolve rela
   - `scale=2` on a retina display yields ~4x the CSS resolution (very crisp).
   - **Crop math: caploop frames are `dpr × scale` times the CSS size** (on a retina 2x display with `scale=2` that is 4x). So a panel at CSS `x=520,y=36,w=293,h=570` maps to an ffmpeg `crop=1172:2280:2080:144` (multiply every number by 4). Read the actual frame dimensions with `ffprobe` on one `.jpg` before writing the crop, and get the CSS rect with a `getBoundingClientRect()` eval on the running window. That said, prefer a full-window demo over a cropped one (see Standing rules); crop only when explicitly asked.
 - To animate content INSIDE the preview (e.g. navigate a slide deck), use
-  `scripts/presskeys.js <cdpPort> <preview-url-substr> ArrowRight <count> <delayMs>`. This targets the
+  `presskeys.js <cdpPort> <preview-url-substr> ArrowRight <count> <delayMs>`. This targets the
   preview's own CDP target directly, because `@playwright/cli` snaps to the focused tab and cannot
   reliably reach the embedded preview.
 - Drive the workbench itself (focus chat, paste a prompt to show the control loop) with the `launch`
-  skill's playwright patterns (`monaco-paste.sh`, `Control+Meta+i` to focus chat). Typing a prompt you
-  do not send is fine and safe; do not fire an agent run mid-demo.
+  skill's playwright patterns (`monaco-paste.sh`, `Control+Meta+i` to focus chat). Show the full flow
+  (prompt typed and sent) per the demo rules; if a live agent run would have side effects, use a
+  scripted mock (`autonomous-demos`) instead of stopping short.
 
 Web capture: use the target repo's existing browser recorder when available. Otherwise, drive only
 the run-owned page and capture timestamped full-viewport frames with Playwright `page.screenshot()`;
@@ -378,15 +551,15 @@ write the timestamps to the same manifest format consumed by `frames-to-mp4.sh`.
 scroll, pointer, and keyboard actions through visible Playwright APIs, not DOM mutation.
 
 Encode:
-- `scripts/frames-to-mp4.sh <outDir> <PROJECT_DIR>/new-ui-demo.mp4 1920` (uses the manifest's real
+- `frames-to-mp4.sh <outDir> <PROJECT_DIR>/new-ui-demo.mp4 1920` (uses the manifest's real
   timestamps so motion timing is faithful; outputs yuv420p + faststart).
-- `scripts/frames-to-gif.sh <outDir> <PROJECT_DIR>/new-ui-demo.gif 1000` for the inline fallback.
+- `frames-to-gif.sh <outDir> <PROJECT_DIR>/new-ui-demo.gif 1000` for the inline fallback.
 
 ffmpeg lives at `/opt/homebrew/bin/ffmpeg`; `export PATH="/opt/homebrew/bin:$PATH"`.
 
 **Pace for humans, do NOT aggressively dedupe.** Reviewers complained that clips felt "rushed" and too fast to follow. Two rules:
 - Build the pacing into the **driver**, not the encoder: put deliberate `sleep`s between steps (e.g. ~3s to read the first screen, ~2s after each action, ~2s after typing) and type text at a **human delay** (`keyboard.type(text, {delay: 95})`, roughly 80-110ms/char). A good full flow is ~20-25s, not 3-5s.
-- Encode with `frames-to-mp4.sh` (preserves real per-frame timestamps). **Avoid `mpdecimate`/`setpts` to "trim dead air"**: even capped, it collapses the natural holds a viewer needs and produces an unwatchable 2-4s blur. If a clip genuinely drags, re-record with tighter driver timing rather than post-trimming.
+- Encode with timestamps (`encode-screencast.py` or `frames-to-mp4.sh`). **Avoid `mpdecimate` or blanket `setpts` to "trim dead air"**: it collapses the natural holds a viewer needs. Fast-forward only marked idle waits, in place, with `speed-ramp.mjs`; if a clip drags anywhere else, re-record with better driver timing.
 
 **Drive with real physical actions, not injected DOM clicks.** When recording (caploop) and driving the same window over CDP, use Playwright's physical APIs on the visible element (`locator(sel).last().click()`, `.selectOption(...)`, `keyboard.type(...)`). Fire-and-forget in-page `el.click()` / setTimeout choreography frequently updates a **hidden** DOM node while the visible UI never changes, so the recording shows nothing happening. Physical clicks/keystrokes always hit the topmost rendered element.
 
@@ -406,7 +579,7 @@ Then extract opening, midpoint, and ending frames and inspect them. Use a versio
 replacement (`new-ui-demo-v2.mp4`), update `artifacts.json`, and verify the uploaded URL plays from a
 fresh browser session. HTTP 200 alone does not prove a video decodes.
 
-**Prefer big static screenshots over looping GIFs as study stimulus.** Feedback from real sessions: participants feel rushed watching a GIF loop in front of them, and small images are hard to read. For UserTesting image pages, capture a **card/element screenshot** (`locator('.card').screenshot(...)`), not a full-window shot: it is far larger and cleaner. Use the static image as the primary stimulus so the participant paces themselves; keep the MP4/GIF for the issue write-up.
+**Prefer big static screenshots over looping GIFs as study stimulus.** Participants feel rushed watching a GIF loop, and small images are hard to read. Capture the region around the component with about 56 px of surrounding UI (tight element crops read as cut-outs; tiny full windows are unreadable). Use the static image as the primary stimulus; keep the MP4/GIF for the issue write-up. Stimulus rules live in `autonomous-user-studies`.
 
 Clean up: kill the Code OSS instance and any local server you started (pass literal numeric PIDs; the
 bash tool refuses `kill "$VAR"`), and close your playwright daemon (`@playwright/cli -s=... close`).
@@ -426,16 +599,21 @@ Write for a human already on GitHub who expects a demo. Concise, plain, decision
    what makes it different, and the **exact Command Palette command(s)** to switch between them
    (Cmd+Shift+P / Ctrl+Shift+P). Note it is a developer/experimental toggle. Skip this section entirely
    when there is a single solution.
-6. **Method and caveats**, including study round, stimulus version, sample limits, contradictions,
-   and a **link to each UserTesting study** so reviewers can watch the sessions.
+6. **Method and caveats**, including study round, stimulus version, sample limits, harvested and
+   excluded counts, contradictions, and a **link to each study** (Outset or UserTesting) so
+   reviewers can watch the sessions.
 
 **Copy rules (learned from review):**
 - Lead with the summary/recommendation, then the demo. Do not open with the demo.
 - Cut meta narration: no "real build, not a mockup", no "where it gets built" implementation section
   with file paths. Reviewers want the finding and the demo, not the code tour.
 - **No em dashes or en dashes** anywhere. Use commas, parentheses, or a plain hyphen with spaces.
-- Include the **UserTesting study link(s)** in Method (URL form:
-  `https://app.usertesting.com/workspaces/<workspaceId>/test/<studyId>`).
+- Include the **study link(s)** in Method: Outset
+  `https://outset.ai/project/<projectId>/survey/<studyId>/results` (or the per-interview
+  `.../interview/<interviewId>/read`), UserTesting
+  `https://app.usertesting.com/workspaces/<workspaceId>/test/<studyId>`.
+- State **how many participants were harvested and how many excluded** for quality (Phase 1.2), and
+  note that **no synthetic (AI-simulated) interviews were included**.
 - Keep the evidence matrix in the project artifacts; the issue gets the concise claims, representative
   evidence, confidence/caveats, and links needed to audit them.
 
@@ -471,13 +649,11 @@ short PUBLISH-NOTES with the exact remaining steps (title, drag-in file, submit)
 
 ## Standing rules
 
-> **See also the shared [`autonomous-skill-glossary`](../autonomous-skill-glossary/SKILL.md)** for
-> cross-cutting, reusable gotchas across this loop: recording cleanly (bind dev commands to keys
-> instead of using the command palette, clear dev-build toasts), forcing/simulating VS Code UI states
-> via a render-layer observable, persistent driver + detached Chrome that survive shell churn, pinning
-> your own tab by CDP target id, and getting a demo video into a GitHub issue (native player limits,
-> raw-embed fallback, cache-busting filenames). Read it before recording a demo or drafting the issue,
-> and add new gotchas there.
+> **See also the shared [`autonomous-skill-glossary`](../autonomous-skill-glossary/SKILL.md)**: run
+> ledger, evidence chain, media validation, and GitHub publishing in its `SKILL.md`; recording in
+> `references/recording.md`; Code OSS build and state simulation in `references/code-oss.md`; study
+> platforms in `references/studies.md`. Read the relevant part before recording or drafting the
+> issue, and add new gotchas there.
 
 - Real target only: Code OSS for app surfaces, actual site/prototype source for web surfaces.
 - Offer up to 3 solutions (A/B/C) switchable via a dev Command-Palette toggle; use 1 or 2 when the
@@ -521,7 +697,7 @@ Wrap it in a **custom agent / chat mode** only for what a skill cannot do:
 - You want a **scoped tool set, pinned model, or gating** for a phase.
 
 The right shape is a **thin** chat mode that defers to this skill (its body is essentially "follow the
-`autonomous-research-synthesis-telemetry-iterative-design-issues` skill"), never a copy of the procedure. Ready-to-use templates live in
+`autonomous-research-synthesis` skill"), never a copy of the procedure. Ready-to-use templates live in
 `chatmodes/` next to this file; activate by copying them into a workspace `.github/chatmodes/` or your
 user prompt-files location. **Guardrail:** never put an irreversible step behind an auto-send handoff.
 Recruiting real participants and posting to a public repo stay explicitly human-gated; only plan to

@@ -5,7 +5,8 @@ tools: ['codebase', 'search', 'runCommands', 'runTasks', 'editFiles', 'fetch']
 
 # Synthesize Research (research)
 
-Execute the research synthesis by following the **autonomous-research-synthesis-telemetry-iterative-design-issues** skill end to end:
+Execute the research synthesis by following the **autonomous-research-synthesis** skill, producing
+the output from the plan (for the full loop, end to end):
 
 1. Harvest the complete evidence bundle: metadata, stimulus versions, questions/answers, audience,
    transcripts, and behavior/video observations.
@@ -13,7 +14,8 @@ Execute the research synthesis by following the **autonomous-research-synthesis-
    quantitative data appropriate to the surface.
 3. Build up to 3 meaningful candidate solutions in the real target repo: Code OSS for app work or
    the actual website/prototype source for web work.
-4. Record and fully validate a high-resolution demo VIDEO of the running target.
+4. Record and fully validate a high-resolution demo VIDEO of the running target, following the
+   autonomous-demos rules.
 5. Draft the GitHub issue: recommendation/summary first, then the video, findings, decision/iteration
    result, options (if multiple), and Method with study rounds, stimulus versions, caveats, and links.
 
@@ -23,4 +25,4 @@ passwords and 2FA. Never persist emails.
 Hard gate: do NOT post to a public repo (e.g. microsoft/vscode) without explicit confirmation; prefer a
 reversible interim in a repo you control and hand off the one-step publish.
 
-All procedure, gotchas, and scripts are in the `autonomous-research-synthesis-telemetry-iterative-design-issues` skill; defer to it.
+All procedure, gotchas, and scripts are in the `autonomous-research-synthesis` skill; defer to it.

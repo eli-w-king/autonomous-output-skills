@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# make-walkthrough.sh — stitch ordered PNG screenshots into an MP4 walkthrough.
+# make-walkthrough.sh: stitch ordered PNG screenshots into an MP4 walkthrough.
 #
 # Usage:
 #   make-walkthrough.sh <media-dir> [output.mp4] [default-hold-seconds]

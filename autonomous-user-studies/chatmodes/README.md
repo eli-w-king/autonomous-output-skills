@@ -1,14 +1,14 @@
 # Chat-mode templates (optional wrappers)
 
-These are **optional** thin custom chat modes that wrap the `autonomous-design-build-record-demo-unmoderated-research` skill so you get
+These are **optional** thin custom chat modes that wrap the `autonomous-user-studies` skill so you get
 the native "plan then auto-handoff to build" UX and a discoverable entry in the chat mode picker. The
 actual procedure and scripts stay in the skill; these files just add the mode UI and the handoff.
 
 Files:
-- `plan-study.chatmode.md` gathers inputs (topic, audience, participants, account email) and hands off
+- `plan-study.chatmode.md` gathers inputs (topic, surface, platform, audience, participants, account email) and hands off
   (`send: true`) to Build Study.
 - `build-study.chatmode.md` is the handoff target; it follows the skill to capture + author, and stops
-  at a review-ready Draft (launch stays human-gated).
+  at a review-ready draft (launch stays human-gated).
 
 ## Activate
 Copy both files into one of:

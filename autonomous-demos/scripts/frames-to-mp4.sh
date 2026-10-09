@@ -32,7 +32,7 @@ print("frames",len(frames),"span_s",round((frames[-1]['t']-frames[0]['t'])/1000.
 PY
 
 ( cd "$DIR" && ffmpeg -y -f concat -safe 0 -i list.txt \
-	-vf "scale=${WIDTH}:-2:flags=lanczos,format=yuv420p" -r 30 \
+	-vf "scale=${WIDTH}:-2:flags=lanczos:out_range=tv,format=yuv420p" -r 30 \
 	-c:v libx264 -preset slow -crf 20 -movflags +faststart "$OUT" >/dev/null 2>&1 )
 echo "wrote $OUT"
 ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of default=noprint_wrappers=1 "$OUT" 2>/dev/null || true
