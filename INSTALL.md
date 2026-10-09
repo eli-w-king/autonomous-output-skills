@@ -1,24 +1,24 @@
 # Install the autonomous output skills
 
-This private repository holds eight user-global skills:
+This repository holds eight user-global skills:
 
 | Skill | Role |
 |-------|------|
 | `autonomous-demos` | demos, screenshots, before/after, storyboards, PR media, recording toolkit |
 | `autonomous-prototypes` | build, iterate, and ship UI changes and PRs |
 | `autonomous-long-runs` | operating rules for overnight and unattended work |
-| `autonomous-user-studies` | UserTesting and Outset studies, User Interviews recruiting |
-| `autonomous-research-synthesis` | readouts, quotes, slideshows, decision digests, findings to issue |
 | `autonomous-skill-glossary` | shared gotchas and topic references |
-| `research-platforms` | Outset, Marvin, and User Interviews plumbing |
 | `automation-windows-os` | optional Windows and UTM execution |
+| `autonomous-user-studies` | research: UserTesting and Outset studies, User Interviews recruiting |
+| `autonomous-research-synthesis` | research: readouts, quotes, slideshows, decision digests, findings to issue |
+| `research-platforms` | research: Outset, Marvin, and User Interviews plumbing |
 
 Installing means cloning the repository, copying those folders into the agent runtime's skill
 directory (normally `~/.copilot/skills/`), and starting a fresh agent session.
 
-## 1. Accept access and authenticate
+## 1. Authenticate GitHub CLI
 
-Accept the GitHub repository invitation from `eli-w-king`, then:
+The repository is public; the install commands use GitHub CLI:
 
 ```bash
 gh auth login

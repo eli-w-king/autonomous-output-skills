@@ -2,10 +2,10 @@
 
 Standing rules for every demo an agent makes: videos, screenshot sets, before/after pairs,
 storyboards, and PR media. They were compiled from the feedback given across the demo sessions of
-September 24 to October 9, 2026 (promotion package, website storyboard v3 to v11, session presets,
-compare models, Auto/Ensemble effort picker, needs-attention strings, chat-to-sessions, continuity
-issue, Component Explorer captures) plus the two rule files those sessions produced
-(`demo-recording-instructions.txt` and `VS Code storyboard - rules I'm following.txt`).
+September 24 to October 9, 2026 (feature walkthroughs, executive demos, prototype rounds with
+variants, a website storyboard from v3 to v11, before/after PR media, state tours, and component
+screenshots) plus the two rule files those sessions produced (the recording instructions for an
+executive demo and the storyboard rules list).
 
 The [`autonomous-demos`](autonomous-demos/SKILL.md) skill enforces these rules and turns them into a
 brief, a recording pipeline, and a QA checklist. An explicit instruction in the current request

@@ -55,10 +55,10 @@ Most requests need only part of this. See "Pick the output" below before startin
 
 ### Quote rules
 
-- Verbatim only, attributed to the participant and paragraph (`D-0007, P0176`), never invented,
+- Verbatim only, attributed to the participant and paragraph (`D-0002, P0041`), never invented,
   never from synthetic interviews. Trim only for repetition and say so ("lightly trimmed for
   repetition").
-- Lead with the claim and the count ("5 of 8 participants asked to see the models in the pool"),
+- Lead with the claim and the count ("5 of 8 participants asked to see which options it chose from"),
   then the best headline quote, then supporting quotes grouped by sub-theme, then counter-evidence.
 - Keep the variant visible (default versus experimental) when the study is a comparison.
 
@@ -364,7 +364,7 @@ default download UI cannot be driven blind.
 - Copy the folders into `PROJECT_DIR/downloads/` first; never edit the originals.
 - Extract DOCX text losslessly from the `w:t` runs of `word/document.xml` into one JSON and one TXT
   per interview, numbering paragraphs (`P0001`, `P0002`, ...) with the speaker role, so every quote
-  cites `<interview id>, P###` (for example `D-0007, P0176`).
+  cites `<interview id>, P###` (for example `D-0002, P0041`).
 - Interview ids encode the study variant (for example `C-` default and `D-` experimental in a
   monadic pair); keep that mapping in `run.json`.
 - In-progress studies grow: when the user adds new completed interviews, add them and say what

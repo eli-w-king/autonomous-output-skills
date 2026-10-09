@@ -1,31 +1,45 @@
 # Autonomous output skills
 
-Agent skills for the work I hand to Copilot and walk away from: recording demos, building and
-shipping UI prototypes, running user studies, synthesizing research, and working unattended for
-hours on a shared Mac. Each skill encodes the rules I kept repeating to sessions, so the next run
-gets them right the first time and the output needs no fixing.
+Agent skills for the work I hand to Copilot and walk away from: recording demos of the real
+product, building and shipping UI prototypes, and working unattended for hours on a shared Mac.
+Each skill encodes the rules I kept repeating to sessions, so the next run gets them right the first
+time and the output needs no fixing.
 
 ## Skills
+
+**Autonomous work**
 
 | Skill | What it does | Triggers |
 |-------|--------------|----------|
 | [`autonomous-demos`](autonomous-demos/SKILL.md) | Videos, screenshot sets, before/after pairs, storyboards, and PR media from the real product, with the standing demo rules, an off-screen recording toolkit, QA, and Desktop delivery | "record a demo", "take screenshots", "before and after", "storyboard" |
 | [`autonomous-prototypes`](autonomous-prototypes/SKILL.md) | Build and iterate UI in Code OSS, the website, and codicons; open one OSS window for live review; draft PRs with media, reviewers, green checks, and resolved Copilot comments | "branch off main and build", "open OSS", "draft PR", "fix the checks" |
 | [`autonomous-long-runs`](autonomous-long-runs/SKILL.md) | Overnight and unattended operating rules: a live status list, never blocking on me, no corner-cutting, handoffs, parallel agents, shared-Mac etiquette | "work overnight", "I'm going to bed", "you have 8 hours" |
-| [`autonomous-user-studies`](autonomous-user-studies/SKILL.md) | UserTesting and Outset studies, User Interviews recruiting, fraud-resistant screeners, verified stimulus, launch only on my okay | "run a user test", "set up an Outset study" |
-| [`autonomous-research-synthesis`](autonomous-research-synthesis/SKILL.md) | Light readouts, quote pulls, slideshows, decision digests of issue epics, and the full findings, spike, demo, and issue loop | "analyze these studies", "pull quotes", "what was decided" |
-| [`autonomous-skill-glossary`](autonomous-skill-glossary/SKILL.md) | Shared hard-won gotchas plus topic references for Code OSS, recording, and study platforms | read by the skills above |
-| [`research-platforms`](research-platforms/SKILL.md) | Outset, Marvin, and User Interviews plumbing: auth, client, results watcher, API gotchas | read by the study skills |
+
+**Shared**
+
+| Skill | What it does | Triggers |
+|-------|--------------|----------|
+| [`autonomous-skill-glossary`](autonomous-skill-glossary/SKILL.md) | Hard-won gotchas plus topic references for building and recording Code OSS and for study platforms | read by the other skills |
 | [`automation-windows-os`](automation-windows-os/SKILL.md) | Optional Windows execution and validation, natively or through a UTM VM | "check it on Windows" |
+
+**Research, when a decision needs evidence from users**
+
+| Skill | What it does | Triggers |
+|-------|--------------|----------|
+| [`autonomous-user-studies`](autonomous-user-studies/SKILL.md) | UserTesting and Outset studies, User Interviews recruiting, fraud-resistant screeners, launch only on my okay | "run a user test", "set up an Outset study" |
+| [`autonomous-research-synthesis`](autonomous-research-synthesis/SKILL.md) | Readouts, quote pulls, slideshows, decision digests of issue threads, and findings into an issue | "analyze these studies", "what was decided" |
+| [`research-platforms`](research-platforms/SKILL.md) | Outset, Marvin, and User Interviews plumbing: auth, client, results watcher, API gotchas | read by the study skills |
 
 ```mermaid
 flowchart LR
-  P[autonomous-prototypes] --> D[autonomous-demos]
-  D --> S[autonomous-user-studies]
-  S --> R[autonomous-research-synthesis]
-  R --> P
-  L[autonomous-long-runs] -.-> P & D & S & R
-  G[autonomous-skill-glossary] -.-> P & D & S & R
+  Ask([Request]) --> P[autonomous-prototypes]
+  P --> D[autonomous-demos]
+  D --> Out([Desktop delivery, PR, or issue])
+  L[autonomous-long-runs] -.-> P
+  L -.-> D
+  D -. when user evidence is needed .-> S[autonomous-user-studies]
+  S -.-> R[autonomous-research-synthesis]
+  R -.-> P
 ```
 
 ## Demo rules
@@ -58,7 +72,7 @@ old folders so the old names cannot trigger.
 
 ## Access
 
-This is a private repository. Ask the owner for collaborator access, then authenticate GitHub CLI:
+The repository is public. The install commands below use GitHub CLI, so sign in once:
 
 ```bash
 gh auth login
@@ -109,4 +123,5 @@ docs/                            "Designing the Loop" talk site (GitHub Pages, J
 INSTALL.md
 ```
 
-The `docs/` site is the July 2026 talk about the original UX research loop and is kept as is.
+The `docs/` site is the July 2026 "Designing the Loop" talk about the original research loop,
+kept as is for reference.

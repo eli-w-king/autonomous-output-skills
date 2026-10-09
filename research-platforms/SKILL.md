@@ -5,7 +5,7 @@ description: "Low-level access to the research platforms used by the autonomous 
 
 # Research platforms: Outset.ai + Hey Marvin
 
-Verified end to end on 2026-07-24 against the live **Microsoft Core AI** org.
+Verified end to end on 2026-07-24 against a live Outset organization.
 
 This skill is the **plumbing layer**. It does not decide what to research; it makes the
 two platforms callable and encodes the facts that cost hours to rediscover. The two
@@ -253,8 +253,8 @@ an audience size. Use `estimate_recruitment_cost` for the decision instead, whic
 Related: `provider_capabilities.charges_for_screenouts` is **false** for USERINTERVIEWS. The
 standard "tight filters cost less overall because screen-outs are billed" reasoning is wrong for
 this provider, and `screen_out_limit_usd` is silently ignored. B2B filters (Occupation, Skill,
-Industry, Seniority, Company size) raise the per-participant reward materially: one measured case
-went from $38.00 to $47.50 per participant, 37% on the all-in total.
+Industry, Seniority, Company size) raise the per-participant reward materially: in one measured
+case, adding a single B2B filter raised the all-in total by about a third.
 
 ### 15. Question labels renumber on insert (found 2026-08-12)
 
@@ -266,8 +266,8 @@ the label, and do not panic when the echoed label disagrees with your numbering.
 ### 16. User Interviews native recruiting is priced differently from Outset's integration (found 2026-08-13)
 
 Outset's `configure_recruitment` with `third_party_provider: USERINTERVIEWS` prices panel filters
-into the participant reward: adding the B2B Occupation filter moved one study from 38.00 to 47.50
-per participant, 37% on the all-in total. **That pricing does not transfer to recruiting natively
+into the participant reward: adding the B2B Occupation filter raised one study's all-in total by
+about a third. **That pricing does not transfer to recruiting natively
 in the User Interviews web app**, where the project shows `Recruit rate 0.00` and adding
 recruitment criteria costs nothing extra.
 
@@ -338,9 +338,9 @@ containing only the welcome message. These accumulate in every study. Measured o
 
 | Study | Method | Completed | Never past msg 1 |
 |---|---|---|---|
-| Adding and Finding Knowledge for an Agent | SCREENSHARE | 12/23 (52%) | 9 |
-| VS Code model picker | VOICE | 3/7 (43%) | 4 |
-| Foundry Cost Survey 1 wave 1 | SCREENSHARE | 7/50 (14%) | 42 |
+| Study A | SCREENSHARE | 12/23 (52%) | 9 |
+| Study B | VOICE | 3/7 (43%) | 4 |
+| Study C | SCREENSHARE | 7/50 (14%) | 42 |
 
 So `msgs == 1 && completed_at == null` means "clicked and bailed at setup", which is background
 noise in a healthy study. **Do not diagnose a funnel bug from it alone.** Judge the **completion

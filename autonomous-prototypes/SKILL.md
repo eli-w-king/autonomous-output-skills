@@ -57,7 +57,7 @@ export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use "$(cat .nvmrc)"
 npm install && npm run compile
 ```
 
-- Branch names: `eli/<area>/<slug>` (for example `eli/agents/ensemble-model-picker`) unless the user
+- Branch names: `eli/<area>/<slug>` (for example `eli/agents/session-list-polish`) unless the user
   names one. Remotes in the main checkout: `microsoft` is microsoft/vscode, `origin` is the user's
   fork. Push to `microsoft` for PRs to microsoft/vscode unless told otherwise.
 - To continue someone's PR: `gh pr view <n> --repo microsoft/vscode --json headRefName,body` (the body's
