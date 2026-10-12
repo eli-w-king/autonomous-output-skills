@@ -1,13 +1,14 @@
 ---
 name: autonomous-prototypes
-description: "Autonomous: Prototypes and PRs. Build, iterate, and ship UI changes autonomously in real code: VS Code (Code OSS from microsoft/vscode, Agents and editor windows, Component Explorer fixtures), the VS Code website, and codicons. Covers starting a worktree from the latest upstream main, confirming the real component, putting new concepts behind experimental settings with v1/v2 or Design A/B variants, keeping changes surgical, polish passes, opening ONE Code OSS window so the user can try or live-demo it, then shipping: branch, draft PR with before/after and demo media, reviewers and assignee, failing checks, Copilot review comments, merge conflicts, and marking ready. Use for 'make a branch off main and build X', 'revise the UI', 'open OSS so I can try it', 'put it behind a setting', 'explore a few options', 'push to my branch', 'open a draft PR', or 'fix the checks and Copilot comments'. Pairs with autonomous-demos for recordings and autonomous-long-runs for overnight work."
+description: "Autonomous: Prototypes and PRs. Build, iterate, and ship UI changes autonomously in real code: VS Code (Code OSS from microsoft/vscode, Agents and editor windows, Component Explorer fixtures), the VS Code website, and codicons. Covers a worktree from the latest upstream main, confirming the real component, putting new concepts behind experimental settings with v1/v2 or Design A/B variants, keeping changes surgical, polish passes, opening ONE Code OSS window so the user can try or live-demo it, then shipping: branch, draft PR with before/after and demo media, reviewers and assignee, failing checks, Copilot review comments, merge conflicts, and marking ready. Use for 'make a branch off main and build X', 'revise the UI', 'open OSS so I can try it', 'put it behind a setting', 'push to my branch', 'open a draft PR', or 'fix the checks and Copilot comments'. Pairs with autonomous-variations (options to pick from), autonomous-demos (recordings), and autonomous-long-runs (overnight work)."
 ---
 
 # Autonomous: Prototypes and PRs
 
 Turn a design ask into working UI in the real product, let the user try it, iterate, and ship it as
 a clean PR, without the user having to babysit. Demos of the result follow
-[`autonomous-demos`](../autonomous-demos/SKILL.md); unattended multi-hour work also follows
+[`autonomous-demos`](../autonomous-demos/SKILL.md); sets of variations to pick from follow
+[`autonomous-variations`](../autonomous-variations/SKILL.md); unattended multi-hour work also follows
 [`autonomous-long-runs`](../autonomous-long-runs/SKILL.md). Code OSS build, run, and component
 gotchas are in the glossary reference [`code-oss.md`](../autonomous-skill-glossary/references/code-oss.md).
 
@@ -75,6 +76,8 @@ npm install && npm run compile
   build them as Component Explorer fixtures next to the component and hand the user the group URL
   (`http://localhost:<port>/___explorer?fixture=<group>`), served from your worktree with
   `npm run serve-out-rspack` (never the shared server task, which kills other agents' servers).
+  The count, the baseline, the checks, rounds, and porting the pick follow
+  [`autonomous-variations`](../autonomous-variations/SKILL.md).
 - Settings: `chat.<area>.<feature>` style ids, default off, `tags: ['experimental']`. Variants as an
   enum. Document the ids in the round's notes and the PR.
 - Prototype-only behavior (scripted responses, a SKU or plan switcher, simulated states) lives behind
@@ -148,6 +151,9 @@ gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$
   on the branch the user names. Respect constraints like "keep the header unchanged" and "don't push".
 - Variants: follow the site's mechanism (for example a query parameter such as
   `?variant=homepageVersion:v2`) and give the user the exact local URL; open it in Safari when asked.
+- Several takes on one section or interaction to pick from ("six ways the blog section could sit"):
+  one variation lab per decision, in its own worktree, per
+  [`autonomous-variations`](../autonomous-variations/SKILL.md).
 - The site should feel like VS Code: VS Code fonts, colors, corner radii, shadows, blur, and real
   VS Code UI (embedded or captured), never imitations.
 - Wireframe requests ("draw it out as simple boxes") get a separate branch from the current work.

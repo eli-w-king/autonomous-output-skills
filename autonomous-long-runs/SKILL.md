@@ -1,6 +1,6 @@
 ---
 name: autonomous-long-runs
-description: "Autonomous: Long Runs. Operating rules for unattended, multi-hour, or overnight agent work on the user's Mac: when told 'work overnight', 'you have 8 to 12 hours', 'I'm going to bed', 'I won't be at my laptop', 'don't ask me anything', or 'keep going'. Covers a Desktop status list with checkboxes that is kept current, never blocking on the user (no questions, OS prompts, or sign-ins; decide, log, skip, continue), never cutting corners or stopping early, quick progress replies, shared-Mac etiquette (no focus stealing, one window, other agents' windows and ports off-limits), self-contained briefs for parallel background agents, data and quote integrity, handoff files for model or session switches, and the final report. Use with autonomous-demos, autonomous-prototypes, autonomous-user-studies, or autonomous-research-synthesis whenever the work runs long or unattended."
+description: "Autonomous: Long Runs. Operating rules for unattended, multi-hour, or overnight agent work on the user's Mac: when told 'work overnight', 'you have 8 to 12 hours', 'I'm going to bed', 'I won't be at my laptop', 'don't ask me anything', or 'keep going'. Covers a live Desktop status list with checkboxes, never blocking on the user (no questions, OS prompts, or sign-ins; decide, log, skip, continue), never cutting corners or stopping early, quick progress replies, shared-Mac etiquette (no focus stealing, one window, other agents' windows and ports off-limits), self-contained briefs saved to files for parallel agents, overnight lab runs (detached servers, early commits, verified messages, ending turns so queued messages arrive), data and quote integrity, handoff files for model or session switches, and the final report. Use with the other autonomous skills (demos, prototypes, variations, user studies, research synthesis) whenever the work runs long or unattended."
 ---
 
 # Autonomous: Long Runs
@@ -8,6 +8,7 @@ description: "Autonomous: Long Runs. Operating rules for unattended, multi-hour,
 How to work for hours without the user and hand back exactly what they expected. The domain work
 itself follows [`autonomous-demos`](../autonomous-demos/SKILL.md),
 [`autonomous-prototypes`](../autonomous-prototypes/SKILL.md),
+[`autonomous-variations`](../autonomous-variations/SKILL.md),
 [`autonomous-user-studies`](../autonomous-user-studies/SKILL.md), or
 [`autonomous-research-synthesis`](../autonomous-research-synthesis/SKILL.md). Machine-sharing
 mechanics (invisible windows, input guards, ownership receipts) are in the
@@ -38,8 +39,9 @@ mechanics (invisible windows, input guards, ownership receipts) are in the
 6. **Brief background agents completely.** For big runs, split independent work across background
    agents. Each brief is self-contained: the goal, the hard rules (paste the relevant demo or data
    rules), exact inputs and output paths, what not to touch (for example "do not edit the website",
-   "CDP port 9411 belongs to another agent; never connect to it"), and when to stop. Follow up with
-   additions instead of starting over ("same rules as the brief").
+   "CDP port 9411 belongs to another agent; never connect to it"), and when to stop. Save each brief
+   to a file in the run folder before starting its agent. Follow up with additions instead of
+   starting over ("same rules as the brief").
 7. **Keep claims honest.** Telemetry comes from the VS Code data agent or Kusto on the Azure VPN
    (ask the user to connect only when they are present), aggregate only, exact event names,
    denominators, or an explicit "unavailable". Quotes are verbatim and attributable, never invented.
@@ -101,6 +103,30 @@ Desktop, tell the user the path to paste into the right session, and continue th
 - Give long agent waits generous timeouts and wait on real UI signals, not fixed sleeps.
 - Background `nohup` logs are block-buffered; check live state over CDP rather than trusting `tail`.
 - After a reboot or model switch, reread the handoff, the ledger, and the status file before acting.
+
+## Overnight lab runs
+
+When many chats or background agents work at once (for example a variation lab per decision, per
+[`autonomous-variations`](../autonomous-variations/SKILL.md)):
+
+- **Detach what must outlive a turn.** Start lab servers and the wake lock (`caffeinate -is`) as
+  detached processes and record their pids and ports in the ledger. Attached processes and background
+  agents die when the session restarts.
+- **Briefs on disk, commits early.** Every agent starts from a brief saved in the run folder and
+  commits early and often. After a restart, relaunch from the brief; the new agent commits what it
+  finds first, then continues from a resume note.
+- **New chats get the user's model.** Use the model and reasoning level the user prefers (for
+  example the strongest model, with long context and maximum reasoning) unless told otherwise, and
+  check a new chat's model after creating it, because defaults can silently differ. If the user says
+  not to start new sessions, run the work as background agents of the current chat.
+- **Message the owner, and check delivery.** One owner per asset: send requests to the owner and relay
+  through it, never a duplicate request to someone else. Make every message self-contained (hashes,
+  paths, placement, what changed). Queue to idle chats; steering only reaches a chat that is mid-turn.
+  Verify that each message arrived.
+- **End turns now and then.** Messages queued by other chats arrive only when your turn ends. On long
+  runs, end a turn after each checkpoint instead of working for hours in one turn.
+- **Push shared changes outward.** When shared content changes (an example the user rejected), tell
+  every chat or lab that shows it to merge and retake its stills, and track the replies.
 
 ## Maintaining this skill
 

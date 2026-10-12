@@ -1,7 +1,8 @@
 # Autonomous output skills
 
 Agent skills for the work I hand to Copilot and walk away from: recording demos of the real
-product, building and shipping UI prototypes, and working unattended for hours on a shared Mac.
+product, building and shipping UI prototypes, running variation labs to pick from, and working
+unattended for hours on a shared Mac.
 Each skill encodes the rules I kept repeating to sessions, so the next run gets them right the first
 time and the output needs no fixing.
 
@@ -13,6 +14,7 @@ time and the output needs no fixing.
 |-------|--------------|----------|
 | [`autonomous-demos`](autonomous-demos/SKILL.md) | Videos, screenshot sets, before/after pairs, storyboards, and PR media from the real product, with the standing demo rules, an off-screen recording toolkit, QA, and Desktop delivery | "record a demo", "take screenshots", "before and after", "storyboard" |
 | [`autonomous-prototypes`](autonomous-prototypes/SKILL.md) | Build and iterate UI in Code OSS, the website, and codicons; open one OSS window for live review; draft PRs with media, reviewers, green checks, and resolved Copilot comments | "branch off main and build", "open OSS", "draft PR", "fix the checks" |
+| [`autonomous-variations`](autonomous-variations/SKILL.md) | Variation labs: exactly N genuinely different takes on one decision in real context, finished at every size and with reduced motion, rounds on named winners, the pick ported verbatim, and one page to review every lab | "make N variations", "explore options", "pick one and port it" |
 | [`autonomous-long-runs`](autonomous-long-runs/SKILL.md) | Overnight and unattended operating rules: a live status list, never blocking on me, no corner-cutting, handoffs, parallel agents, shared-Mac etiquette | "work overnight", "I'm going to bed", "you have 8 hours" |
 
 **Shared**
@@ -33,9 +35,12 @@ time and the output needs no fixing.
 ```mermaid
 flowchart LR
   Ask([Request]) --> P[autonomous-prototypes]
+  Ask --> V[autonomous-variations]
+  V -- the pick --> P
   P --> D[autonomous-demos]
   D --> Out([Desktop delivery, PR, or issue])
   L[autonomous-long-runs] -.-> P
+  L -.-> V
   L -.-> D
   D -. when user evidence is needed .-> S[autonomous-user-studies]
   S -.-> R[autonomous-research-synthesis]
@@ -56,6 +61,22 @@ feedback across the September 24 to October 9, 2026 demo sessions. The short ver
 7. One continuous take, idle waits fast-forwarded in place, key moments held long enough to read.
 8. Watched end to end before delivery; delivered to a Desktop folder with a short `Read me.txt`.
 9. Never steal focus, never touch other agents' windows, never need me mid-run, never cut corners.
+
+## Variation labs
+
+[`autonomous-variations`](autonomous-variations/SKILL.md) holds the rules for "make N variations",
+compiled from the parallel design labs of October 9 to 12, 2026. The short version:
+
+1. One lab per decision, shown in real context, with only the decision changing.
+2. Exactly the count asked for, genuinely different ideas, plus today's version as `?v=0`.
+3. The same conventions in every lab: `?v=`, `[` and `]`, a switcher pill, `?motion=off`, `?embed=1`,
+   a manifest and stills.
+4. Finished at desktop, tablet, phone and with reduced motion; checked headlessly; contact sheets
+   looked at before anything is reported.
+5. Real content only, and my visual and copy rules pasted into every lab brief.
+6. Rounds build on the winners I name; earlier rounds stay reachable.
+7. The pick ports verbatim from its commit with a sync script; copies are never edited by hand.
+8. Many labs at once get one review page that ends in a prompt naming each pick.
 
 ## Renamed skills (October 2026)
 
@@ -85,8 +106,9 @@ gh auth status
 REPO="$HOME/.copilot/autonomous-output-skills"
 if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
 
-SKILLS="autonomous-demos autonomous-prototypes autonomous-long-runs autonomous-user-studies \
-  autonomous-research-synthesis autonomous-skill-glossary research-platforms automation-windows-os"
+SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+  autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
+  automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues"
 
@@ -113,6 +135,7 @@ keys. See [INSTALL.md](INSTALL.md) for prerequisites, verification, and chat mod
 DEMO-RULES.md                    the demo rules, with sources
 autonomous-demos/                SKILL.md, references/ (brief template, storyboards), scripts/
 autonomous-prototypes/           SKILL.md
+autonomous-variations/           SKILL.md, references/ (lab brief template, review page), scripts/
 autonomous-long-runs/            SKILL.md
 autonomous-user-studies/         SKILL.md, chatmodes/
 autonomous-research-synthesis/   SKILL.md, chatmodes/, scripts/create-issue.sh

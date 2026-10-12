@@ -1,11 +1,12 @@
 # Install the autonomous output skills
 
-This repository holds eight user-global skills:
+This repository holds nine user-global skills:
 
 | Skill | Role |
 |-------|------|
 | `autonomous-demos` | demos, screenshots, before/after, storyboards, PR media, recording toolkit |
 | `autonomous-prototypes` | build, iterate, and ship UI changes and PRs |
+| `autonomous-variations` | variation labs: N options per decision, rounds, porting the pick, one review page |
 | `autonomous-long-runs` | operating rules for overnight and unattended work |
 | `autonomous-skill-glossary` | shared gotchas and topic references |
 | `automation-windows-os` | optional Windows and UTM execution |
@@ -42,6 +43,11 @@ For Code OSS work (demos, prototypes, app studies):
 - The mock LLM (`start-mock-llm.cjs`) needs the checkout's Node 24 and its
   `scripts/chat-simulation/common/mock-llm-server.ts`.
 
+For variation labs:
+- An existing Playwright install to reuse for headless checks (any project's `node_modules`, run with
+  the system Chrome channel); no browser downloads mid-run.
+- `sync-pick.sh` needs only bash and git; `check-manifest.mjs` needs Node 22 or newer.
+
 For studies:
 - Outset and Marvin: create `~/.copilot/research.env` once with
   `cp ~/.copilot/skills/research-platforms/research.env.template ~/.copilot/research.env && chmod 600 ~/.copilot/research.env`,
@@ -60,8 +66,9 @@ Optional:
 REPO="$HOME/.copilot/autonomous-output-skills"
 if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
 
-SKILLS="autonomous-demos autonomous-prototypes autonomous-long-runs autonomous-user-studies \
-  autonomous-research-synthesis autonomous-skill-glossary research-platforms automation-windows-os"
+SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+  autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
+  automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues"
 
@@ -79,30 +86,32 @@ fi
 ```
 
 The previous copies are kept in `~/.copilot/skills-backup/<timestamp>/`. If your runtime uses a
-different skill directory, copy the same eight folders there. The folders are self-contained; the
+different skill directory, copy the same nine folders there. The folders are self-contained; the
 `../<skill>/` links between them assume they sit side by side.
 
 ## 4. Verify
 
 ```bash
-SKILLS="autonomous-demos autonomous-prototypes autonomous-long-runs autonomous-user-studies \
-  autonomous-research-synthesis autonomous-skill-glossary research-platforms automation-windows-os"
+SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+  autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
+  automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
   autonomous-research-synthesis-telemetry-iterative-design-issues"
 for s in $SKILLS; do test -f "$HOME/.copilot/skills/$s/SKILL.md" && echo "ok $s"; done
 for s in $OLD; do test -e "$HOME/.copilot/skills/$s" && echo "still installed: $s"; done
 
 D="$HOME/.copilot/skills/autonomous-demos/scripts"
-for f in "$D"/*.mjs "$D"/*.cjs "$D"/*.js "$HOME"/.copilot/skills/research-platforms/scripts/*.mjs; do
+V="$HOME/.copilot/skills/autonomous-variations/scripts"
+for f in "$D"/*.mjs "$D"/*.cjs "$D"/*.js "$V"/*.mjs "$HOME"/.copilot/skills/research-platforms/scripts/*.mjs; do
   node --check "$f" || echo "FAIL $f"
 done
 for f in "$D"/*.py; do python3 -m py_compile "$f" || echo "FAIL $f"; done
-for f in "$D"/*.sh "$HOME"/.copilot/skills/autonomous-research-synthesis/scripts/*.sh; do bash -n "$f" || echo "FAIL $f"; done
+for f in "$D"/*.sh "$V"/*.sh "$HOME"/.copilot/skills/autonomous-research-synthesis/scripts/*.sh; do bash -n "$f" || echo "FAIL $f"; done
 command -v ffmpeg ffprobe
 node "$D/launch-demo-oss.mjs" --repo "$VSCODE_REPO" --dry-run > /dev/null && echo "ok launcher dry run"
 ```
 
-Then start a new agent session and confirm the eight skills appear in the available-skills list, and
+Then start a new agent session and confirm the nine skills appear in the available-skills list, and
 that the two old names do not.
 
 ## 5. Optional chat modes
