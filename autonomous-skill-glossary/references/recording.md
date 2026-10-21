@@ -329,3 +329,14 @@ Hard-won from a two-minute, two-session continuous take (plan in one column, a p
 - **Continuity hazards across cuts:** reloading the Agents window re-renders restored turns differently ("10 steps
   in 3m 2s" became "9 steps in 3m 14s"). Crossfades ghost small text changes like that, so use hard cuts there
   and keep crossfades for list rows appearing.
+- **Website takes in Playwright: use its headless shell, not Chrome.** Chrome's new headless (`channel: 'chrome'`)
+  screencasts its hidden window, not the emulated viewport: a 1440x900 viewport came back 1440x813 and a 390x844
+  phone 500x757 (a 500px minimum width). Launch Playwright's own headless shell (no `channel`) with
+  `--force-device-scale-factor=<dpr>` for 2x or 3x frames, and on a Mac `--use-angle=metal --enable-gpu
+  --ignore-gpu-blocklist --enable-gpu-rasterization` (software raster at 2x gave about 22 fps; Metal gave 45 to 65).
+- **Phone takes scroll with real finger drags:** `Input.dispatchTouchEvent` touchStart, eased touchMove steps, a
+  short rest, touchEnd. The page moves exactly as far as the finger and nothing flings, and the touch dot drawn from
+  the same log matches the page. `Input.synthesizeScrollGesture` didn't land where asked, so a measure-and-correct
+  loop swiped back and forth on camera.
+- **Auto-advancing carousels:** wait on the widget's own state (its Pause turning to Replay, the current dot), never
+  a fixed sleep; a tap on Next just as it moves on by itself skips a slide.
