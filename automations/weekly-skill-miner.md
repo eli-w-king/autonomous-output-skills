@@ -93,7 +93,7 @@ The runner lists them under "This run" at the end of the prompt:
    `tools/sync-skills.py`.
 7. **Write only** inside the repo, the installed skills (through the sync tool), and the private
    state. Never delete my files. Never edit `automations/` or `tools/`; if something there is wrong,
-   say so in the report.
+   say so in the report. Committing changes a session already left there is not editing (step 1).
 8. **Git.** Commit locally as often as you like and never rewrite commits that are on `origin/main`.
    Push, fetch, pull, reset, rebase, stash, and clean are blocked; you do not need them.
 9. **Sub-agents.** Start every sub-agent prompt with `[weekly-skill-miner]`. Anything that reads the
@@ -107,8 +107,10 @@ The runner lists them under "This run" at the end of the prompt:
 
 **1. Bring in work that is already on this Mac.**
 
-- Uncommitted changes in the repo come from sessions. Review them with the privacy gate, fix
-  anything private, and commit them ("Skill edits from sessions").
+- Uncommitted changes in the repo come from sessions, including any in `automations/` and `tools/`.
+  Review them with the privacy gate and commit them ("Skill edits from sessions"). Fix anything
+  private, except in `automations/` and `tools/`: commit those exactly as they are, or, if one has
+  private details, leave it uncommitted and say so in the report.
 - Run `python3 tools/sync-skills.py status`, then `python3 tools/sync-skills.py harvest`, and review
   what harvest brought in with the privacy gate. Exit code 3 means conflicts: for each one, merge the
   saved `.repo`, `.base`, and `.installed` versions into the repo file by hand (keep both sides'
