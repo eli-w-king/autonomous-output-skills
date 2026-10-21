@@ -1,8 +1,8 @@
 # Autonomous output skills
 
-Agent skills for the work I hand to Copilot and walk away from: recording demos of the real
-product, building and shipping UI prototypes, running variation labs to pick from, and working
-unattended for hours on a shared Mac.
+Agent skills for the work I hand to Copilot and walk away from: background desktop automation,
+recording demos of the real product, building and shipping UI prototypes, running variation labs to
+pick from, and working unattended for hours on a shared Mac.
 Each skill encodes the rules I kept repeating to sessions, so the next run gets them right the first
 time and the output needs no fixing.
 
@@ -12,6 +12,7 @@ time and the output needs no fixing.
 
 | Skill | What it does | Triggers |
 |-------|--------------|----------|
+| [`autonomous-computer-use`](autonomous-computer-use/SKILL.md) | Background-only macOS app automation with a private virtual input lane, one-time permission setup, safe targeting, and exactly-once send verification | "open Notes", "send in Slack", "use Computer Use", any native desktop-app action |
 | [`autonomous-demos`](autonomous-demos/SKILL.md) | Videos, screenshot sets, before/after pairs, storyboards, and PR media from the real product, with the standing demo rules, an off-screen recording toolkit, QA, and Desktop delivery | "record a demo", "take screenshots", "before and after", "storyboard" |
 | [`autonomous-prototypes`](autonomous-prototypes/SKILL.md) | Build and iterate UI in Code OSS, the website, and codicons; open one OSS window for live review; draft PRs with media, reviewers, green checks, and resolved Copilot comments | "branch off main and build", "open OSS", "draft PR", "fix the checks" |
 | [`autonomous-variations`](autonomous-variations/SKILL.md) | Variation labs: exactly N genuinely different takes on one decision in real context, finished at every size and with reduced motion, rounds on named winners, the pick ported verbatim, and one page to review every lab | "make N variations", "explore options", "pick one and port it" |
@@ -21,7 +22,7 @@ time and the output needs no fixing.
 
 | Skill | What it does | Triggers |
 |-------|--------------|----------|
-| [`autonomous-skill-glossary`](autonomous-skill-glossary/SKILL.md) | Hard-won gotchas plus topic references for building and recording Code OSS and for study platforms | read by the other skills |
+| [`autonomous-skill-glossary`](autonomous-skill-glossary/SKILL.md) | Hard-won gotchas plus topic references for Computer Use, Code OSS, recording, and study platforms | read by the other skills |
 | [`automation-windows-os`](automation-windows-os/SKILL.md) | Optional Windows execution and validation, natively or through a UTM VM | "check it on Windows" |
 
 **Research, when a decision needs evidence from users**
@@ -36,12 +37,14 @@ time and the output needs no fixing.
 flowchart LR
   Ask([Request]) --> P[autonomous-prototypes]
   Ask --> V[autonomous-variations]
+  Ask --> C[autonomous-computer-use]
   V -- the pick --> P
   P --> D[autonomous-demos]
   D --> Out([Desktop delivery, PR, or issue])
   L[autonomous-long-runs] -.-> P
   L -.-> V
   L -.-> D
+  L -.-> C
   D -. when user evidence is needed .-> S[autonomous-user-studies]
   S -.-> R[autonomous-research-synthesis]
   R -.-> P
@@ -106,7 +109,7 @@ gh auth status
 REPO="$HOME/.copilot/autonomous-output-skills"
 if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
 
-SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+SKILLS="autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
   autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
   automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
@@ -134,12 +137,13 @@ keys. See [INSTALL.md](INSTALL.md) for prerequisites, verification, and chat mod
 ```text
 DEMO-RULES.md                    the demo rules, with sources
 autonomous-demos/                SKILL.md, references/ (brief template, storyboards), scripts/
+autonomous-computer-use/         SKILL.md
 autonomous-prototypes/           SKILL.md
 autonomous-variations/           SKILL.md, references/ (lab brief template, review page), scripts/
 autonomous-long-runs/            SKILL.md
 autonomous-user-studies/         SKILL.md, chatmodes/
 autonomous-research-synthesis/   SKILL.md, chatmodes/, scripts/create-issue.sh
-autonomous-skill-glossary/       SKILL.md, references/ (code-oss, recording, studies)
+autonomous-skill-glossary/       SKILL.md, references/ (code-oss, computer-use, recording, studies)
 research-platforms/              SKILL.md, scripts/, research.env.template
 automation-windows-os/           SKILL.md
 docs/                            "Designing the Loop" talk site (GitHub Pages, July 2026)

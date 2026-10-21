@@ -1,9 +1,10 @@
 # Install the autonomous output skills
 
-This repository holds nine user-global skills:
+This repository holds ten user-global skills:
 
 | Skill | Role |
 |-------|------|
+| `autonomous-computer-use` | background-only macOS app automation with a private virtual input lane |
 | `autonomous-demos` | demos, screenshots, before/after, storyboards, PR media, recording toolkit |
 | `autonomous-prototypes` | build, iterate, and ship UI changes and PRs |
 | `autonomous-variations` | variation labs: N options per decision, rounds, porting the pick, one review page |
@@ -34,6 +35,13 @@ Always:
 - GitHub CLI, git, curl, jq, rsync, sqlite3, Google Chrome.
 - `ffmpeg` and `ffprobe` on `PATH` (Homebrew: `/opt/homebrew/bin`).
 - Node 22 or newer for the toolkit scripts; Python 3 with Pillow for the encoders and QA sheets.
+
+For Computer Use:
+- In VS Code Insiders Settings JSON: `"chat.agentHost.computerUse.enabled": true`.
+- Activate with `/computer on` the first time if the host has not exposed the tools yet.
+- Grant `Copilot Computer Use.app` Screen & System Audio Recording and Accessibility, then fully
+  restart VS Code Insiders. No Input Monitoring or Full Disk Access is needed for ordinary app
+  automation.
 
 For Code OSS work (demos, prototypes, app studies):
 - A `microsoft/vscode` checkout built with the Node from its `.nvmrc` (`npm install`,
@@ -66,7 +74,7 @@ Optional:
 REPO="$HOME/.copilot/autonomous-output-skills"
 if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
 
-SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+SKILLS="autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
   autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
   automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
@@ -86,13 +94,13 @@ fi
 ```
 
 The previous copies are kept in `~/.copilot/skills-backup/<timestamp>/`. If your runtime uses a
-different skill directory, copy the same nine folders there. The folders are self-contained; the
+different skill directory, copy the same ten folders there. The folders are self-contained; the
 `../<skill>/` links between them assume they sit side by side.
 
 ## 4. Verify
 
 ```bash
-SKILLS="autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
+SKILLS="autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
   autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
   automation-windows-os"
 OLD="autonomous-design-build-record-demo-unmoderated-research \
@@ -111,7 +119,7 @@ command -v ffmpeg ffprobe
 node "$D/launch-demo-oss.mjs" --repo "$VSCODE_REPO" --dry-run > /dev/null && echo "ok launcher dry run"
 ```
 
-Then start a new agent session and confirm the nine skills appear in the available-skills list, and
+Then start a new agent session and confirm the ten skills appear in the available-skills list, and
 that the two old names do not.
 
 ## 5. Optional chat modes

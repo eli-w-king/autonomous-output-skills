@@ -1,6 +1,6 @@
 ---
 name: autonomous-long-runs
-description: "Autonomous: Long Runs. Operating rules for unattended, multi-hour, or overnight agent work on the user's Mac: when told 'work overnight', 'you have 8 to 12 hours', 'I'm going to bed', 'I won't be at my laptop', 'don't ask me anything', or 'keep going'. Covers a live Desktop status list with checkboxes, never blocking on the user (no questions, OS prompts, or sign-ins; decide, log, skip, continue), never cutting corners or stopping early, quick progress replies, shared-Mac etiquette (no focus stealing, one window, other agents' windows and ports off-limits), self-contained briefs saved to files for parallel agents, overnight lab runs (detached servers, early commits, verified messages, ending turns so queued messages arrive), data and quote integrity, handoff files for model or session switches, and the final report. Use with the other autonomous skills (demos, prototypes, variations, user studies, research synthesis) whenever the work runs long or unattended."
+description: "Autonomous: Long Runs. Operating rules for unattended, multi-hour, or overnight agent work on the user's Mac: when told 'work overnight', 'you have 8 to 12 hours', 'I'm going to bed', 'I won't be at my laptop', 'don't ask me anything', or 'keep going'. Covers a live Desktop status list, never blocking on the user, background-only Computer Use with a private virtual input lane, no focus stealing, no corner-cutting, progress replies, parallel-agent briefs, detached services, early commits, verified messages, data and quote integrity, resumable handoffs, and the final report. Use with the other autonomous skills whenever work runs long or unattended."
 ---
 
 # Autonomous: Long Runs
@@ -12,7 +12,8 @@ itself follows [`autonomous-demos`](../autonomous-demos/SKILL.md),
 [`autonomous-user-studies`](../autonomous-user-studies/SKILL.md), or
 [`autonomous-research-synthesis`](../autonomous-research-synthesis/SKILL.md). Machine-sharing
 mechanics (invisible windows, input guards, ownership receipts) are in the
-[`glossary`](../autonomous-skill-glossary/SKILL.md).
+[`glossary`](../autonomous-skill-glossary/SKILL.md). Native desktop-app work follows
+[`autonomous-computer-use`](../autonomous-computer-use/SKILL.md).
 
 ## The rules
 
@@ -30,12 +31,15 @@ mechanics (invisible windows, input guards, ownership receipts) are in the
 4. **Answer pings briefly, then keep working.** "How is it going", "are you done", "almost done?":
    two to four lines (done, now, next, honest ETA). "Stop everything" means stop now. "End this turn"
    means end the turn.
-5. **Share the Mac politely.** Never steal focus: invisible or off-screen windows driven over CDP,
-   one persistent window per task, no repeated opening and closing. Never touch the user's own VS
-   Code or Chrome windows, another session's Code OSS, Chrome, CDP ports, or computer-use session.
-   Record every process you start (pid, ports, purpose) and stop only those (for Code OSS,
-   `autonomous-demos/scripts/stop-demo-oss.mjs`). Open files for the user with `open -g` while they
-   are away and plain `open` when they ask to see something now; never computer use.
+5. **Share the Mac politely.** Never steal focus. Use APIs or CDP for owned browser/Electron
+   surfaces and the dedicated background Computer Use lane for native apps. All Computer Use
+   actions must be app-targeted; never move the real pointer, type through the foreground keyboard,
+   or activate a target window. Keep one persistent owned window per task and do not repeatedly open
+   and close it. Never touch the user's own VS Code or Chrome windows, another session's Code OSS,
+   Chrome, CDP ports, or Computer Use target. Record every process you start (pid, ports, purpose)
+   and stop only those (for Code OSS, `autonomous-demos/scripts/stop-demo-oss.mjs`). Open files for
+   the user with `open -g` while they are away and plain `open` when they ask to see something now;
+   do not use Computer Use for simple file opening.
 6. **Brief background agents completely.** For big runs, split independent work across background
    agents. Each brief is self-contained: the goal, the hard rules (paste the relevant demo or data
    rules), exact inputs and output paths, what not to touch (for example "do not edit the website",

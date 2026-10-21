@@ -1,6 +1,6 @@
 ---
 name: autonomous-skill-glossary
-description: "Autonomous: Skill Glossary. Shared, hard-won gotchas for all autonomous work on this Mac: sharing the machine with other agents (ownership receipts, off-screen windows, input guards), durable run ledgers, evidence chains, stimulus and media validation, publishing demo media to GitHub issues and PRs, public issue copy, pages assembled from separately built pieces (CSS leaks, syncing from commits, local servers without CORS), and optional Windows validation. Topic references: references/code-oss.md (building, launching, and changing Code OSS, components, Component Explorer), references/recording.md (clean recordings, screenshots, storyboard frames, Compare Models runs), and references/studies.md (Outset and browser drivers for study platforms). Read the relevant reference before driving Code OSS, recording, building a study, or publishing. Used by every autonomous skill. Update it whenever a run surfaces a reusable gotcha."
+description: "Autonomous: Skill Glossary. Shared, hard-won gotchas for all autonomous work on this Mac: sharing the machine with other agents (ownership receipts, off-screen windows, input guards), background Computer Use, durable run ledgers, evidence chains, stimulus and media validation, publishing demo media to GitHub issues and PRs, public issue copy, pages assembled from separately built pieces (CSS leaks, syncing from commits, local servers without CORS), and optional Windows validation. Topic references cover Code OSS, Computer Use, recording, and study platforms. Read the relevant reference before driving apps, recording, building a study, or publishing. Used by every autonomous skill. Update it whenever a run surfaces a reusable gotcha."
 ---
 
 # Autonomous: Skill Glossary
@@ -11,6 +11,7 @@ skills own the *procedure*:
 [`autonomous-prototypes`](../autonomous-prototypes/SKILL.md),
 [`autonomous-variations`](../autonomous-variations/SKILL.md),
 [`autonomous-long-runs`](../autonomous-long-runs/SKILL.md),
+[`autonomous-computer-use`](../autonomous-computer-use/SKILL.md),
 [`autonomous-user-studies`](../autonomous-user-studies/SKILL.md), and
 [`autonomous-research-synthesis`](../autonomous-research-synthesis/SKILL.md). Platform plumbing for
 Outset, Marvin, and User Interviews is in [`research-platforms`](../research-platforms/SKILL.md), and
@@ -21,6 +22,7 @@ This file holds the cross-cutting entries. Topic references hold the rest:
 | Reference | Read before |
 |-----------|-------------|
 | [`references/code-oss.md`](references/code-oss.md) | building, launching, or changing Code OSS; finding the real component; simulating states; Component Explorer; Agents window PR flow |
+| [`references/computer-use.md`](references/computer-use.md) | driving macOS apps in the background; permissions; native and Electron text editing; consequential actions; duplicate-send prevention |
 | [`references/recording.md`](references/recording.md) | any screenshot, recording, or storyboard capture of Code OSS; Compare Models runs |
 | [`references/studies.md`](references/studies.md) | authoring an Outset study or driving UserTesting, User Interviews, or Outset in a browser |
 
