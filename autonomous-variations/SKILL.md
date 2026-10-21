@@ -38,7 +38,8 @@ with many labs also follow [`autonomous-long-runs`](../autonomous-long-runs/SKIL
 5. **Real content only.** Never invent posts, people, quotes, data or product UI. Use the real thing
    or leave it out, and say so.
 6. **Verify headlessly before reporting.** Zero errors, nothing overlapping or cropped, no sideways
-   scroll on phones, smooth frames, and contact sheets you actually looked at and iterated on.
+   scroll on phones, smooth frames, and contact sheets you actually looked at and iterated on. This
+   is the full check; it never holds back the review link (rule 11).
 7. **Every brief carries the rules.** Paste the user's standing visual and copy rules (palette,
    accent, case, punctuation, real content only) and the hard rules (worktree, branch, port, never
    push, never touch other agents' work or processes, headless only) into each lab brief, and save
@@ -50,6 +51,10 @@ with many labs also follow [`autonomous-long-runs`](../autonomous-long-runs/SKIL
 10. **Ambiguity gets a decision, not a question.** When the framing is ambiguous (the order of the
     sections, how the families split), pick a reading, say so in the README, and fix it fast when
     the user corrects it.
+11. **The link comes first.** Seeing the UI matters more to the user than tests. Send the review
+    link as soon as the lab loads without errors, then run the full checks, fix, and send the
+    updated link. Every report lists every lab's link; when some labs are not ready, send the
+    ready ones now instead of waiting for all of them.
 
 ## 1. Scope the lab
 
@@ -268,19 +273,10 @@ when the integration moves it; edit the lab's template, never the generated page
 
 ## Taste notes worth carrying
 
-Feedback that held across one project's labs. Carry notes like these into every brief as examples of
-the user's taste, not as universal law; the user's latest word wins.
-
-- Scroll moves things in one axis only; nothing slides sideways while the page scrolls down.
-- Minimal and embedded beats overlays: details on the page or in the thing itself, no modals,
-  scrims, floating cards or camera zooms.
-- No on-screen text explaining an interaction; the design shows it.
-- Mimic the real product UI (its own hover, selection and glyphs) instead of generic web widgets.
-- Example content is grown-up and safe: nothing childish or cartoony, and no sensitive flows
-  (sign-in, purchases, personal data) in product demos.
-- Nothing competes with the hero.
-- Whole things only: tiles and windows are never cropped or resized to fit.
-- One accent, the page's own type scale, and no new sizes without a reason.
+The user's recurring visual, motion and layout taste lives in
+[`autonomous-prototypes/references/design-taste.md`](../autonomous-prototypes/references/design-taste.md).
+Paste the notes that apply into every lab brief as examples of the user's taste, not as universal
+law; the user's latest word wins.
 
 ## Scripts
 

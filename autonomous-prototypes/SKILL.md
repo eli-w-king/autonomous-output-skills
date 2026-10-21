@@ -20,15 +20,19 @@ gotchas are in the glossary reference [`code-oss.md`](../autonomous-skill-glossa
 2. **Start from the latest upstream.** New work branches from current `microsoft/main` in its own
    worktree. Continuing work rebases on upstream main when the user asks or the base is stale.
 3. **Surgical by default.** Change only what was asked. "Replace the icon and text" means the
-   animation, pulse, spacing, and behavior stay exactly as they were. Before calling it done, diff
-   the branch and confirm nothing else moved.
+   animation, pulse, spacing, and behavior stay exactly as they were. Keep the parts the user
+   liked when they reject the rest, remove something completely when they say it should be gone,
+   and never add UI the brief leaves out. "Start over" means rebuild from the original ask, not
+   patch the rejected version. Before calling it done, diff the branch and confirm nothing else
+   moved.
 4. **New concepts go behind an opt-in experimental setting.** Variants are an enum on that setting
    (`v1`, `v2`, or `designA`, `designB`) so the user can switch live; building v2 never changes v1.
 5. **The user's notes and transcripts are the source of truth** for names and terminology. When they
    misspeak, the transcript wins; when names are pending, use the names the latest notes specify.
 6. **Make it look native and premium.** Product tokens, codicons, theme variables, real spacing and
    radii. Every round ends with a polish pass: alignment, spacing, separators, text weight, density,
-   hover and focus states, both themes.
+   hover and focus states, both themes. The user's recurring taste (motion, alignment, footprint)
+   is in [`references/design-taste.md`](references/design-taste.md).
 7. **Let the user try it.** When a round is ready, open ONE Code OSS window with the right settings
    on, and leave it open. Stop your own stale instances first. Never open and close windows
    repeatedly, and never touch the user's own VS Code windows.

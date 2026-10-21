@@ -121,8 +121,9 @@ When many chats or background agents work at once (for example a variation lab p
   finds first, then continues from a resume note.
 - **New chats get the user's model.** Use the model and reasoning level the user prefers (for
   example the strongest model, with long context and maximum reasoning) unless told otherwise, and
-  check a new chat's model after creating it, because defaults can silently differ. If the user says
-  not to start new sessions, run the work as background agents of the current chat.
+  check a new chat's model after creating it, because defaults can silently differ. Work that ran on
+  the wrong model gets redone on the right one. If the user says not to start new sessions, run the
+  work as background agents of the current chat.
 - **Message the owner, and check delivery.** One owner per asset: send requests to the owner and relay
   through it, never a duplicate request to someone else. Make every message self-contained (hashes,
   paths, placement, what changed). Queue to idle chats; steering only reaches a chat that is mid-turn.

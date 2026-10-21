@@ -70,8 +70,9 @@ instruction in the current request wins; write the override into the brief.
 8. **Comprehensive when asked to cover a feature.** Show every state (for sessions: working, needs
    attention, queued, completed, cloud and remote, and so on) in every surface that has it, for
    example both the editor window and the Agents window.
-9. **One idea per beat.** A newcomer should always know where to look. Cut text and UI that do not
-   serve the beat; a marketing storyboard should read in under 30 seconds.
+9. **One idea per beat.** A newcomer should always know where to look. Make it unmistakable which
+   control the beat is about, and never show two concepts changing at once. Cut text and UI that do
+   not serve the beat; a marketing storyboard should read in under 30 seconds.
 
 **Composition**
 
