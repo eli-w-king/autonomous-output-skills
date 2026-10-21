@@ -22,6 +22,7 @@ time and the output needs no fixing.
 
 | Skill | What it does | Triggers |
 |-------|--------------|----------|
+| [`my-voice`](my-voice/SKILL.md) | Writes anything I send or post as me (Slack and Teams messages, updates, feedback requests, PR text, notes, UI copy), kept current from my own edits and approvals | "write it like how I would say it", "make it sound like me" |
 | [`autonomous-skill-glossary`](autonomous-skill-glossary/SKILL.md) | Hard-won gotchas plus topic references for Computer Use, Code OSS, recording, and study platforms | read by the other skills |
 | [`automation-windows-os`](automation-windows-os/SKILL.md) | Optional Windows execution and validation, natively or through a UTM VM | "check it on Windows" |
 
@@ -81,6 +82,37 @@ compiled from the parallel design labs of October 9 to 12, 2026. The short versi
 7. The pick ports verbatim from its commit with a sync script; copies are never edited by hand.
 8. Many labs at once get one review page that ends in a prompt naming each pick.
 
+## How the skills stay current
+
+Copilot CLI and VS Code (Insiders and the Agents window) both load skills from `~/.copilot/skills`,
+so whatever is installed there is live in both for every new session. Nothing needs to be pulled for
+Insiders.
+
+Sessions also improve skills while they work, sometimes in this repo and sometimes in the installed
+copies, and nothing publishes those edits on its own. Three tools keep that safe:
+
+- [`tools/sync-skills.py`](tools/sync-skills.py): `status` shows the differences, `harvest` brings
+  edits made to installed copies back into the repo (a 3-way merge; conflicts are saved, never
+  overwritten, and `resolve` marks one merged by hand), and `install` backs up and copies the repo's
+  skills into `~/.copilot/skills`, with rollback if anything fails. It refuses to install over edits
+  it has not harvested.
+- [`tools/collect-messages.py`](tools/collect-messages.py): gathers my own messages from
+  `~/.copilot/session-state` (the session store misses most Agents window sessions) and separates
+  them from agent briefs, automations, and autopilot continuations.
+- [`tools/validate-skills.py`](tools/validate-skills.py): the checks every change has to pass,
+  including a local list of private terms that must never be published. `--commits origin/main`
+  also checks every commit message and added line before a push.
+
+The weekly skill miner in [`automations/weekly-skill-miner.md`](automations/weekly-skill-miner.md)
+puts them together. It harvests, mines the week's sessions for repeated asks, corrections, praise,
+design feedback, and writing voice, and updates the skills (including `my-voice`). Then it validates,
+publishes the week as one reviewed commit, installs, and leaves a short report in
+`~/.copilot/skill-miner/reports/`. [`automations/run-weekly-skill-miner.sh`](automations/run-weekly-skill-miner.sh)
+runs it every Saturday in the background with launchd and Copilot CLI (`--install` once; `--status`,
+`--now`, and `--uninstall` after that). The prompt points to the procedure in that file, so the
+procedure can improve without touching the schedule. Private lessons and writing samples stay local
+in `~/.copilot/skill-miner/`.
+
 ## Renamed skills (October 2026)
 
 | Before | Now |
@@ -109,25 +141,18 @@ gh auth status
 REPO="$HOME/.copilot/autonomous-output-skills"
 if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
 
-SKILLS="autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
-  autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
-  automation-windows-os"
-OLD="autonomous-design-build-record-demo-unmoderated-research \
-  autonomous-research-synthesis-telemetry-iterative-design-issues"
+# One time: retire the skill names used before October 2026 (backed up, not deleted).
+BACKUP="$HOME/.copilot/skills-backup/$(date +%Y%m%d-%H%M%S)"
+for s in autonomous-design-build-record-demo-unmoderated-research autonomous-research-synthesis-telemetry-iterative-design-issues; do
+  [ -d "$HOME/.copilot/skills/$s" ] && mkdir -p "$BACKUP" && mv "$HOME/.copilot/skills/$s" "$BACKUP/"
+done
 
-mkdir -p "$HOME/.copilot/skills"
-MISSING=0
-for s in $SKILLS; do [ -f "$REPO/$s/SKILL.md" ] || { echo "missing $s in $REPO" >&2; MISSING=1; }; done
-if [ "$MISSING" = 0 ]; then
-  BACKUP="$HOME/.copilot/skills-backup/$(date +%Y%m%d-%H%M%S)"; mkdir -p "$BACKUP"
-  for s in $SKILLS $OLD; do
-    [ -d "$HOME/.copilot/skills/$s" ] && mv "$HOME/.copilot/skills/$s" "$BACKUP/"
-  done
-  for s in $SKILLS; do cp -R "$REPO/$s" "$HOME/.copilot/skills/"; done
-  echo "installed; previous copies in $BACKUP"
-fi
+python3 "$REPO/tools/sync-skills.py" harvest   # keep edits sessions made to the installed copies
+python3 "$REPO/tools/sync-skills.py" install   # back up, copy, and record what was installed
 ```
 
+If `harvest` reports a conflict, merge the saved files it lists into the repo file, run
+`sync-skills.py resolve <skill/path>`, then run `install` again.
 Start a fresh agent session afterward. Outset and Marvin credentials stay in
 `~/.copilot/research.env` (never in this repo); `research-platforms/research.env.template` shows the
 keys. See [INSTALL.md](INSTALL.md) for prerequisites, verification, and chat modes.
@@ -136,6 +161,7 @@ keys. See [INSTALL.md](INSTALL.md) for prerequisites, verification, and chat mod
 
 ```text
 DEMO-RULES.md                    the demo rules, with sources
+my-voice/                        SKILL.md (private writing samples stay in ~/.copilot/skill-miner/)
 autonomous-demos/                SKILL.md, references/ (brief template, storyboards), scripts/
 autonomous-computer-use/         SKILL.md
 autonomous-prototypes/           SKILL.md
@@ -146,6 +172,8 @@ autonomous-research-synthesis/   SKILL.md, chatmodes/, scripts/create-issue.sh
 autonomous-skill-glossary/       SKILL.md, references/ (code-oss, computer-use, recording, studies)
 research-platforms/              SKILL.md, scripts/, research.env.template
 automation-windows-os/           SKILL.md
+tools/                           collect-messages.py, sync-skills.py, validate-skills.py
+automations/                     weekly-skill-miner.md (prompt and procedure), run-weekly-skill-miner.sh (schedule)
 docs/                            "Designing the Loop" talk site (GitHub Pages, July 2026)
 INSTALL.md
 ```

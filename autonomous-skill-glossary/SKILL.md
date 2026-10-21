@@ -29,6 +29,12 @@ This file holds the cross-cutting entries. Topic references hold the rest:
 When you hit a new gotcha, add it to the right file and, if it is phase-specific, cross-link it from
 the relevant skill.
 
+**Private local context.** This repository is public, so lessons that involve internal names,
+teammates, unreleased products, or internal links live outside it in `~/.copilot/skill-miner/private/`
+(`notes.md` for private lessons, `voice-samples.md` for `my-voice`). Read `notes.md` when it exists
+and the task touches that context. Never copy anything from that folder into a skill, a commit, an
+issue, or a public post.
+
 ---
 
 ## Match the artifact to the real research surface
