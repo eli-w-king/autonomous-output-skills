@@ -143,7 +143,8 @@ Study launches, paid recruiting, and public-repository posts stay explicitly hum
 "$HOME/.copilot/autonomous-output-skills/automations/run-weekly-skill-miner.sh" --install
 ```
 
-It checks every day at 9:00 and at login and runs on Saturdays. Reports land in
+It runs on Mondays at 11:00 and checks again later that day and at login, to catch up after a missed
+Monday or retry after a failed run. Reports land in
 `~/.copilot/skill-miner/reports/`. Each scheduled Mac mines its own sessions. On a machine without
 the schedule, run `sync-skills.py install` after pulling to pick up the latest skills.
 

@@ -1,9 +1,9 @@
 #!/bin/bash
 # Run the weekly skill miner in the background on macOS, with Copilot CLI and launchd.
 #
-#   run-weekly-skill-miner.sh --install     schedule it: checks at 9:00, 13:00, 17:00, 21:00, and at login.
-#                                           It runs on Saturdays, catches up after a missed Saturday, and
-#                                           retries the next day after a failed run.
+#   run-weekly-skill-miner.sh --install     schedule it: it runs on Mondays at 11:00 and checks again at 14:00,
+#                                           17:00, 20:00, and at login, to catch up after a missed Monday and
+#                                           to retry the next day after a failed run.
 #   run-weekly-skill-miner.sh --uninstall   remove the schedule
 #   run-weekly-skill-miner.sh --status      the schedule, the last run, and the latest report
 #   run-weekly-skill-miner.sh --check       test the setup without running (add --llm to also get a one-word
@@ -33,6 +33,10 @@ LABEL="com.autonomous-output-skills.weekly-skill-update"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 MODEL="${SKILL_MINER_MODEL:-claude-opus-5.5}"
 TIME_LIMIT="${SKILL_MINER_TIME_LIMIT:-14400}"
+RUN_WEEKDAY=0 # Monday (Python's weekday(): Monday is 0, Sunday is 6)
+RUN_HOUR=11
+CHECK_HOURS="11 14 17 20"
+SCHEDULE_TEXT="runs on Mondays at 11:00; checks again at 14:00, 17:00, 20:00, and at login"
 MARKER='[weekly-skill-miner]'
 COAUTHOR='Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>'
 PROTECTED_PATHS="tools automations"
@@ -511,7 +515,7 @@ run_flow() {
 }
 
 due() {
-	python3 - "$MINER/runner.json" <<'PY'
+	python3 - "$MINER/runner.json" "$RUN_WEEKDAY" "$RUN_HOUR" <<'PY'
 import datetime as dt, json, sys
 try:
     data = json.load(open(sys.argv[1]))
@@ -532,17 +536,18 @@ def answer(is_due, reason):
 now = dt.datetime.now(dt.timezone.utc)
 attempt, success = parse(data.get('last_attempt')), parse(data.get('last_success'))
 failures = int(data.get('failures') or 0)
-saturday = dt.datetime.now().weekday() == 5
+local = dt.datetime.now()
+scheduled = local.weekday() == int(sys.argv[2]) and local.hour >= int(sys.argv[3])
 if attempt and now - attempt < dt.timedelta(hours=20):
     answer(False, 'already attempted in the last 20 hours')
 if failures:
     if failures < 3:
         answer(True, f'retrying after {failures} failed run(s)')
-    answer(saturday, 'Saturday retry after repeated failures' if saturday else 'waiting for Saturday after repeated failures')
-if saturday and (success is None or now - success >= dt.timedelta(days=5)):
-    answer(True, 'Saturday run')
+    answer(scheduled, 'scheduled retry after repeated failures' if scheduled else 'waiting for the scheduled time after repeated failures')
+if scheduled and (success is None or now - success >= dt.timedelta(days=5)):
+    answer(True, 'weekly run')
 if success and now - success >= dt.timedelta(days=8):
-    answer(True, 'catching up on a missed Saturday')
+    answer(True, 'catching up on a missed week')
 answer(False, 'not due')
 PY
 }
@@ -578,7 +583,7 @@ xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>
 install_job() {
 	local hour intervals=""
 	find_copilot > /dev/null || { say "Copilot CLI was not found. Install it, then run --install again."; return 1; }
-	for hour in 9 13 17 21; do
+	for hour in $CHECK_HOURS; do
 		intervals="$intervals		<dict><key>Hour</key><integer>$hour</integer><key>Minute</key><integer>0</integer></dict>
 "
 	done
@@ -615,7 +620,7 @@ EOF
 	plutil -lint "$PLIST" > /dev/null || { say "The schedule file did not validate: $(tilde "$PLIST")"; return 1; }
 	launchctl bootout "gui/$(id -u)/$LABEL" > /dev/null 2>&1
 	if launchctl bootstrap "gui/$(id -u)" "$PLIST"; then
-		say "Scheduled. It runs on Saturdays (checks at 9:00, 13:00, 17:00, 21:00, and at login)."
+		say "Scheduled. It $SCHEDULE_TEXT."
 		say "Reports: $(tilde "$REPORTS")"
 	else
 		say "launchctl could not load $(tilde "$PLIST")"
@@ -632,7 +637,7 @@ uninstall_job() {
 status() {
 	local latest
 	if launchctl print "gui/$(id -u)/$LABEL" > /dev/null 2>&1; then
-		say "Schedule: on (runs on Saturdays; checks at 9:00, 13:00, 17:00, 21:00, and at login)"
+		say "Schedule: on ($SCHEDULE_TEXT)"
 	else
 		say "Schedule: off (run --install)"
 	fi

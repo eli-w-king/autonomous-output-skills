@@ -108,8 +108,8 @@ puts them together. It harvests, mines the week's sessions for repeated asks, co
 design feedback, and writing voice, and updates the skills (including `my-voice`). Then it validates,
 publishes the week as one reviewed commit, installs, and leaves a short report in
 `~/.copilot/skill-miner/reports/`. [`automations/run-weekly-skill-miner.sh`](automations/run-weekly-skill-miner.sh)
-runs it every Saturday in the background with launchd and Copilot CLI (`--install` once; `--status`,
-`--now`, and `--uninstall` after that). The prompt points to the procedure in that file, so the
+runs it every Monday at 11:00 in the background with launchd and Copilot CLI (`--install` once;
+`--status`, `--now`, and `--uninstall` after that). The prompt points to the procedure in that file, so the
 procedure can improve without touching the schedule. Private lessons and writing samples stay local
 in `~/.copilot/skill-miner/`.
 

@@ -13,8 +13,8 @@ prompt below with Copilot CLI:
 ~/.copilot/autonomous-output-skills/automations/run-weekly-skill-miner.sh --install
 ```
 
-- It runs on Saturdays. It checks at 9:00, 13:00, 17:00, 21:00, and at login, so a missed Saturday
-  is caught up at the next check, and a failed run is retried the next day.
+- It runs on Mondays at 11:00. It checks again at 14:00, 17:00, 20:00, and at login, so a missed
+  Monday is caught up at the next check, and a failed run is retried the next day.
 - Each run leaves a short report in `~/.copilot/skill-miner/reports/`. Background jobs cannot write
   to a cloud-synced Desktop without a permission prompt, so reports stay there.
 - `--status` shows the last run and the latest report, `--now` runs it right away, `--check` (add
