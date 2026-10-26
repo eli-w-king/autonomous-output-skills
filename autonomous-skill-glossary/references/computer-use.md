@@ -39,6 +39,15 @@ Successful text reads/screenshots prove Screen Recording is effective; successfu
 prove Accessibility is effective. `no_viable_candidate` after those successes is a targeting or
 safe-dispatch limitation, not evidence that Input Monitoring or Full Disk Access is needed.
 
+**Reads work but every action is refused.** If an app's tree and screenshots read fine but every
+action returns `no_viable_candidate` (indexed: "no safe way to dispatch this verb in the
+background"; coordinates: "the background click could not be delivered"), including a harmless
+click on an already-selected tab, the engine has lost its input lane, not the target. A fresh
+session then reports that Computer Use "could not arm the physical Escape stop handler". Stop after
+one harmless probe click; don't cycle text primitives or spawn more sessions to retry. Hand the user
+the exact ready-to-paste text and note that fully quitting and reopening the Copilot host restores
+it (which also ends every running session, so leave that choice to the user).
+
 ## Read and target safely
 
 1. Start with a text-only `get_window_state`. Use `list_apps` only for an unknown app or a specific

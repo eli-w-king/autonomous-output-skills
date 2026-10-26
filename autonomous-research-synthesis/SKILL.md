@@ -242,134 +242,13 @@ Results come from one of three sources; use the matching subsection:
 - **1C Local exports**: folders the user downloaded (for example
   `~/Downloads/Outset Study - <name>/` with one DOCX per interview).
 
-### 1A Outset
-
-```js
-const { outsetMcp } = await import(`${process.env.HOME}/.copilot/skills/research-platforms/scripts/research-client.mjs`);
-const outset = await outsetMcp();
-```
-
-#### 1.0 Prefer the watcher: the transcripts may already be on disk
-
-The results watcher polls for completed interviews and harvests them automatically, so a study that
-finished overnight is usually already staged:
-
-```bash
-node ~/.copilot/skills/research-platforms/scripts/watch-studies.mjs --status
-node ~/.copilot/skills/research-platforms/scripts/watch-studies.mjs --dry-run   # harvest now
-```
-
-Transcripts land in `PROJECT_DIR/transcripts/` as one JSON per interview. **Check there before
-calling the API**; re-harvesting wastes time and quota.
-
-#### 1.1 Harvest directly (when the watcher has not run)
-
-```js
-const ivs = await outset.callJson('list_interviews', {
-  study_id: STUDY_ID,
-  completed_only: true,
-  interview_types: ['USER'],   // REQUIRED, see below
-  limit: 50,
-});
-for (const iv of ivs.interviews) {
-  const t = await outset.callJson('get_interview_transcript', { interview_id: iv.id });
-  // write to PROJECT_DIR/transcripts/
-}
-```
-Pagination is cursor-based: pass back `next_cursor` until it is null.
-
-> **Always filter `interview_types: ['USER']`.** SYNTH interviews are LLM-simulated participants used
-> for guide QA. They are **not research data**: their answers are a model's prior about a persona, not
-> evidence, and nothing they say is falsifiable. A synthetic quote in an issue is worse than no quote,
-> because it looks like evidence. Never cite one, never let one into the finding set.
-
-#### 1.2 Screen for participant quality BEFORE analyzing
-
-Every interview carries `is_low_quality`, `fraud_score`, `screened_out`, and
-`total_engagement_time_seconds`. Check them first:
-
-- Exclude `is_fraud` / high `fraud_score` outright.
-- Treat `is_low_quality` as suspect: read it, but do not build a finding on it alone.
-- A very short `total_engagement_time_seconds` relative to the others usually means a skimmer.
-
-**Say in the write-up how many interviews you harvested and how many you excluded, and why.** A
-finding drawn from 3 of 7 participants is a different claim than one drawn from 7 of 7.
-
-#### 1.3 Pull the analysis Outset already did
-
-Outset runs its own analysis passes. Use them as **leads to verify against transcripts**, never as
-findings to copy:
-
-- `peek_report` / `list_reports` / `get_topline_insights`, the AI executive summary.
-- `search_report_answers` -> `list_answer_messages`, an answer plus its source quotes.
-- `search_vision_observations` / `list_vision_aggregated_insights`, observed UX behavior for
-  screenshare studies (where the participant struggled, what they missed).
-- `search_vision_task_results`, per-question task-completion verdicts.
-- `search_emotion_observations` / `get_emotion_crosstab`, emotion signal.
-- `search_project_highlight_clips`, quotable moments with timestamps.
-
-These have no UserTesting equivalent and are the biggest analysis upgrade in the new pipeline. Treat
-every AI-generated claim as a hypothesis and confirm it in the transcript before it becomes a finding.
-
-#### 1.4 Historical context from Marvin (read-only)
-
-Marvin holds prior studies. Before writing findings, check whether this is already known:
-
-```js
-const { marvinMcp } = await import(`${process.env.HOME}/.copilot/skills/research-platforms/scripts/research-client.mjs`);
-const marvin = await marvinMcp();
-await marvin.call('ask', { question: 'What have we learned about <topic>?' });
-```
-`ask` is async: if it returns `in_progress`, poll `get_ask_status`. Also useful: `search`,
-`list_projects`, `get_file_summary`.
-
-A finding that **replicates** an earlier study is stronger, and worth saying so explicitly.
-
-> **Marvin is read-only right now.** The key carries `mcp:read` only, so new Outset transcripts
-> **cannot be pushed into Marvin** until a broader key is minted (Settings -> MCP, add `file:write` +
-> `project:write`). Outset remains the system of record for new studies. Do not describe the loop as
-> if it round-trips, and do not silently skip this step: if cross-study context would have mattered,
-> say that it was unavailable.
-
-### 1B UserTesting
-
-Drive a dedicated Chrome signed into UserTesting with `playwright-core` over CDP (see
-`autonomous-user-studies`; do not depend on the chrome-devtools MCP). Then, per study, on the
-**Results** tab:
-
-1. Record the study id, title, status, field dates, audience, exact question/task text, and stimulus
-   checksums/URLs in `PROJECT_DIR/run.json` and `PROJECT_DIR/artifacts.json`.
-2. Click **Export data** to download the XLSX (sheet name `Data`).
-   - Row 0/1 are section + question headers; row 2 has sub-labels; rows 3+ are participants.
-   - The "Participant ID" column looks like `P## - handle`; `Complete` appears in col 0/1.
-3. Save the XLSX into `PROJECT_DIR/downloads/`.
-4. Extract structured task/question answers plus completion metadata into `_responses.json`.
-5. Extract the **transcripts** (speech-to-text, per participant) into
-   `PROJECT_DIR/transcripts/<variant>-transcripts.md` and a machine-readable
-   `_extracted.json`; extract **audience/screener** answers into `_audience.json`.
-6. When a claim depends on what a participant did rather than what they said, record a timestamped
-   observation linked to the participant, task, stimulus version, and source recording. Do not infer
-   behavior from transcript text alone.
-
-Store study metadata in SQLite (`ut_study`, `ut_participant`, `ut_transcript`, `ut_response`,
-`ut_stimulus`, `ut_observation`) so later phases and future runs can query it. Use stable synthetic
-participant ids in exported reports; do not persist names or handles unless access to the source
-requires them.
-
-Playwright download gotcha: attach `page.waitForEvent('download')` and `saveAs(exactPath)`; the
-default download UI cannot be driven blind.
-
-### 1C Local exports (DOCX or ZIP folders the user downloaded)
-
-- Copy the folders into `PROJECT_DIR/downloads/` first; never edit the originals.
-- Extract DOCX text losslessly from the `w:t` runs of `word/document.xml` into one JSON and one TXT
-  per interview, numbering paragraphs (`P0001`, `P0002`, ...) with the speaker role, so every quote
-  cites `<interview id>, P###` (for example `D-0002, P0041`).
-- Interview ids encode the study variant (for example `C-` default and `D-` experimental in a
-  monadic pair); keep that mapping in `run.json`.
-- In-progress studies grow: when the user adds new completed interviews, add them and say what
-  changed in the readout. Exports carry no screenshots or video, so do not describe what
-  participants saw beyond what the transcript states.
+The step-by-step harvest for each source (the Outset watcher and MCP calls, the `USER`-only filter,
+participant quality screening in 1.2, Outset's own analysis passes, read-only Marvin context, the
+UserTesting XLSX export, and lossless DOCX extraction) lives in
+[`references/harvest.md`](references/harvest.md). Read the subsection for your source before
+harvesting. The non-negotiables: never cite SYNTH (simulated) interviews, screen participant quality
+before analyzing and report how many were excluded and why, and treat every platform-generated
+summary as a lead to verify in the transcript.
 
 ### 1D Persist
 
@@ -525,47 +404,12 @@ tools when available. Do not record a design file or static screenshot and prese
 web implementation.
 
 Record per [`autonomous-demos`](../autonomous-demos/SKILL.md): its rules, brief, driver, encoder, speed
-ramps, and QA apply here. The capture scripts below now live in `../autonomous-demos/scripts/`.
-Use the composited `caploop.js` path only when the integrated browser preview (a native overlay)
-must be in frame:
-- Use `caploop.js <cdpPort> <outDir> <seconds> [fps=12] [scale=2]` to record the **workbench**
-  target. Run with `NODE_PATH="$REPO/node_modules"` so `ws` resolves.
-  - **Why not startScreencast:** `Page.startScreencast` only captures the page's own layer, i.e. just
-    the embedded browser preview's webContents, NOT the whole window. `Page.captureScreenshot` with
-    `fromSurface:true` (what caploop uses) composites the native overlay into every frame. This is the
-    single most important gotcha in this phase.
-  - `scale=2` on a retina display yields ~4x the CSS resolution (very crisp).
-  - **Crop math: caploop frames are `dpr × scale` times the CSS size** (on a retina 2x display with `scale=2` that is 4x). So a panel at CSS `x=520,y=36,w=293,h=570` maps to an ffmpeg `crop=1172:2280:2080:144` (multiply every number by 4). Read the actual frame dimensions with `ffprobe` on one `.jpg` before writing the crop, and get the CSS rect with a `getBoundingClientRect()` eval on the running window. That said, prefer a full-window demo over a cropped one (see Standing rules); crop only when explicitly asked.
-- To animate content INSIDE the preview (e.g. navigate a slide deck), use
-  `presskeys.js <cdpPort> <preview-url-substr> ArrowRight <count> <delayMs>`. This targets the
-  preview's own CDP target directly, because `@playwright/cli` snaps to the focused tab and cannot
-  reliably reach the embedded preview.
-- Drive the workbench itself (focus chat, paste a prompt to show the control loop) with the `launch`
-  skill's playwright patterns (`monaco-paste.sh`, `Control+Meta+i` to focus chat). Show the full flow
-  (prompt typed and sent) per the demo rules; if a live agent run would have side effects, use a
-  scripted mock (`autonomous-demos`) instead of stopping short.
-
-Web capture: use the target repo's existing browser recorder when available. Otherwise, drive only
-the run-owned page and capture timestamped full-viewport frames with Playwright `page.screenshot()`;
-write the timestamps to the same manifest format consumed by `frames-to-mp4.sh`. Record navigation,
-scroll, pointer, and keyboard actions through visible Playwright APIs, not DOM mutation.
-
-Encode:
-- `frames-to-mp4.sh <outDir> <PROJECT_DIR>/new-ui-demo.mp4 1920` (uses the manifest's real
-  timestamps so motion timing is faithful; outputs yuv420p + faststart).
-- `frames-to-gif.sh <outDir> <PROJECT_DIR>/new-ui-demo.gif 1000` for the inline fallback.
-
-ffmpeg lives at `/opt/homebrew/bin/ffmpeg`; `export PATH="/opt/homebrew/bin:$PATH"`.
-
-**Pace for humans, do NOT aggressively dedupe.** Reviewers complained that clips felt "rushed" and too fast to follow. Two rules:
-- Build the pacing into the **driver**, not the encoder: put deliberate `sleep`s between steps (e.g. ~3s to read the first screen, ~2s after each action, ~2s after typing) and type text at a **human delay** (`keyboard.type(text, {delay: 95})`, roughly 80-110ms/char). A good full flow is ~20-25s, not 3-5s.
-- Encode with timestamps (`encode-screencast.py` or `frames-to-mp4.sh`). **Avoid `mpdecimate` or blanket `setpts` to "trim dead air"**: it collapses the natural holds a viewer needs. Fast-forward only marked idle waits, in place, with `speed-ramp.mjs`; if a clip drags anywhere else, re-record with better driver timing.
-
-**Drive with real physical actions, not injected DOM clicks.** When recording (caploop) and driving the same window over CDP, use Playwright's physical APIs on the visible element (`locator(sel).last().click()`, `.selectOption(...)`, `keyboard.type(...)`). Fire-and-forget in-page `el.click()` / setTimeout choreography frequently updates a **hidden** DOM node while the visible UI never changes, so the recording shows nothing happening. Physical clicks/keystrokes always hit the topmost rendered element.
-
-**Overlay/modal apps: relaunch fresh instead of re-triggering.** For flows shown as an overlay (e.g. the sessions/onboarding walkthrough), repeatedly running the dev "reset/show" command **stacks multiple overlays**; a `.last()` locator then targets a stale hidden copy. A fresh Code OSS launch starts with exactly one (or zero) overlay. Verify with `document.querySelectorAll('.<overlay-class>').length === 1` before recording; if a password/secret field won't visibly accept typed characters over CDP, capture that state as a **static screenshot** instead and lean on the video for the rest.
-
-**Clear dev-build toasts/banners before (and during) recording.** A Code OSS dev build pops toasts that would never ship, most often *"Extension host did not start in 10 seconds, that might be a problem."*, plus the *"Run tasks in the background with the Copilot CLI"* banner and update/telemetry prompts. None of these may appear in the demo video. Run `workbench.action.clearNotifications` (F1) and dismiss any inline banner right before caploop starts, and confirm the status-bar notification bell is empty. The ext-host toast can reappear ~10s after launch/reload, so clear it again immediately before the take (or wait for the ext host to finish starting); do not record around it.
+ramps, and QA apply here. The capture scripts live in `../autonomous-demos/scripts/`.
+The capture, encode, and pacing details (composited `caploop.js` capture for the integrated browser
+preview and its crop math, `presskeys.js`, web capture, `frames-to-mp4.sh`, human pacing without
+`mpdecimate`, physical clicks instead of injected DOM clicks, fresh relaunches for overlays, and
+clearing dev-build toasts) live in [`references/demo-video-capture.md`](references/demo-video-capture.md).
+Read it before recording.
 
 Verify the media before publishing:
 
@@ -684,24 +528,11 @@ short PUBLISH-NOTES with the exact remaining steps (title, drag-in file, submit)
   store, or log a password or 2FA code (the human enters those). Never persist the email to any file,
   issue, log, or the session DB.
 
-## Skill vs custom agent (how to package this)
+## Skill vs custom agent
 
-This is a **skill** on purpose: it is procedural knowledge plus scripts that any agent loads on demand,
-it stays out of the mode picker, and it is user-global across sessions with one source of truth. Keep it
-that way.
-
-Wrap it in a **custom agent / chat mode** only for what a skill cannot do:
-- You want the native **plan then auto-handoff** UX (only `*.chatmode.md` files can declare `handoffs:`).
-- You want a **discoverable, user-selectable** entry in the mode picker rather than relying on the model
-  to pick the skill.
-- You want a **scoped tool set, pinned model, or gating** for a phase.
-
-The right shape is a **thin** chat mode that defers to this skill (its body is essentially "follow the
-`autonomous-research-synthesis` skill"), never a copy of the procedure. Ready-to-use templates live in
-`chatmodes/` next to this file; activate by copying them into a workspace `.github/chatmodes/` or your
-user prompt-files location. **Guardrail:** never put an irreversible step behind an auto-send handoff.
-Recruiting real participants and posting to a public repo stay explicitly human-gated; only plan to
-build should auto-advance.
+Keep this a skill. Wrap it in a thin chat mode (templates in `chatmodes/`) only for plan then
+auto-handoff, a mode picker entry, or a scoped tool set, and never put an irreversible step behind an
+auto-send handoff. Details: [`references/packaging.md`](references/packaging.md).
 
 ## Self-maintenance
 

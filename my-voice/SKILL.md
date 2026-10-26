@@ -1,6 +1,6 @@
 ---
 name: my-voice
-description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', or asks for a Slack or Teams message, team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, no marketing tone, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
+description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', or asks for a Slack or Teams message, team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, human not robotic, no marketing tone or AI slop, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
 ---
 
 # My voice
@@ -24,7 +24,9 @@ facts into something else, and never commit or publish it.
 4. **Warm and upbeat, never hype.** Friendly openers and closers ("Hi all!", "Thanks!"), real
    enthusiasm when it fits, and no marketing language: no "seamless", "powerful", "robust",
    "unlock", "elevate", "game changer", or superlatives the facts do not support. If it reads like
-   a launch blog, it is "too markety"; use straightforward bullets instead.
+   a launch blog, it is "too markety"; use straightforward bullets instead. If it reads as AI
+   generated (slogan rhythm, frills, decoration, polished filler), it is "AI slop": strip it back to
+   simple sentences that are quick to read.
 5. **Honest about status.** Call unfinished work what it is ("still a WIP", "a first pass", "close
    but still a work in progress") and name the open question instead of hiding it.
 6. **Concrete.** Name the feature, the setting, the branch, the link, the date. Show an example
@@ -33,10 +35,14 @@ facts into something else, and never commit or publish it.
 8. **No process narration.** Do not mention how the work was produced ("we recorded a demo", "an
    agent drafted this", "I used X to..."). The only exception is an attribution the user asks for.
 9. **Respect the requested length.** "Shorter" means cut it roughly in half; "one paragraph" means
-   one paragraph. Labels are about three words; bullets are one or two sentences.
+   one paragraph. Labels are about three words; bullets are one or two sentences. When unsure, go
+   shorter and simpler: "simplify" and "make it shorter" are the most common copy notes.
 10. **Keep their wording.** When editing the user's draft, fix typos, punctuation, capitalization,
     spacing, duplicated words, and its/it's or their/there/they're, but keep their phrasing and
     order unless they ask for a rewrite.
+11. **Human, not robot.** Write for a person who was not in the room: full sentences in the
+    reader's terms, and no robot speak (version numbers, build or capture details, internal step or
+    process labels). Describe what happens for the reader, not what the system is doing.
 
 ## Patterns by channel
 
