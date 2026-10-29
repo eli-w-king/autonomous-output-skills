@@ -308,7 +308,7 @@ law; the user's latest word wins.
 | `sync-pick.sh` | copy a pick's files verbatim from a lab commit into the integration and write `SOURCE.md` |
 | `check-manifest.mjs` | check a lab's `manifest.json` and stills against the contract; `--live` checks its server |
 | `make-briefs.py` | one brief and one short start prompt per variation, from a template, the variations table and per-host notes |
-| `drop-server.mjs` | the hub's file drop for labs across dev boxes: key-gated, write-once bundles, published through a dev tunnel |
+| `drop-server.mjs` | the hub's file drop for labs across dev boxes: key-gated, write-once bundles, text and review media, published through a dev tunnel |
 | `drop.mjs` | the drop's client: send and receive bundles, put and get files, wait on files, mirror, and an outbox with a flush loop |
 | `drop-sync.sh` | merge the kit and every delivered variation from the drop into a review worktree, then run the manifest tool |
 | `drop-watch.sh` | keep that review worktree synced and its server up, detached, with nobody watching |

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-/* A small authenticated file drop for a lab that spans machines. It carries git bundles and small text files
- * (briefs, pointers, reports, requests) and nothing else. Run it on the hub, a dev box, never on the laptop: it
- * listens on 127.0.0.1 and other boxes reach it through a dev tunnel whose port allows anonymous connections, so
- * the lab key is the gate. No dependencies (Node 22). The client is drop.mjs.
+/* A small authenticated file drop for a lab that spans machines. It carries git bundles, text files (briefs,
+ * pointers, reports, requests, small scripts) and review media (stills, videos, zips), and nothing else. Run it on
+ * the hub, a dev box, never on the laptop: it listens on 127.0.0.1 and other boxes reach it through a dev tunnel
+ * whose port allows anonymous connections, so the lab key is the gate. No dependencies (Node 22). The client is
+ * drop.mjs.
  *
  *   DROP_DIR=<folder> DROP_KEY_FILE=<file> node drop-server.mjs
  *
@@ -21,7 +22,8 @@
  *   PUT  /x/<name>    upload one. Bundles are write-once (409 with the existing sha256); other files may be replaced.
  *
  * Names: <kind>-<7 to 40 hex>.bundle, where <kind> is lowercase letters and digits starting with a letter (kit, base,
- * v01, a3), or a text file of lowercase letters, digits, dots and dashes ending in .txt, .md, .json, .mjs, .py or .sh.
+ * v01, a3), or a file of lowercase letters, digits, dots, dashes and underscores ending in one of txt md json mjs
+ * cjs js ts py sh ps1 html css log png jpg jpeg gif webp webm mp4 zip.
  * Keep these rules in step with drop.mjs.
  */
 import http from 'node:http';
@@ -47,9 +49,9 @@ for (const f of fs.readdirSync(DIR)) {
 }
 
 const BUNDLE = /^[a-z][a-z0-9]{0,23}-[0-9a-f]{7,40}\.bundle$/;
-const TEXT = /^[a-z0-9][a-z0-9.-]{0,79}\.(?:txt|md|json|mjs|py|sh)$/;
+const FILE = /^[a-z0-9][a-z0-9._-]{0,99}\.(?:txt|md|json|mjs|cjs|js|ts|py|sh|ps1|html|css|log|png|jpg|jpeg|gif|webp|webm|mp4|zip)$/;
 const RESERVED = /^(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$)/;
-const allowed = name => (BUNDLE.test(name) || TEXT.test(name)) && !name.includes('..') && !RESERVED.test(name);
+const allowed = name => (BUNDLE.test(name) || FILE.test(name)) && !name.includes('..') && !RESERVED.test(name);
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const keyBuf = Buffer.from(KEY);

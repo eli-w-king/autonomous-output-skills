@@ -78,11 +78,12 @@ if (!DIR && !(URL_BASE && cfg.key)) { die(`${CONFIG} needs "url" and "key", or "
 
 // The drop's name rules; keep them in step with drop-server.mjs.
 const BUNDLE = /^[a-z][a-z0-9]{0,23}-[0-9a-f]{7,40}\.bundle$/;
-const TEXT = /^[a-z0-9][a-z0-9.-]{0,79}\.(?:txt|md|json|mjs|py|sh)$/;
+const FILE = /^[a-z0-9][a-z0-9._-]{0,99}\.(?:txt|md|json|mjs|cjs|js|ts|py|sh|ps1|html|css|log|png|jpg|jpeg|gif|webp|webm|mp4|zip)$/;
 const RESERVED = /^(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$)/;
-const allowed = n => (BUNDLE.test(n) || TEXT.test(n)) && !n.includes('..') && !RESERVED.test(n);
+const allowed = n => (BUNDLE.test(n) || FILE.test(n)) && !n.includes('..') && !RESERVED.test(n);
 const KIND = /^[a-z][a-z0-9]{0,23}$/;
-const NAME_RULE = 'lowercase letters, digits, dots and dashes ending in .txt .md .json .mjs .py or .sh, or <kind>-<sha>.bundle';
+const NAME_RULE = 'lowercase letters, digits, dots, dashes and underscores, ending in a text, script, image, video or zip '
+	+ 'extension (see drop-server.mjs), or <kind>-<sha>.bundle';
 
 class Unreachable extends Error {}
 class Rejected extends Error {}

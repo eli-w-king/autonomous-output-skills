@@ -122,7 +122,8 @@ the base brief. When the repo is the same as last time, start from the last lab'
 
 OneDrive is not a channel: files took over 10 minutes to leave the laptop and never reached the boxes. GitHub is not
 one either when nothing may be pushed, and boxes may not be signed in. So files move through the hub's drop
-(`drop-server.mjs` behind a dev tunnel, or a folder on one box) with `drop.mjs`, and only these files:
+(`drop-server.mjs` behind a dev tunnel, or a folder on one box) with `drop.mjs`: bundles, text, small scripts and
+review media (stills, videos, zips). These are the files that carry the lab:
 
 | File | Written by | Read by | Meaning |
 |------|------------|---------|---------|
