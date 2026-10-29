@@ -81,6 +81,8 @@ compiled from the parallel design labs of October 9 to 12, 2026. The short versi
 6. Rounds build on the winners I name; earlier rounds stay reachable.
 7. The pick ports verbatim from its commit with a sync script; copies are never edited by hand.
 8. Many labs at once get one review page that ends in a prompt naming each pick.
+9. Labs across dev boxes run on their own: the hub (orchestrator, file drop, review) is a dev box, so
+   closing the laptop never stalls a session.
 
 ## How the skills stay current
 
@@ -102,6 +104,9 @@ copies, and nothing publishes those edits on its own. Three tools keep that safe
 - [`tools/validate-skills.py`](tools/validate-skills.py): the checks every change has to pass,
   including a local list of private terms that must never be published. `--commits origin/main`
   also checks every commit message and added line before a push.
+- [`tools/install-devbox.mjs`](tools/install-devbox.mjs): installs the published skills on a dev box
+  and, with `--schedule`, keeps them current there, so sessions started on the box have them too
+  (INSTALL.md, "Dev boxes").
 
 The weekly skill miner in [`automations/weekly-skill-miner.md`](automations/weekly-skill-miner.md)
 puts them together. It harvests, mines the week's sessions for repeated asks, corrections, praise,
@@ -165,14 +170,14 @@ my-voice/                        SKILL.md (private writing samples stay in ~/.co
 autonomous-demos/                SKILL.md, references/ (brief template, storyboards), scripts/
 autonomous-computer-use/         SKILL.md
 autonomous-prototypes/           SKILL.md
-autonomous-variations/           SKILL.md, references/ (lab brief template, review page), scripts/
+autonomous-variations/           SKILL.md, references/ (lab brief template, review page, distributed labs), scripts/
 autonomous-long-runs/            SKILL.md
 autonomous-user-studies/         SKILL.md, chatmodes/
 autonomous-research-synthesis/   SKILL.md, chatmodes/, scripts/create-issue.sh
 autonomous-skill-glossary/       SKILL.md, references/ (code-oss, computer-use, recording, studies)
 research-platforms/              SKILL.md, scripts/, research.env.template
 automation-windows-os/           SKILL.md
-tools/                           collect-messages.py, sync-skills.py, validate-skills.py
+tools/                           collect-messages.py, sync-skills.py, validate-skills.py, install-devbox.mjs
 automations/                     weekly-skill-miner.md (prompt and procedure), run-weekly-skill-miner.sh (schedule)
 docs/                            "Designing the Loop" talk site (GitHub Pages, July 2026)
 INSTALL.md

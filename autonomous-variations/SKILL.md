@@ -1,6 +1,6 @@
 ---
 name: autonomous-variations
-description: "Autonomous: Variations. Run variation labs without supervision for one part of a product: exactly the count asked for, genuinely different ideas plus today's version as a baseline, in real context with real content, one lab per decision with its own worktree, branch and port. Covers the shared lab conventions (?v=, [ and ], a switcher pill, ?motion=off, ?embed=1, manifest.json, stills), every variation finished at desktop, tablet, phone and reduced motion, headless checks and contact sheets before reporting, briefs that carry the user's visual and copy rules, rounds built on named winners, porting the pick verbatim with a sync script that records its commit, coordinating many labs, and one review page that walks every lab and ends in a prompt naming each pick. Use for 'make N variations', 'explore options', 'a lab for X', 'more of these two', 'pick one and port it', or 'one page to review all the labs'. Pairs with autonomous-prototypes and autonomous-long-runs."
+description: "Autonomous: Variations. Run variation labs unsupervised for one part of a product: exactly the count asked for, genuinely different ideas plus today's version as a baseline, in real context with real content, one lab per decision with its own worktree, branch and port. Covers the shared lab conventions (?v=, [ and ], a switcher pill, ?motion=off, ?embed=1, manifest.json, stills), every variation finished at desktop, tablet, phone and reduced motion, headless checks and contact sheets before reporting, briefs that carry the user's visual and copy rules, rounds built on named winners, porting the pick verbatim from its commit, coordinating many labs, labs across dev boxes that run on their own, and one review page that ends in a prompt naming each pick. Use for 'make N variations', 'explore options', 'a lab for X', 'more of these two', 'pick one and port it', 'run the lab on dev boxes', or 'one page to review all the labs'. Pairs with autonomous-prototypes and autonomous-long-runs."
 ---
 
 # Autonomous: Variations
@@ -271,6 +271,29 @@ when the integration moves it; edit the lab's template, never the generated page
   each pick precisely (lab, id, title, branch, commit, link). Keep every lab's own link. Spec:
   [`references/review-page.md`](references/review-page.md).
 
+### Across dev boxes
+
+When the sessions run on dev boxes (remote agent hosts) so the user can close the laptop, follow
+[`references/distributed-labs.md`](references/distributed-labs.md). What matters most:
+
+- **The lab runs on its own.** The hub is a dev box: the orchestrator session, the file drop and its tunnel, the
+  review worktree and the ledger live there, and the laptop only starts the run and reviews it. Prefer one big box;
+  then the kit is a local branch and the drop a folder.
+- **Started on a dev box, that session is the hub.** It updates the skills, launches everything while the user is
+  there, and never needs the laptop again. Every box needs the skills installed (the repo's INSTALL.md, "Dev
+  boxes").
+- **Settings first, proven by a pilot.** "Allow sandboxing" off and allow-all (Autopilot) on every host before the
+  fan-out, one pilot session per host to prove it, sessions without a workspace, and the user told which settings
+  `create_remote_session` cannot set.
+- **Files, not messages.** Briefs live on the drop and each session starts from a short prompt that fetches its
+  own. Kit readiness, later orders, reports and kit requests are files, and a phase ends in a wait on a file.
+  Creates and messages share a budget of about 50 per window.
+- **Phase 0 fan-out.** Every variation starts at once to study and plan while the kit is built; nobody writes lab
+  code before `kit-latest.txt` exists.
+- **Deliveries never block.** Bundles are based on a commit every box has and checked before they are fetched. They
+  go through an outbox that a flush loop on each box delivers whenever the hub answers. Never state an exact commit
+  as a requirement: "this kit or a newer one that contains it".
+
 ## Taste notes worth carrying
 
 The user's recurring visual, motion and layout taste lives in
@@ -284,8 +307,15 @@ law; the user's latest word wins.
 |--------|---------|
 | `sync-pick.sh` | copy a pick's files verbatim from a lab commit into the integration and write `SOURCE.md` |
 | `check-manifest.mjs` | check a lab's `manifest.json` and stills against the contract; `--live` checks its server |
+| `make-briefs.py` | one brief and one short start prompt per variation, from a template, the variations table and per-host notes |
+| `drop-server.mjs` | the hub's file drop for labs across dev boxes: key-gated, write-once bundles, published through a dev tunnel |
+| `drop.mjs` | the drop's client: send and receive bundles, put and get files, wait on files, mirror, and an outbox with a flush loop |
+| `drop-sync.sh` | merge the kit and every delivered variation from the drop into a review worktree, then run the manifest tool |
+| `drop-watch.sh` | keep that review worktree synced and its server up, detached, with nobody watching |
 
-`sync-pick.sh` needs only bash and git; `check-manifest.mjs` needs Node 22 or newer.
+`sync-pick.sh` needs only bash and git; `check-manifest.mjs`, `drop-server.mjs` and `drop.mjs` need Node 22 or
+newer; `drop-sync.sh` and `drop-watch.sh` need bash (3.2 is fine, and Git Bash on Windows), git and curl;
+`make-briefs.py` needs Python 3. Each one documents its options at the top of the file.
 
 ## Maintaining this skill
 

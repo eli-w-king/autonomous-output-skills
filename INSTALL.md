@@ -59,6 +59,9 @@ For variation labs:
 - An existing Playwright install to reuse for headless checks (any project's `node_modules`, run with
   the system Chrome channel); no browser downloads mid-run.
 - `sync-pick.sh` needs only bash and git; `check-manifest.mjs` needs Node 22 or newer.
+- Labs across dev boxes: Node 22 for `drop-server.mjs` and `drop.mjs`; bash, git and curl for
+  `drop-sync.sh` and `drop-watch.sh` (Git Bash on Windows); Python 3 for `make-briefs.py`; and the
+  `devtunnel` CLI, signed in, on the hub when the lab spans more than one box.
 
 For studies:
 - Outset and Marvin: create `~/.copilot/research.env` once with
@@ -115,7 +118,7 @@ V="$HOME/.copilot/skills/autonomous-variations/scripts"
 for f in "$D"/*.mjs "$D"/*.cjs "$D"/*.js "$V"/*.mjs "$HOME"/.copilot/skills/research-platforms/scripts/*.mjs; do
   node --check "$f" || echo "FAIL $f"
 done
-for f in "$D"/*.py; do python3 -m py_compile "$f" || echo "FAIL $f"; done
+for f in "$D"/*.py "$V"/*.py; do python3 -m py_compile "$f" || echo "FAIL $f"; done
 for f in "$D"/*.sh "$V"/*.sh "$HOME"/.copilot/skills/autonomous-research-synthesis/scripts/*.sh; do bash -n "$f" || echo "FAIL $f"; done
 command -v ffmpeg ffprobe
 node "$D/launch-demo-oss.mjs" --repo "$VSCODE_REPO" --dry-run > /dev/null && echo "ok launcher dry run"
@@ -147,6 +150,30 @@ It runs on Mondays at 11:00 and checks again later that day and at login, to cat
 Monday or retry after a failed run. Reports land in
 `~/.copilot/skill-miner/reports/`. Each scheduled Mac mines its own sessions. On a machine without
 the schedule, run `sync-skills.py install` after pulling to pick up the latest skills.
+
+## 7. Dev boxes
+
+A dev box (a remote agent host, for example a Windows Cloud PC) reads its own `~/.copilot/skills`, so
+sessions there have only the skills installed on that box, whoever starts them. Install them once per
+box, from any session on it or from a PowerShell window on it (it needs git and Node 22; the
+repository is public, so no sign-in):
+
+```powershell
+$r = "$HOME\.copilot\autonomous-output-skills"
+if (!(Test-Path $r)) { git clone -q https://github.com/eli-w-king/autonomous-output-skills.git $r }
+node "$r\tools\install-devbox.mjs" --schedule
+```
+
+- `install-devbox.mjs` pulls the repository and copies every skill into `~/.copilot/skills`. A copy
+  is replaced only when it differs, and the old one is backed up first.
+- `--schedule` reruns it every 4 hours as a scheduled task for this user, with no window, so the box
+  picks up each week's published update by itself. A lab's hub also runs it before it starts.
+- Check it: `Get-Content "$HOME\.copilot\install-devbox.log" -Tail 3` shows the commit installed, and
+  a new session on the box lists the skills.
+- A dev box only uses the skills: publish changes from the Mac (`sync-skills.py`, the weekly miner),
+  never from a box. Edits a session makes to a box's installed copies are backed up and replaced on
+  the next update, so a lesson worth keeping goes into the run's notes for the Mac to fold in.
+- Private context (`~/.copilot/skill-miner/private/`, the `my-voice` samples) stays on the Mac.
 
 ## Machine-specific checks
 

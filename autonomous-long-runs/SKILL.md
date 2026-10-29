@@ -132,6 +132,10 @@ When many chats or background agents work at once (for example a variation lab p
   runs, end a turn after each checkpoint instead of working for hours in one turn.
 - **Push shared changes outward.** When shared content changes (an example the user rejected), tell
   every chat or lab that shows it to merge and retake its stills, and track the replies.
+- **Dev boxes run on their own.** When the work is spread over dev boxes so the user can close the
+  laptop, the hub (the orchestrator session, the file drop and its tunnel, the review) is a dev box,
+  and nothing after the launch depends on the laptop or on messages. Follow
+  [`autonomous-variations/references/distributed-labs.md`](../autonomous-variations/references/distributed-labs.md).
 
 ## Maintaining this skill
 

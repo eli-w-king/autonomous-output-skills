@@ -5,6 +5,12 @@ not apply, and start the lab from the file. Keep it on disk: a background agent 
 session, and its replacement restarts from the brief. Paste rules in full; never write "the usual
 rules".
 
+For many sessions from one template (a lab across dev boxes, one session per variation), save it as
+`brief-variation.template.md` and let [`../scripts/make-briefs.py`](../scripts/make-briefs.py) fill the
+`{PLACEHOLDERS}` (`{KIND}`, `{HOST}`, `{PORT}` and the rest) and the `PASTE: <file>` lines for each session. The
+blocks marked "labs across dev boxes" follow
+[`distributed-labs.md`](distributed-labs.md).
+
 ---
 
 You are building a variation lab for the user, <who they are and what they are working on>. <The
@@ -16,6 +22,26 @@ matters more than anything.
 
 A previous agent started this lab and was cut off. Its work is uncommitted in `<lab folder>`:
 <files>. Read all of it first, commit it as found, keep what is good, and finish the job.
+
+## Phase 0: study and plan (only when sessions start before the kit is ready)
+
+The kit isn't ready yet, so work in two parts: study and plan now, writing no lab code and creating
+no worktree; then build, once `kit-latest.txt` is on the drop.
+
+1. Read the rules, read-only, in `<the base worktree>`: <the repo's rules files>.
+2. Study today's page headlessly at `<this box's site URL>` once it answers, at 1440x900 and
+   390x844, with motion on and with reduced motion. Keep the screenshots in
+   `<lab home>/study/{KIND}/`, outside every repo, and look at them.
+3. Read the code your idea depends on: <files>. Note the real states, parts and beats you will use,
+   by name.
+4. Write your plan to `<lab home>/plans/{KIND}.md`: the beats, the layout at desktop and on phones,
+   the reduced-motion design, the length against today's, and what you need from the kit beyond its
+   expected contract. Deliver it: `node <lab home>/drop.mjs put <lab home>/plans/{KIND}.md
+   {KIND}-plan.md`.
+5. Wait for the kit on the drop, never for a message: `node <lab home>/drop.mjs wait kit-latest.txt
+   --timeout 14400`. If your shell tool moves the wait to the background, end your turn; its
+   completion notice wakes you. Then `node <lab home>/drop.mjs recv kit <repo>`, create your worktree
+   from `refs/lab/kit`, and go on with the steps below.
 
 ## Goal
 
@@ -37,6 +63,15 @@ to the page's story, calm, product-native>. Include today's version as the basel
 - Never kill processes you didn't start; never `pkill` or `killall`. Headless browsers only
   (Playwright from `<an existing install>`, the system Chrome channel); never open visible windows.
 - Scratch files go in `<lab folder>/work/` (git-ignored) and are deleted when you finish.
+- <Labs across dev boxes:> This session has no workspace folder; work in the absolute paths above.
+  If the sandbox denies a write, rerun the command asking to run outside the sandbox, and never stop
+  at the first denial.
+
+## This machine (labs across dev boxes)
+
+You are on {HOST}. Every box has the same paths and ports; what differs is here:
+
+PASTE: host-notes
 
 ## The page and its rules
 
@@ -93,8 +128,48 @@ finished at 1440x900, 1280x800, 820x1180 and 390x844.
 - `node <skills dir>/autonomous-variations/scripts/check-manifest.mjs <lab folder> --live` prints
   `ok` with no warnings.
 
+## Moving files: the drop (labs across dev boxes)
+
+Nothing is pushed and no other channel is used: no OneDrive, gist or push. Files move through the
+lab's drop on the hub with `node <lab home>/drop.mjs` (Node 22). The `drop.json` beside it holds the
+drop's URL and key: never print, copy or message it.
+
+- **Deliver your work** at the first look and at the end: `drop.mjs send {KIND} <your branch>
+  <your worktree>` bundles it on top of the base and sends it with `{KIND}-latest.txt`.
+- **Report** at every phase boundary: write `<lab home>/{KIND}-report.md` (state, commit, page URL,
+  what's next or blocked, the time) and `drop.mjs put` it. It replaces the last one and tells the hub
+  you're alive. Your final answer is not forwarded to anyone.
+- **Ask for kit changes** with `drop.mjs put <file> {KIND}-request-<n>.md`: what, why, and the
+  smallest change that would do. Meanwhile, work around it inside your folder.
+- **Read the hub's files at every phase boundary:** `drop.mjs recv kit <repo>` (merge `refs/lab/kit`
+  when it moved) and `drop.mjs get orders.md`, which lands in `<lab home>/in/` (act on new items for
+  you or for everyone; no file means no orders).
+- **Exit code 3 means queued, not failed:** the box's flush loop delivers it when the hub answers.
+  Keep working.
+- If the client says the tunnel asked for a sign-in or the key was refused, say so in your report and
+  keep working. Don't work around it.
+
 ## Done when
 
 <N> variations plus the baseline are built, verified and committed on `<lab branch>`, with the
 README, manifest, stills and check script, and the server answers. Reply with the commit hash, the
 lab URL, one line per variation, your top picks with a reason each, and anything you could not do.
+<Labs across dev boxes: send the final bundle, then put that report as `{KIND}-report.md`; leave
+your lab server running and your worktree in place.>
+
+---
+
+## Start prompt (labs across dev boxes)
+
+Save it as `prompt.template.md` beside the brief template; `make-briefs.py` writes one per session.
+Keep it near 1 KB: everything else is in the brief on the drop.
+
+```text
+You are session {KIND} of the <lab> variation lab, on {HOST}. Work autonomously and never ask
+questions. Load the autonomous-variations and autonomous-long-runs skills if you have them.
+Your full brief is on the lab drop. Fetch it, read all of it, and follow it from the top:
+  node <lab home>/drop.mjs get brief-{KIND}.md <lab home>/brief-{KIND}.md
+This session has no workspace: use the absolute paths in the brief. If the sandbox denies a write,
+rerun the command asking to run outside the sandbox. Report through the drop as the brief says;
+your final answer is not forwarded.
+```

@@ -1,6 +1,6 @@
 ---
 name: autonomous-skill-glossary
-description: "Autonomous: Skill Glossary. Shared, hard-won gotchas for all autonomous work on this Mac: sharing the machine with other agents (ownership receipts, off-screen windows, input guards), background Computer Use, durable run ledgers, evidence chains, stimulus and media validation, publishing demo media to GitHub issues and PRs, public issue copy, pages assembled from separately built pieces (CSS leaks, syncing from commits, local servers without CORS), and optional Windows validation. Topic references cover Code OSS, Computer Use, recording, and study platforms. Read the relevant reference before driving apps, recording, building a study, or publishing. Used by every autonomous skill. Update it whenever a run surfaces a reusable gotcha."
+description: "Autonomous: Skill Glossary. Shared, hard-won gotchas for all autonomous work on this Mac: sharing the machine with other agents (ownership receipts, off-screen windows, input guards), background Computer Use, durable run ledgers, evidence chains, stimulus and media validation, publishing demo media to GitHub issues and PRs, public issue copy, pages assembled from separately built pieces (CSS leaks, syncing from commits, local servers without CORS), remote agent hosts and dev boxes (session tools, sandbox defaults, dev tunnels, git bundles, Windows hosts), and optional Windows validation. Topic references cover Code OSS, Computer Use, recording, and study platforms. Read the relevant reference before driving apps, recording, building a study, or publishing. Used by every autonomous skill. Update it whenever a run surfaces a reusable gotcha."
 ---
 
 # Autonomous: Skill Glossary
@@ -279,6 +279,100 @@ embedded from other chats. These gotchas cost real time; the procedure is in
 - **Pinned stages need room.** A sticky or pinned scroll stage that does not fit the viewport (a
   phone on its side, a short window) falls back to its final state in normal flow, rechecked on
   resize and after late font loads.
+
+---
+
+## Remote agent hosts and dev boxes
+
+Facts about sessions on dev boxes (remote agent hosts reached over dev tunnels) that cost a whole lab to learn.
+The procedure, starting with the rule that such a lab runs on its own with its hub on a dev box, is in
+[`autonomous-variations/references/distributed-labs.md`](../autonomous-variations/references/distributed-labs.md).
+
+**The session tools.**
+- Sessions are created through the Agents window, which has to stay connected for that and for messages to
+  `"origin"`. So every session is created at the launch, while the user is present.
+- `create_session` starts a session on the same host; it defaults to the current chat's model.
+- `create_remote_session` starts a session on another host, chosen by `hostId` (from `list_agent_hosts`, which also
+  shows each host's cores, memory and load) or picked automatically. `requirements` can ask for CPUs, memory or a
+  platform. It returns once the prompt is accepted. Never retry an uncertain creation: check first, or there will be
+  two sessions.
+- `create_remote_session` starts a session with the host's default permissions, not the creating chat's. Its model
+  is only `{provider, id}`: no context tier and no reasoning effort. A workspace has to be trusted first ("The
+  workspace is not trusted. Trust it before starting an unattended session."); sessions without a workspace work,
+  with absolute paths in the brief.
+- `send_remote_message` only queues, first in first out. The target reads it when its turn ends, so a long turn
+  sees nothing new. `send_message` can steer a running turn, but only between sessions on the same host.
+- A remote session's final answer is not forwarded. It reports with `send_remote_message` to session `"origin"`,
+  the chat that created it. That fails while the origin chat waits in `ask_user` (in Autopilot, `ask_user` returns
+  "not available"), and a laptop chat that is asleep cannot receive at all.
+- `create_remote_session` and `send_remote_message` share a limit of 50 requests per window; one lab hit it at
+  about 45.
+- `get_remote_session` returns one snapshot: the status (`running`, `needsInput`, `completed`), `queuedMessages`
+  and the latest turn's text. Use it to confirm that a message arrived, not to poll.
+- A host's sessions see only the skills installed on that host, in its own `~/.copilot/skills`. Install and update
+  them with `tools/install-devbox.mjs` from the skills repo (its INSTALL.md, "Dev boxes").
+
+**Sandbox and approvals.**
+- Hosts differ. On one, a filesystem sandbox denied writes outside the allowed paths with no prompt ("Access
+  denied", curl exit 23), and the sessions reported the error and stopped. On another, approval prompts parked the
+  sessions in `needsInput` until someone approved them by hand.
+- Turn "allow sandboxing" off and set allow-all (Autopilot) before the fan-out, on every platform the hosts run:
+  `chat.agent.sandbox.enabled` and `chat.agent.sandbox.enabledWindows` are separate settings.
+- Prove it with one pilot session per host that writes outside any workspace and starts a detached process.
+- Briefs still say: when the sandbox denies a write, rerun the command asking to run outside the sandbox, and never
+  stop at the first denial.
+
+**Channels between boxes.**
+- OneDrive is not a channel: a 365-byte file showed as uploading for more than 10 minutes on the Mac, and its folder
+  never appeared on either dev box within 15 minutes.
+- GitHub is not one when nothing may be pushed, and a box may not be signed in: one had an invalid injected
+  `GH_TOKEN` and no gh login. Never ask an agent to sign in interactively; send the base as a bundle. Where gh does
+  work, run `Remove-Item Env:GH_TOKEN` first so its stored login is used.
+- Tunnel connect tokens are masked in an agent's tool output, so one session cannot pass them to another. Give the
+  drop's port anonymous access and gate the server with an app key instead: a 192-bit key in an `X-Lab-Key` header,
+  compared in constant time, and a lockout per client address. Set the lockout high (50 bad keys in 15 minutes):
+  boxes share egress addresses, and a limit of 10 locked out the orchestrator's own test.
+- Clients send `X-Tunnel-Skip-AntiPhishing-Page: true`. A 302 from the tunnel is its sign-in page: the port lost its
+  anonymous access.
+- `autonomous-variations/scripts/drop-server.mjs` and `drop.mjs` do all of this.
+
+**The dev tunnel recipe.** Sign in to the `devtunnel` CLI once on the hub (`devtunnel user login`, or `-d` for a
+device code the user enters), then:
+
+1. `devtunnel create <id> -e 3d -d "<lab> drop"`
+2. `devtunnel port create <id> -p 4650 --protocol http`
+3. `devtunnel access create <id> -p 4650 --anonymous`, for the drop's port only. A review port stays private, so the
+   user signs in to open it.
+4. `devtunnel host <id>`, started detached. Its log prints the URL, `https://<id-part>-4650.<region>.devtunnels.ms`.
+5. Teardown: `devtunnel delete <id> -f`. The tunnel also expires on its own (`-e`).
+
+**Git bundles.**
+- `git bundle create` needs a ref, not a bare commit ("Refusing to create empty bundle"): run
+  `git update-ref refs/drop/<kind> <sha>` first. `drop.mjs send` does.
+- Base every bundle on a commit every box has. Otherwise `git bundle verify` fails where it lands ("Repository lacks
+  these prerequisite commits").
+- Check the SHA-256 and run `git bundle verify` before fetching, and fetch into a ref of your own
+  (`refs/lab/<kind>`): git refuses to fetch into a branch checked out in any worktree.
+- Bundles are small: a whole homepage redesign on top of an older main was 2.6 MB.
+
+**Windows hosts.**
+- Node: the default may not be the repo's version (one box ran 24 by default, with 22 under fnm). Put that version's
+  fnm installation folder first on PATH; `fnm exec npm` failed.
+- `npm install` rewrote `package-lock.json`: restore it, and don't run it in lab worktrees.
+- Use `curl.exe`: in PowerShell, `curl` is an alias for `Invoke-WebRequest`.
+- Start detached processes with `Start-Process node -ArgumentList '<args>' -WorkingDirectory <dir> -WindowStyle
+  Hidden -RedirectStandardOutput <log> -RedirectStandardError <errlog> -PassThru`, and keep `.Id` to stop that PID.
+- Run `git config --global core.longpaths true` before deep worktrees.
+- With no Chrome, headless Playwright runs with `channel: 'msedge'`.
+- The drop's bash scripts run in Git Bash (`C:\Program Files\Git\bin\bash.exe`). They avoid `lsof` and fall back
+  from `sha256sum` to `shasum`, but so far they have been tested on macOS only.
+
+**Shell traps.**
+- macOS `/bin/bash` is 3.2: under `set -u`, `"${arr[@]}"` on an empty array is an "unbound variable" error. Write
+  `${arr[@]+"${arr[@]}"}`, and test with `/bin/bash`, not whichever bash comes first on PATH.
+- A cleanup glob can match a template: `rm -f brief-v*.md` also deleted `brief-variation.template.md`. Write
+  generated files into a folder of their own, and never glob-delete next to sources.
+- Test a sync script with fake bundles in a scratch clone and scratch refs before the real run.
 
 ---
 
