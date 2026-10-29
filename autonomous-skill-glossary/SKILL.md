@@ -294,14 +294,15 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   connected", and a locked screen blocks Computer Use, so nobody could click Reopen.
 - `create_session` starts a session on the same host, and it works from a session on a dev box with no laptop
   involved. Use it to let each box start its own sessions: as child chats of the caller (the default) or as
-  independent sessions. It defaults to the caller's model; on a box with the settings below, the new sessions ran
-  at max reasoning with the long (1M) context tier.
+  independent sessions. Called without `model`, the new session inherits the caller's model, reasoning effort and
+  context tier; called with a model id, it started at medium effort.
 - `create_remote_session` starts a session on another host, chosen by `hostId` (from `list_agent_hosts`, which also
   shows each host's cores, memory and load) or picked automatically. `requirements` can ask for CPUs, memory or a
   platform. It returns once the prompt is accepted. Never retry an uncertain creation: check first, or there will be
   two sessions.
 - `create_remote_session` starts a session with the host's default permissions, not the creating chat's. Its model
-  is only `{provider, id}`: no context tier and no reasoning effort. A workspace has to be trusted first ("The
+  is only `{provider, id}`, with no context tier or reasoning effort; in one lab the sessions it created still ran at
+  the launching chat's max effort and 1M context, in an earlier one they did not. Audit; don't assume. A workspace has to be trusted first ("The
   workspace is not trusted. Trust it before starting an unattended session."); sessions without a workspace work,
   with absolute paths in the brief.
 - `send_remote_message` only queues, first in first out. The target reads it when its turn ends, so a long turn
@@ -323,8 +324,9 @@ The procedure, starting with the rule that such a lab runs on its own with its h
 - Turn "allow sandboxing" off and set allow-all (Autopilot) before the fan-out, in the user settings of the VS Code
   that hosts the box's agent host (`%APPDATA%\Code - Insiders\User\settings.json`): `chat.agent.sandbox.enabled`
   (recent builds have no separate Windows key), `chat.permissions.default`, `chat.defaultConfiguration`, and
-  `chat.agentHost.copilot.modelCapabilityOverrides` with `reasoningEffort` per model. The box's VS Code forwards them
-  to its own agent host; the laptop's settings do not reach it.
+  `chat.agentHost.copilot.modelCapabilityOverrides` with `reasoningEffort` per model. The agent host takes its root
+  config from a connected VS Code window, so a box's `settings.json` alone did not change the effort of new sessions
+  there; the laptop's settings do not reach a box either.
 - Prove it with one pilot session per host that writes outside any workspace and starts a detached process.
 - Briefs still say: when the sandbox denies a write, rerun the command asking to run outside the sandbox, and never
   stop at the first denial.

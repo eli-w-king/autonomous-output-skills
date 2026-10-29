@@ -44,15 +44,19 @@ The point of running on dev boxes is that the user can close the laptop and the 
   (`%APPDATA%\Code - Insiders\User\settings.json`), keeping everything else, and record what changed:
   `"chat.agent.sandbox.enabled": "off"`, `"chat.permissions.default": "autopilot"`,
   `"chat.defaultConfiguration": { "mode": "autopilot", "approvals": "allowAll" }`, and for the model the user wants
-  at max, `"chat.agentHost.copilot.modelCapabilityOverrides": { "<model>": { "reasoningEffort": "max" } }`.
-  Sandboxed sessions were once denied writes outside their workspace with no prompt, and on another box sessions
-  parked in `needsInput` until someone approved them by hand.
+  at max, `"chat.agentHost.copilot.modelCapabilityOverrides": { "<model>": { "reasoningEffort": "max" } }`. The agent
+  host reads these from a connected VS Code window, so with no window open on the box they may not apply: the pilot
+  and the audit are the proof. Sandboxed sessions were once denied writes outside their workspace with no prompt,
+  and on another box sessions parked in `needsInput` until someone approved them by hand.
 - **A pilot proves it.** The first step of the hub session, and of each spoke's base session: write a file in the lab
   home, start a detached process and stop it, run git and node, with no prompt and no denial. Fan out only after
   every pilot passes.
-- **Model, effort and context.** `create_remote_session` sets the model only. Sessions created on a box with
-  `create_session` (section 4) after the settings above ran on the requested model at max reasoning with the long
-  (1M) context tier. Check every session from its own `events.jsonl` (section 4), never from its reply.
+- **Model, effort and context are inherited, so launch from the right chat.** Start the launcher at the model,
+  effort and context the user wants (for example Opus 5.5, max, 1M). The hub and bases created from it with
+  `create_remote_session` ran at all three, and sessions they created with `create_session` **without** `model`
+  inherited them too. Passing a model id to `create_session` started sessions at medium effort; one hub caught that
+  in its audit and replaced ten sessions. Check every session from its own `events.jsonl` (section 4), never from its
+  reply.
 - **No workspace.** Create sessions without one and give absolute paths in the briefs. A home-folder workspace
   fails as untrusted unless the user trusts it first.
 - **Count the remote requests.** `create_remote_session` and `send_remote_message` share a budget of about 50 per
@@ -110,8 +114,8 @@ started all 20 sessions within ten minutes.
    branch and sends it with `drop.mjs send kit <branch>`; the `kit-latest.txt` that appears is "kit ready" for every
    box. A lab whose variations only add their own files (Component Explorer fixtures, for example) needs no kit.
 4. **Every variation at once, in Phase 0, created on its own box.** The hub and each base call `create_session` once
-   per variation, with the exact text of `prompt-<kind>.md` from the drop and the model. As child chats of the hub or
-   as independent sessions, both worked. Create one, check that it fetched its brief, then create the rest, and
+   per variation, with the exact text of `prompt-<kind>.md` from the drop and **no `model`**, so each inherits the
+   caller's model, effort and context. As child chats of the hub or as independent sessions, both worked. Create one, check that it fetched its brief, then create the rest, and
    record every link in `status.md`. Phase 0 is study and plan only: read the rules and the code, study today's UI
    once the box's base serves it, write a plan in the lab home and deliver it as `<kind>-plan.md`. No worktree and no
    lab code yet. This uses the hour the base (or kit) takes and still pins the base before anyone builds.
