@@ -334,6 +334,11 @@ in round 1 instead of round 4.
   `sessions/comparisonResultExplorations` opens the whole group as one scrolling page, which is the best link to hand
   a reviewer. For one clean variant with no explorer chrome, use
   `/___explorer?mode=embedded&fixture=<group>/<Fixture>/<Theme>`; embedded mode is the best source for screenshots.
+- **A fixture id includes the file's name.** The id is the group path, then the fixture file's name (without
+  `.fixture.ts`, and minus a leading part equal to the path's last segment; nothing if that leaves it empty), then
+  the fixture, then the theme: path `sessions/automations/` in `automationsView.fixture.ts` gives
+  `sessions/automations/automationsView/Populated/Dark`. Check a real id in the explorer's tree before writing it
+  into a brief or a script.
 - **Popup fixtures (pickers, action widgets) show in only one theme tile at a time** in the folder or fixture view,
   and the other tiles look empty. That is not a regression; capture each variant in embedded mode.
 - **Headless Playwright can be missing its browser** (`chromium_headless_shell-<n>` not found). Launch with
