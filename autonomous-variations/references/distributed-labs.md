@@ -39,71 +39,90 @@ The point of running on dev boxes is that the user can close the laptop and the 
 
 ## 3. Before the fan-out (the user is present)
 
-- **Settings on every host.** "Allow sandboxing" off and approvals at allow-all (Autopilot), set before any session
-  starts: sessions take the host's defaults, not those of the chat that creates them. Sandboxed sessions were denied
-  writes outside their workspace with no prompt and stopped; on another host, sessions parked in `needsInput` until
-  someone approved them by hand.
+- **Settings on every box, set by its first session.** Sessions take the box's defaults, not those of the chat that
+  creates them. The hub and each base set them in the user settings of the VS Code that hosts the box's agent host
+  (`%APPDATA%\Code - Insiders\User\settings.json`), keeping everything else, and record what changed:
+  `"chat.agent.sandbox.enabled": "off"`, `"chat.permissions.default": "autopilot"`,
+  `"chat.defaultConfiguration": { "mode": "autopilot", "approvals": "allowAll" }`, and for the model the user wants
+  at max, `"chat.agentHost.copilot.modelCapabilityOverrides": { "<model>": { "reasoningEffort": "max" } }`.
+  Sandboxed sessions were once denied writes outside their workspace with no prompt, and on another box sessions
+  parked in `needsInput` until someone approved them by hand.
 - **A pilot proves it.** The first step of the hub session, and of each spoke's base session: write a file in the lab
   home, start a detached process and stop it, run git and node, with no prompt and no denial. Fan out only after
   every pilot passes.
-- **Say what can't be set.** `create_remote_session` sets the model only, not the context tier or the reasoning
-  effort. Tell the user before launching, so they set those in the Agents window or accept the defaults.
+- **Model, effort and context.** `create_remote_session` sets the model only. Sessions created on a box with
+  `create_session` (section 4) after the settings above ran on the requested model at max reasoning with the long
+  (1M) context tier. Check every session from its own `events.jsonl` (section 4), never from its reply.
 - **No workspace.** Create sessions without one and give absolute paths in the briefs. A home-folder workspace
   fails as untrusted unless the user trusts it first.
-- **Count the requests.** Creates and messages share a budget of about 50 per window. The hub, the kit author, one
-  base per spoke and N variations, plus any messages, must fit with room to spare; if they don't, give a session two
-  variations.
+- **Count the remote requests.** `create_remote_session` and `send_remote_message` share a budget of about 50 per
+  window. With the boxes creating their own sessions, the launch needs only one per box.
 - **Repo access.** A box that cannot fetch the repo (no sign-in, or an invalid injected `GH_TOKEN`) gets the base as
   a bundle: `drop.mjs send base <branch> --full` from a box that has it. Never ask an agent to sign in interactively.
 - **Skills on every box.** A box's sessions see only the skills installed on that box. Each box has them from
   INSTALL.md, "Dev boxes" (once, with `--schedule`), and the hub and every base session run
   `node ~/.copilot/autonomous-output-skills/tools/install-devbox.mjs` as their first step. Every start prompt names
   the skills to load.
-- **The tunnel** (labs on more than one box): the hub needs the `devtunnel` CLI, signed in once. The recipe is in the
-  glossary.
+- **The tunnel** (labs on more than one box): create it where `devtunnel` is signed in, and let the hub host it with
+  a host token, so no box ever signs in. The recipe is in the glossary.
 
-## 4. Launch: the hub, the bases, then every variation in Phase 0
+## 4. Launch: one session per box, and each box starts its own sessions
 
-The user starts the lab from one session, and it creates every other session during the launch, while the user is
-present: creating sessions goes through the Agents window, which has to stay connected for that.
+**The launcher creates one session per box: the hub, and a base on each spoke. Each of those creates its own box's
+variation sessions with `create_session`, from the prompt files on the drop.** That needs nothing from the laptop.
+`create_remote_session` and `send_remote_message` only work while an Agents window on the laptop shows the launching
+chat; in the first lab that used this, that window crashed mid-launch and the screen was locked, and the boxes still
+started all 20 sessions within ten minutes.
 
-- **Started on a dev box,** that session is the hub. It updates the skills, then runs step 1 itself and creates the
-  rest: `create_session` for sessions on its own box (they default to its model) and `create_remote_session` with a
-  `hostId` from `list_agent_hosts` for other boxes. `list_agent_hosts` also shows each box's cores, memory and load,
-  for choosing one big box.
-- **Started on the laptop,** that session is only the launcher. It starts the hub session on the biggest box, gives
-  it this procedure and the user's ask, and hands over after step 6.
+- **Started on the laptop,** the launcher creates the hub on the biggest box and a base on each spoke with
+  `create_remote_session` (a `hostId` from `list_agent_hosts`, which also shows cores, memory and load), then hands
+  over.
+- **Started on a dev box,** that session is the hub. It needs `create_remote_session` only for the bases on other
+  boxes, while the user is present.
+- **Never put a secret in a prompt from memory.** Read a key from its file when you write the prompt; a key typed
+  from memory cost the first launch a round trip.
+- **Corrections after the launch go on the drop:** a numbered item in `orders.md`, and for the hub a file it will
+  notice in a listing (`00-origin-read-me-first.md`). A session never fetches its brief twice, so every brief tells
+  the hub and the bases to read `orders.md` from their first minutes, not only in the night loop.
 
-1. **The hub.** Its first steps are the skills update and the pilot. It gets the scripts from the installed skills
-   (`~/.copilot/skills/autonomous-variations/scripts/`). It makes the lab home and writes a new key to a file there
-   (`node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`), starts `drop-server.mjs`
-   detached, and for more boxes sets up the tunnel. Then it writes `drop.json` as
-   `{ "dir": "<lab home>/drop", "base": "<commit>" }`, starts the box's flush loop, puts `drop.mjs` on the drop, and
-   writes the briefs into the drop with `make-briefs.py --out <lab home>/drop`. A launcher reads the drop's URL (never
-   the key) from the hub's turn text with `get_remote_session`.
+1. **The hub.** Its first steps are the skills update, the settings and the pilot. It gets the scripts from the
+   installed skills (`~/.copilot/skills/autonomous-variations/scripts/`). It makes the lab home, gets the lab key
+   (written by the launcher, or a new one:
+   `node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`), starts `drop-server.mjs`
+   detached and, for more boxes, hosts the tunnel. Then it writes `drop.json` as
+   `{ "dir": "<lab home>/drop", "base": "<commit>" }`, starts the box's flush loop, and puts `drop.mjs`, the briefs
+   and the start prompts on the drop (`make-briefs.py --out <lab home>/drop`). A keepalive restarts the server, the
+   tunnel host and the flush loop if they die.
 2. **The bases.** One session per spoke. Its short start prompt carries the URL and the key, once, and nothing else
    ever repeats them:
 
    ```powershell
    $L = "$env:USERPROFILE\.lab\<lab>"; New-Item -ItemType Directory -Force $L | Out-Null
-   curl.exe -fsS -H "X-Lab-Key: <key>" -H "X-Tunnel-Skip-AntiPhishing-Page: true" -o "$L\drop.mjs" <url>/x/drop.mjs
+   # install the skills (INSTALL.md, "Dev boxes"), then copy drop.mjs from the installed skills into $L
    Set-Content "$L\drop.json" '{ "url": "<url>", "key": "<key>", "base": "<commit>" }'
-   node "$L\drop.mjs" get brief-base-<host>.md "$L\brief-base.md"
+   node "$L\drop.mjs" get brief-base-<host>.md "$L\brief-base.md"   # retry each minute until the hub's drop answers
    ```
 
-   It runs the pilot, starts the box's flush loop detached (`node <lab home>/drop.mjs flush --loop 60`), builds the
-   base, and delivers `base-<host>.md`: the site's URL and status, the ports, the browser channel, the gotchas.
-3. **The kit author,** a second session on the hub. It builds the kit on the base branch and sends it with
-   `drop.mjs send kit <branch>`; the `kit-latest.txt` that appears is "kit ready" for every box.
-4. **Every variation at once, in Phase 0.** Each starts from a prompt of about 1 KB made by `make-briefs.py`, which
-   fetches its brief. Phase 0 is study and plan only: read the rules and the code, study today's page headlessly once
-   the box's site answers, write a plan in the lab home and deliver it as `<kind>-plan.md`. No worktree and no lab
-   code yet. This uses the hour the kit takes and still pins the base before anyone builds.
-5. **Phase 0 ends in a wait on a file, not a message:** `drop.mjs wait kit-latest.txt --timeout 14400`, then
-   `drop.mjs recv kit <repo>` and a worktree made from `refs/lab/kit`. When the shell tool moves a long wait to the
-   background, the session ends its turn and the wait's completion notice wakes it. No session waits to be told.
-6. **Hand over.** The hub puts the session links on the drop (`run-sessions.md`), starts its loop (section 9), and
-   tells the user the lab runs on its own now, so the laptop can close.
+   It sets the box's settings, runs the pilot, starts the box's flush loop detached
+   (`node <lab home>/drop.mjs flush --loop 60`), creates the box's variation sessions (step 4), builds the base, and
+   delivers `base-<host>.md`: the URLs, ports, browser channel and gotchas.
+3. **The kit author,** when the lab has a shared kit: a second session on the hub. It builds the kit on the base
+   branch and sends it with `drop.mjs send kit <branch>`; the `kit-latest.txt` that appears is "kit ready" for every
+   box. A lab whose variations only add their own files (Component Explorer fixtures, for example) needs no kit.
+4. **Every variation at once, in Phase 0, created on its own box.** The hub and each base call `create_session` once
+   per variation, with the exact text of `prompt-<kind>.md` from the drop and the model. As child chats of the hub or
+   as independent sessions, both worked. Create one, check that it fetched its brief, then create the rest, and
+   record every link in `status.md`. Phase 0 is study and plan only: read the rules and the code, study today's UI
+   once the box's base serves it, write a plan in the lab home and deliver it as `<kind>-plan.md`. No worktree and no
+   lab code yet. This uses the hour the base (or kit) takes and still pins the base before anyone builds.
+5. **Audit the settings.** About ten minutes later, the hub and each base read every new session's `events.jsonl`
+   on their box (`session.start`, `session.model_change`, `session.permissions_changed`) and put a table on the
+   drop (`audit-<box>.md`): model, reasoning effort, context tier and allow-all, one row per session.
+6. **Phase 0 ends in a wait on a file, not a message:** for example `drop.mjs wait kit-latest.txt --timeout 14400`,
+   or a loop that checks for the box's `base-ready.txt` in one command of up to nine minutes, repeated. No session
+   waits to be told.
+7. **Hand over.** The hub keeps `status.md` with every session's link and state, starts its loop (section 9), and
+   the launcher tells the user the lab runs on its own now, so the laptop can close.
 
 Repo-specific build steps (a docs clone before the install, a production install for the built server) belong in
 the base brief. When the repo is the same as last time, start from the last lab's base brief.

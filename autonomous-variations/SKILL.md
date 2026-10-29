@@ -282,9 +282,12 @@ When the sessions run on dev boxes (remote agent hosts) so the user can close th
 - **Started on a dev box, that session is the hub.** It updates the skills, launches everything while the user is
   there, and never needs the laptop again. Every box needs the skills installed (the repo's INSTALL.md, "Dev
   boxes").
-- **Settings first, proven by a pilot.** "Allow sandboxing" off and allow-all (Autopilot) on every host before the
-  fan-out, one pilot session per host to prove it, sessions without a workspace, and the user told which settings
-  `create_remote_session` cannot set.
+- **Settings first, proven by a pilot.** Each box's first session sets sandboxing off, Autopilot with allow-all, and
+  max reasoning for the requested model in that box's settings, then proves them with a pilot. Sessions run without a
+  workspace.
+- **Each box starts its own sessions.** The launcher creates only the hub and one base per spoke; they create their
+  box's variation sessions with `create_session` from prompt files on the drop, so a closed, locked or crashed laptop
+  cannot stop the launch. An audit of each session's `events.jsonl` confirms the model, effort and context.
 - **Files, not messages.** Briefs live on the drop and each session starts from a short prompt that fetches its
   own. Kit readiness, later orders, reports and kit requests are files, and a phase ends in a wait on a file.
   Creates and messages share a budget of about 50 per window.

@@ -289,9 +289,13 @@ The procedure, starting with the rule that such a lab runs on its own with its h
 [`autonomous-variations/references/distributed-labs.md`](../autonomous-variations/references/distributed-labs.md).
 
 **The session tools.**
-- Sessions are created through the Agents window, which has to stay connected for that and for messages to
-  `"origin"`. So every session is created at the launch, while the user is present.
-- `create_session` starts a session on the same host; it defaults to the current chat's model.
+- `create_remote_session`, `send_remote_message` and `get_remote_session` are client tools: they work only while an
+  Agents window shows the calling chat. When that window crashed mid-launch, every call failed with "No client is
+  connected", and a locked screen blocks Computer Use, so nobody could click Reopen.
+- `create_session` starts a session on the same host, and it works from a session on a dev box with no laptop
+  involved. Use it to let each box start its own sessions: as child chats of the caller (the default) or as
+  independent sessions. It defaults to the caller's model; on a box with the settings below, the new sessions ran
+  at max reasoning with the long (1M) context tier.
 - `create_remote_session` starts a session on another host, chosen by `hostId` (from `list_agent_hosts`, which also
   shows each host's cores, memory and load) or picked automatically. `requirements` can ask for CPUs, memory or a
   platform. It returns once the prompt is accepted. Never retry an uncertain creation: check first, or there will be
@@ -316,8 +320,11 @@ The procedure, starting with the rule that such a lab runs on its own with its h
 - Hosts differ. On one, a filesystem sandbox denied writes outside the allowed paths with no prompt ("Access
   denied", curl exit 23), and the sessions reported the error and stopped. On another, approval prompts parked the
   sessions in `needsInput` until someone approved them by hand.
-- Turn "allow sandboxing" off and set allow-all (Autopilot) before the fan-out, on every platform the hosts run:
-  `chat.agent.sandbox.enabled` and `chat.agent.sandbox.enabledWindows` are separate settings.
+- Turn "allow sandboxing" off and set allow-all (Autopilot) before the fan-out, in the user settings of the VS Code
+  that hosts the box's agent host (`%APPDATA%\Code - Insiders\User\settings.json`): `chat.agent.sandbox.enabled`
+  (recent builds have no separate Windows key), `chat.permissions.default`, `chat.defaultConfiguration`, and
+  `chat.agentHost.copilot.modelCapabilityOverrides` with `reasoningEffort` per model. The box's VS Code forwards them
+  to its own agent host; the laptop's settings do not reach it.
 - Prove it with one pilot session per host that writes outside any workspace and starts a detached process.
 - Briefs still say: when the sandbox denies a write, rerun the command asking to run outside the sandbox, and never
   stop at the first denial.
@@ -336,8 +343,8 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   anonymous access.
 - `autonomous-variations/scripts/drop-server.mjs` and `drop.mjs` do all of this.
 
-**The dev tunnel recipe.** Sign in to the `devtunnel` CLI once on the hub (`devtunnel user login`, or `-d` for a
-device code the user enters), then:
+**The dev tunnel recipe.** Run these where the `devtunnel` CLI is signed in (`devtunnel user login`, usually the
+laptop):
 
 1. `devtunnel create <id> -e 3d -d "<lab> drop"`
 2. `devtunnel port create <id> -p 4650 --protocol http`
@@ -345,6 +352,12 @@ device code the user enters), then:
    user signs in to open it.
 4. `devtunnel host <id>`, started detached. Its log prints the URL, `https://<id-part>-4650.<region>.devtunnels.ms`.
 5. Teardown: `devtunnel delete <id> -f`. The tunnel also expires on its own (`-e`).
+
+**Hosting it on a box that is not signed in.** Mint a host token where you are signed in, straight into a file
+(`devtunnel token <id> --scopes host --json`; it lasts 24 hours), and hand the file to the hub over a short-lived
+boot drop (a second tunnel and `drop-server.mjs` on the laptop, deleted once the hub has pulled). The hub hosts with
+the token on stdin, never on the command line: `devtunnel host <id>.<region> --access-token -` with the token file as
+standard input. The URL stays the same, so it can go in prompts before the hub is up.
 
 **Git bundles.**
 - `git bundle create` needs a ref, not a bare commit ("Refusing to create empty bundle"): run
