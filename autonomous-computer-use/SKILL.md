@@ -1,6 +1,6 @@
 ---
 name: autonomous-computer-use
-description: "Autonomous: Computer Use. Background-only macOS app automation with a private virtual input lane. Use whenever a task asks to open, inspect, click, type, edit, or send through a native desktop app such as Notes, Messages, Slack, Finder, System Settings, or Office. Keeps the user's mouse, keyboard, focus, and current app untouched; launches and drives target apps in the background; handles one-time permissions; validates ambiguous actions; prevents duplicate sends; and prefers APIs or browser automation when truly headless execution is available."
+description: "Autonomous: Computer Use. Background-only macOS app automation with a private virtual input lane. Use whenever a task asks to open, inspect, click, type, edit, or send through a native desktop app such as Notes, Messages, Slack, Teams, Finder, System Settings, or Office. Use WorkIQ first for Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint), and the Slack MCP server for Slack when connected. Keeps the user's mouse, keyboard, focus, and current app untouched; launches and drives target apps in the background; handles one-time permissions; validates ambiguous actions; prevents duplicate sends; and prefers APIs or browser automation when truly headless execution is available."
 ---
 
 # Autonomous: Computer Use
@@ -57,7 +57,8 @@ safe-targeting problem, not a missing-permission problem.
 
 Choose the least intrusive route that can finish the task:
 
-1. Service API or dedicated tool.
+1. Service API or dedicated tool. For Microsoft 365 work, use WorkIQ (see below). For Slack, use the
+   Slack MCP server when its tools are loaded.
 2. Browser automation or CDP for browser-only and owned Electron surfaces.
 3. Computer Use text/accessibility actions against a backgrounded native app.
 4. Computer Use screenshot coordinates only when the accessibility tree cannot address the custom
@@ -66,6 +67,38 @@ Choose the least intrusive route that can finish the task:
 
 Do not use Computer Use for simple file, folder, or URL opening when filesystem, shell, or browser
 tools can do it without UI automation.
+
+## Microsoft 365 with WorkIQ
+
+WorkIQ reads and writes the signed-in user's Outlook, Teams, OneDrive, and SharePoint data without a
+window. Use it before opening those apps:
+
+- **Teams:** read with `fetch`, and send with `create_entity`, on `/me/chats/{chat-id}/messages` or
+  `/teams/{team-id}/channels/{channel-id}/messages`.
+- **Your own Teams self chat (Notes):** `/me/chats/48%3Anotes/messages` works for reads and creates,
+  and it doesn't appear in the `/me/chats` listing. Create with jsonBody
+  `{"body": {"contentType": "text", "content": "..."}}`.
+- **Outlook:** mail, calendar, and contacts. Send with `do_action` on `/me/sendMail`. Reply,
+  forward, and move with the matching `do_action` routes.
+- **OneDrive and SharePoint:** search with `retrieve`, or with `call_function` on
+  `/me/drive/root/search(q='...')`. Download file content with `fetch_blob`.
+
+Call `search_paths` before using any path you have not verified. Use `fetch` with `$select` and
+`$top`, and call `get_schema` only when a write returns 400. Use Computer Use for these apps only
+when WorkIQ has no path for the step, and then apply the message and ambiguity rules below.
+
+## Slack
+
+Prefer the Slack MCP server when its tools are loaded in the session. It can search, read channels
+and threads, send, schedule, and draft messages, and add reactions. Its OAuth user token may need
+workspace admin approval, so connecting it needs the user's explicit approval.
+
+- To message or read yourself, use your own Slack user ID as `channel_id`. The Slack tool
+  descriptions state it for the current user. Sending and reading both resolve to the same self-DM.
+- Slack tools can appear partway through a chat. If they're missing, start a new chat before
+  troubleshooting the connection.
+- If Slack isn't connected, use Computer Use for Slack and follow the composer and transcript rules
+  in this skill.
 
 ## Operating loop
 
@@ -82,6 +115,8 @@ tools can do it without UI automation.
    - Simple whole-value `(settable, string)` field: `set_value`.
    - `(patchable)` rich text, document, slide, Monaco, or Slack composer: `patch_text`.
    - Insertion at a proven focused input: `type_text`.
+   - If the advertised primitive returns `no_viable_candidate`, re-read once and stop that route.
+     Don't cycle other primitives. Use the app's API route, or report the blocker.
 6. **Verify the effect from the returned state.** Do not take an extra screenshot merely to confirm
    text already exposed by accessibility.
 
@@ -101,10 +136,15 @@ may already have happened:
 For a message, inspect both the composer and transcript. A non-empty composer does not prove that
 no message was sent, and an empty composer does not prove that exactly one message was sent.
 
+For a WorkIQ send that times out or returns an unknown result, fetch the recent chat messages
+(`/me/chats/{chat-id}/messages` with `$top=5` and `$select=id,body,createdDateTime`) or Sent Items
+before retrying. A repeated create or sendMail can duplicate the message.
+
 ## Messages, forms, and other consequential actions
 
-Respect the Computer Use action policy. Sending a message needs explicit approval of the exact
-recipient and body. Approval covers one send.
+Respect the Computer Use action policy, which also covers WorkIQ and Slack sends. Sending a message
+needs explicit approval of the exact recipient and body, whichever route sends it. Approval covers
+one send.
 
 Before sending:
 
@@ -112,9 +152,17 @@ Before sending:
 - Verify the complete draft and formatting.
 - Verify an ambiguous edit did not already post it.
 - Ignore separate prompts to add, invite, subscribe, or notify someone unless separately approved.
+- If WorkIQ cannot resolve a one-on-one chat (they may be missing from `/me/chats`), ask the user for
+  the chat ID, or use Computer Use after verifying the chat title.
 
 Send once. Then verify an empty composer and exactly one matching outgoing transcript entry. Never
 delete a duplicate without separate approval.
+
+For a send from another machine, start a remote session on that host (`create_remote_session`, using
+the host ID from `list_agent_hosts`). Put the approval and exact text in its prompt, have it report to
+`origin`, then verify each destination yourself before reporting. Use the user's exact words for the
+text. If the approval leaves the text open, use the closest literal wording and state it in your
+report.
 
 ## Keep the user out of the loop
 
