@@ -21,6 +21,8 @@ facts into something else, and never commit or publish it.
    words a person would say out loud.
 3. **First person, team voice.** "I" for the user's own work and asks ("send feedback my way"),
    "we" for the team's work and decisions ("we're exploring a few ideas"), "you" to the reader.
+   Shared work sounds collaborative, never "I did all this". Replies to collaborators end with an
+   open invitation ("Any questions for me?") rather than a filler closer.
 4. **Warm and upbeat, never hype.** Friendly openers and closers ("Hi all!", "Thanks!"), real
    enthusiasm when it fits, and no marketing language: no "seamless", "powerful", "robust",
    "unlock", "elevate", "game changer", or superlatives the facts do not support. If it reads like

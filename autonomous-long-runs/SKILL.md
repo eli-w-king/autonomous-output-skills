@@ -136,6 +136,9 @@ When many chats or background agents work at once (for example a variation lab p
   laptop, the hub (the orchestrator session, the file drop and its tunnel, the review) is a dev box,
   and nothing after the launch depends on the laptop or on messages. Follow
   [`autonomous-variations/references/distributed-labs.md`](../autonomous-variations/references/distributed-labs.md).
+- **"Send it to a dev box" means all of it.** When the user says to send work to a dev box, the
+  builds, renders, servers and agents run there, not on the laptop, even when the laptop would be
+  quicker to start. The laptop only starts the work and reviews the result.
 
 ## Maintaining this skill
 

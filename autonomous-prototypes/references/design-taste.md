@@ -9,7 +9,8 @@ user's latest word beats anything here.
 
 - **Motion follows the scroll.** A page that scrolls vertically moves things vertically. No
   sideways panning or horizontal scrolling sections, and movement in one axis at a time, never
-  diagonal.
+  diagonal. Text scrolls with the page and never parks in one spot; the demo beside it may hold
+  still.
 - **One change after another.** Sequence changes so the eye can follow them; never change many
   things at once.
 - **Light and smooth.** Gradual, continuous transitions instead of sudden fades or pop-ins, short
@@ -26,6 +27,9 @@ user's latest word beats anything here.
 
 ## Fit the product
 
+- **Premium and minimal.** Contemporary and sparse, with plenty of white space, so it looks like a
+  well designed product. Glow and glass only with restraint: nothing that reads as science fiction,
+  and no gimmicks like confetti.
 - **Native and restrained.** It looks like the product it lives in: real hover, selection and glyphs
   instead of generic web widgets, a small footprint, and nothing that looks out of place.
 - **Embedded beats layered.** Details open on the page or in the thing itself: no modals, scrims,
