@@ -53,10 +53,13 @@ else:
     times = [min(duration - 0.05, duration * i / (count - 1)) for i in range(count)]
 times = [max(0.0, min(t, max(0.0, duration - 0.05))) for t in times]
 
-try:
-    font = ImageFont.truetype('/System/Library/Fonts/SFNS.ttf', 18)
-except OSError:
-    font = ImageFont.load_default()
+font = ImageFont.load_default()
+for candidate in ('/System/Library/Fonts/SFNS.ttf', 'C:/Windows/Fonts/segoeui.ttf'):
+    try:
+        font = ImageFont.truetype(candidate, 18)
+        break
+    except OSError:
+        pass
 
 tiles = []
 with tempfile.TemporaryDirectory() as work:

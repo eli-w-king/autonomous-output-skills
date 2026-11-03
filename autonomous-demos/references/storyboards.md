@@ -49,7 +49,7 @@ where the narrative changed many times and the capture approach did not.
 - Demo repos live in a neutral location (for example `/Users/Shared/demo`) with neutral terminal
   prompts, so no personal paths or names appear.
 - Native window stills (title bar, traffic lights, shadow) come from `screencapture -x -l <CGWindowID>`
-  of your own off-screen window (see the glossary recording reference); CDP screenshots have no window
+  of your own off-screen window (see the recording reference in autonomous-runs); CDP screenshots have no window
   chrome. Captures never include the OS pointer; composite the demo pointer or describe it per beat.
 
 ## The PDF

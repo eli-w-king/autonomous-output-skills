@@ -32,6 +32,10 @@ const PATCH = (mode, width, height) => `(() => {
 		try { w.setFocusable(false); } catch { }
 		try { w.setIgnoreMouseEvents(true); } catch { }
 		try { w.webContents.setBackgroundThrottling(false); } catch { }
+		// Windows has no dock icon to hide; keep the window out of the taskbar instead.
+		if (process.platform === 'win32') {
+			try { w.setSkipTaskbar(true); } catch { }
+		}
 		w.show = () => w.showInactive();
 		w.focus = () => { };
 		w.moveTop = () => { };
@@ -54,6 +58,9 @@ const PATCH = (mode, width, height) => `(() => {
 		try { w.setOpacity(1); } catch { }
 		try { w.setIgnoreMouseEvents(false); } catch { }
 		try { w.setFocusable(true); } catch { }
+		if (process.platform === 'win32') {
+			try { w.setSkipTaskbar(false); } catch { }
+		}
 		try { w.center(); } catch { }
 		try { w.show(); } catch { }
 	};

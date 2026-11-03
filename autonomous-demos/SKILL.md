@@ -1,6 +1,6 @@
 ---
 name: autonomous-demos
-description: "Autonomous: Demos. Make consistently good product demos without supervision: video walkthroughs, screenshot sets, before/after pairs, storyboard PDFs, and PR or issue media, all from the REAL running product (Code OSS built from microsoft/vscode, a website, or a prototype). Enforces the user's standing demo rules (real UI only, no errors on screen, the full flow from a clean start, outcomes over configuration, at most two focal areas, Modern UI with Dark 2026, a visible pointer with a blue click ring, no random zoom, one continuous take with in-place speed ramps) and ships an off-screen CDP recording toolkit, a brief template, a QA checklist, and Desktop delivery conventions. Use for 'record a demo', 'make a video', 'take screenshots', 'before and after', 'storyboard', 'walkthrough', 'add the demo to the PR', or 'show off this feature'. Pairs with autonomous-prototypes, autonomous-long-runs, and the vscode repo launch skill."
+description: "Autonomous: Demos. Make consistently good product demos without supervision: video walkthroughs, screenshot sets, before/after pairs, storyboard PDFs, and PR or issue media, all from the REAL running product (Code OSS built from microsoft/vscode, a website, or a prototype). Enforces the user's standing demo rules (real UI only, no errors on screen, the full flow from a clean start, outcomes over configuration, at most two focal areas, Modern UI with Dark 2026, a visible pointer with a blue click ring, no random zoom, one continuous take with in-place speed ramps) and ships an off-screen CDP recording toolkit, a brief template, a QA checklist, and Desktop delivery conventions. Use for 'record a demo', 'make a video', 'take screenshots', 'before and after', 'storyboard', 'walkthrough', 'add the demo to the PR', or 'show off this feature'. Pairs with autonomous-prototypes, autonomous-runs, and the vscode repo launch skill."
 ---
 
 # Autonomous: Demos
@@ -12,10 +12,10 @@ real takes, calm pacing, every important moment held long enough to read.
 
 This skill owns the rules, the brief, the recording pipeline, QA, and delivery. Building or changing
 the feature first is [`autonomous-prototypes`](../autonomous-prototypes/SKILL.md). Multi-hour or
-overnight demo runs also follow [`autonomous-long-runs`](../autonomous-long-runs/SKILL.md). Deep
-technical gotchas live in the glossary references
-[`recording.md`](../autonomous-skill-glossary/references/recording.md) and
-[`code-oss.md`](../autonomous-skill-glossary/references/code-oss.md); read them before driving Code
+overnight demo runs also follow [`autonomous-runs`](../autonomous-runs/SKILL.md). Deep
+technical gotchas live in the autonomous-runs references
+[`recording.md`](../autonomous-runs/references/recording.md) and
+[`code-oss.md`](../autonomous-runs/references/code-oss.md); read them before driving Code
 OSS.
 
 ## Pick the profile
@@ -30,10 +30,10 @@ OSS.
 | Screenshot set | "take screenshots of ..." | full-window PNG + tight crop per state | 2x, whitespace trimmed, one theme |
 | Before/after | PR review, a change | paired PNGs per state and layout | same state, size, theme on both sides |
 | PR media | "add the demo to the PR" | short GIF and/or MP4 | GIF under ~10 MB, MP4 for anything long |
-| Study stimulus | UserTesting or Outset studies | static PNG per state, no pointer | used by [`autonomous-user-studies`](../autonomous-user-studies/SKILL.md) |
+| Study stimulus | UserTesting or Outset studies | static PNG per state, no pointer | used by [`autonomous-research`](../autonomous-research/references/running-a-study.md) |
 
 Study stimulus is the one profile with different capture rules (static stills, no pointer, about
-56 px of surrounding UI per crop); `autonomous-user-studies` owns them. Every other profile follows
+56 px of surrounding UI per crop); `autonomous-research` owns them. Every other profile follows
 the rules below.
 
 ## The rules (always enforced)
@@ -141,132 +141,11 @@ prototype (scripted or behind a setting) or a documented gap. Never fake a state
 demo. When unsure how a feature behaves (for example queued messages), read the upstream code or
 reproduce it before recording, and say how you verified it.
 
-## Step 1: Build and environment
+## Steps 1 to 5: build, record, edit, QA, deliver
 
-**Choose the build.**
-- "The product today" (evidence, issues, gap reviews): a clean build of current upstream
-  `microsoft/vscode` main, no prototype flags.
-- Prototype or PR demos: the feature worktree, rebuilt after the last change (verify a feature
-  symbol is in `out/`). Rebase on upstream main first when the user asks or the base is stale.
-- Websites: the real URL, or the site repo's local dev server on the right branch and variant.
-
-**Choose the auth mode.**
-
-| Mode | When | How |
-|------|------|-----|
-| Real account | real agents, real models, compare runs, PR creation | vscode repo `launch` skill (`.agents/skills/launch/scripts/launch.sh --agents --disable-workspace-trust`), then `node scripts/hide-windows.mjs --inspect <its main inspector port> --pid <its pid>` |
-| Scripted | prototypes, storyboards, deterministic flows | `node scripts/start-mock-llm.cjs --repo <vscode> --scenarios <file> --default <id>` then `node scripts/launch-demo-oss.mjs --repo <vscode> --agents --mock-llm http://127.0.0.1:47331` |
-
-`launch-demo-oss.mjs` makes an isolated profile (own HOME for the Agents window, `COPILOT_HOME`,
-`CODEX_HOME`), passes `--use-mock-keychain`, writes the demo settings preset (Dark 2026, Modern UI,
-compact, composer layout, Aquarium off, long hover delays, no squiggles or prompts), collapses
-Customizations, binds silent keys (F5 hover, F6 Agents side panel, F7 clear notifications, F8 close
-sidebar, F9 new chat, F10 close panel), keeps the window invisible and unfocusable, and prints the
-pid and ports as JSON. Add feature flags with `--settings extra.json`. Use `--size 1000x1000` for
-square takes and `--mode offscreen` when real window pixels are needed. For the `launch` skill,
-write the same settings into the run's `User/settings.json`.
-
-**Never delete sessions you did not create.** A real-account instance can list the user's real
-agent sessions (agent-host sessions live in `~/.copilot/session-state` unless `COPILOT_HOME` points
-elsewhere). Prefer starting real-account demos with a run-specific `COPILOT_HOME` so the list starts
-clean; if the harness then cannot sign in, keep the default and instead filter or scroll past real
-sessions. Either way, delete only the session ids this run created and recorded.
-
-**Starting state checklist** (assert with the driver's `/preflight`, which must return `[]`, and a
-still):
-- Sessions list: only sessions this run created; for a living sidebar, real harmless sessions
-  created across about four repos at different phases.
-- Composer empty; required toggles set (for example Auto off at first open); current models chosen.
-- No notifications (press F7 again about 20 s after launch: the extension-host toast comes back),
-  no banners or nudges in the chat input, no menus, hovers, dialogs, or quick input.
-- File explorer hidden, side panel closed, Customizations collapsed, correct proportions.
-- Theme and settings confirmed in a still before the first take.
-
-Record every process you start (pid, ports, run dir) in the run ledger. Never connect to a port you
-did not start; other agents may be recording.
-
-## Step 2: Drive and record
-
-1. Start the driver once and keep it: `DRIVER_PORT=47400 VSCODE_REPO=<vscode> node scripts/demo-driver.mjs`
-   (detached), then `POST /connect {"port": <cdp>}`.
-2. Copy [`scripts/take-template.mjs`](scripts/take-template.mjs) per take and fill in the beats from the
-   brief. Run it with `POST /run {"module": "<abs path>", "dir": "<abs take dir>"}`.
-3. Structure of every take: preflight, start recording, 2 to 3 s lead-in with the pointer parked in
-   empty space, beats with holds, `mark()` before and after every idle wait, payoff held 3 to 5 s,
-   2 to 3 s lead-out, stop.
-4. Motion: glides 500 to 700 ms, settle about 150 ms before a click, typing 30 to 70 ms per
-   character. Hover only on purpose. Never rest the pointer on truncated text or labels.
-5. Waits: wait on real UI signals (`waitFor` a selector or status text), never fixed sleeps for
-   agent work. Long agent runs are fine; they get fast-forwarded.
-6. Check every take immediately with a contact sheet before recording the next.
-
-Capture method: CDP screencast (the driver) by default. When a native overlay such as the
-integrated browser preview must be in frame, use `scripts/caploop.js` (composited
-`captureScreenshot`). For stills with native window chrome, use `screencapture -l` on your own
-off-screen window (see the glossary recording reference).
-
-## Step 3: Edit and encode
-
-```bash
-S=<this skill>/scripts
-python3 $S/encode-screencast.py take-1 take-1.mp4                  # 1920 wide, 30 fps, CRF 16
-node $S/speed-ramp.mjs take-1.mp4 demo.mp4 --marks take-1/frames.json --idle wait_start:wait_end@12
-python3 $S/title-cards.py master.mp4 --card "Design A|Segmented" a.mp4 --card "Design B|List" b.mp4
-bash $S/mp4-to-gif.sh demo.mp4 demo.gif 12 960                       # PR preview only
-```
-
-Speed ramps of 10x to 18x suit agent waits. Keep a second of real-time motion on both sides of a
-ramp. Square takes come from a square viewport, not a crop. Use title cards to label variants and
-phases; never add zoom effects, highlight overlays, or captions unless the brief asks.
-
-## Step 4: QA (all must pass before delivery)
-
-```bash
-bash $S/validate-video.sh demo.mp4 --width 1920 --fps 30   # h264, yuv420p, 30 fps, faststart, full decode
-python3 $S/contact-sheet.py demo.mp4                    # overview
-python3 $S/contact-sheet.py demo.mp4 --every 0.5 --start 40 --end 48   # around a hover or menu
-```
-
-Look at the sheets and the start, middle, and end frames, then check against the brief: no errors,
-toasts, tooltips, or sign-in prompts; the right theme and chrome; at most two focal areas; the
-pointer visible with deliberate clicks; the full flow with no skipped states; every must-show beat
-held long enough to read; nothing from the never-show list; no zoom; correct models and wording.
-Anything wrong means fix the setup and re-record, never patch pixels. Delete the `-check` folders and
-contact sheets before delivery unless the user wants them.
-
-## Step 5: Deliver
-
-- Folder: `~/Desktop/<Project> Demos/Round N - <what changed>/` (the Desktop is OneDrive-synced) with
-  `<Feature> - <variant>.mp4`, `Stills/`, and `Read me.txt` (template in the brief reference). Put all
-  demos for one project in one folder; a single quick demo can go straight into
-  `~/Desktop/<feature>-demo/`.
-- Open the result with `open "<file>"` when the user asks to see it now (or `open -R` to reveal it
-  in Finder). During unattended runs use `open -g` so nothing steals focus. Never use computer use to
-  open files.
-- Delete superseded versions and temporary files unless the user asked to keep them.
-- Live demo: stop the other Code OSS instances you own (`node scripts/stop-demo-oss.mjs --run
-  <run dir>`) and leave one window on the starting state
-  (`node scripts/hide-windows.mjs --inspect <port> --pid <pid> --mode show`, or relaunch with
-  `--mode visible`).
-- Otherwise stop every instance you started with `stop-demo-oss.mjs` (it verifies the pid, exits via
-  the main inspector, and only then falls back to signals).
-- PR or issue media: follow the glossary's GitHub publishing section (web attachments when a
-  signed-in browser is available, otherwise a media branch or repo with raw URLs; never expiring
-  signed URLs). Before/after images go in the PR description.
-
-## Screenshots and before/after
-
-- Full window at 2x plus a tight crop of the detail; trim whitespace; one theme; menus closed unless
-  they are the subject.
-- Component crops: Component Explorer embedded mode
-  (`/___explorer?mode=embedded&fixture=<group>/<Fixture>/<Theme>`) served from your own worktree
-  (`npm run serve-out-rspack`); popup fixtures render in one theme tile at a time.
-- Before/after: same scenario, state, size, and theme on both sides; the baseline from upstream main
-  (or the parent commit), the after from the branch; cover every relevant layout permutation (side
-  bar positions, activity bar positions, labels on and off, empty and populated lists, active
-  sessions) and name pairs `before-<state>.png` / `after-<state>.png`.
-- For revision rounds, deliver screenshots for approval first (full window plus zoomed crop of each
-  state), then record the videos.
+After the brief, follow [`references/procedure.md`](references/procedure.md): choosing the build and the
+isolated environment, driving and recording, editing and encoding, the QA that must pass before
+delivery, delivery, and screenshot sets and before/after pairs. Read it before the first launch.
 
 ## Scripts
 
@@ -290,7 +169,7 @@ contact sheets before delivery unless the user wants them.
 The Node scripts need Node 22+ (`start-mock-llm.cjs` needs the checkout's Node 24). The driver loads
 `playwright-core` from `VSCODE_REPO`'s `node_modules`. Python scripts need Pillow and `ffmpeg`.
 
-## Hard-won gotchas (details in the glossary references)
+## Hard-won gotchas (details in the autonomous-runs references)
 
 - Pass `--use-mock-keychain` only for scripted demos; a real keychain prompt stalls the main thread.
   Omit it for real-account demos.
@@ -305,9 +184,12 @@ The Node scripts need Node 22+ (`start-mock-llm.cjs` needs the checkout's Node 2
 - Never open a session with an enormous diff while driving; the renderer hangs.
 - On the Copilot CLI harness, set `chat.agentHost.copilot.toolSearch.enabled: false` for Compare
   Models runs or the Judge never lands a verdict.
+- On Windows (Cloud PC, dev box) the toolkit runs natively: `python` instead of `python3`, Git Bash for the
+  `.sh` scripts, `--scale 2` plus the driver's `/viewport` for 2x frames, and Code OSS signs in with a device
+  code. See the Windows section of `recording.md` in autonomous-runs.
 
 ## Maintaining this skill
 
 Add new rules to both this file and the repo's `DEMO-RULES.md`; add technical gotchas to the
-glossary references; fix wrong steps in place. Keep the description under 1024 characters and never
+autonomous-runs references; fix wrong steps in place. Keep the description under 1024 characters and never
 use em or en dashes.

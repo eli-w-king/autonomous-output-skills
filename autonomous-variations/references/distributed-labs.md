@@ -3,8 +3,8 @@
 How to spread one variation lab over dev boxes (remote agent hosts) so it keeps going after the user closes the
 laptop. [`SKILL.md`](../SKILL.md) still applies to every lab; this adds the topology, the launch, the file channel,
 the review and the teardown. The facts behind these rules (the session tools, sandbox defaults, tunnels, bundles,
-Windows hosts) are in the [`glossary`](../../autonomous-skill-glossary/SKILL.md), section "Remote agent hosts and dev
-boxes". The scripts are in [`../scripts/`](../scripts/).
+Windows hosts) are in [`dev-boxes.md`](../../autonomous-runs/references/dev-boxes.md) in autonomous-runs, section "Remote agent
+hosts and dev boxes". The scripts are in [`../scripts/`](../scripts).
 
 ## 1. The lab runs on its own
 
@@ -68,7 +68,7 @@ The point of running on dev boxes is that the user can close the laptop and the 
   `node ~/.copilot/autonomous-output-skills/tools/install-devbox.mjs` as their first step. Every start prompt names
   the skills to load.
 - **The tunnel** (labs on more than one box): create it where `devtunnel` is signed in, and let the hub host it with
-  a host token, so no box ever signs in. The recipe is in the glossary.
+  a host token, so no box ever signs in. The recipe is in `dev-boxes.md` in autonomous-runs.
 
 ## 4. Launch: one session per box, and each box starts its own sessions
 
@@ -201,7 +201,7 @@ review media (stills, videos, zips). These are the files that carry the lab:
   worktree (`drop-sync.sh`) and keeps the review server up. The user opens it through the tunnel's review port, which
   stays private so they sign in, or on the box itself. A laptop may run its own `drop-watch.sh` with `LAB_PULL` as a
   mirror, but nothing may depend on it.
-- The review page from `SKILL.md` section 9 works unchanged on the review worktree.
+- The review page from [`many-labs.md`](many-labs.md) works unchanged on the review worktree.
 
 ## 10. The ledger
 

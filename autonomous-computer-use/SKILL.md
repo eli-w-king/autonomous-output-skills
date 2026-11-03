@@ -1,14 +1,18 @@
 ---
 name: autonomous-computer-use
-description: "Autonomous: Computer Use. Background-only macOS app automation with a private virtual input lane. Use whenever a task asks to open, inspect, click, type, edit, or send through a native desktop app such as Notes, Messages, Slack, Teams, Finder, System Settings, or Office. Use WorkIQ first for Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint), and the Slack MCP server for Slack when connected. Keeps the user's mouse, keyboard, focus, and current app untouched; launches and drives target apps in the background; handles one-time permissions; validates ambiguous actions; prevents duplicate sends; and prefers APIs or browser automation when truly headless execution is available."
+description: "Autonomous: Computer Use. Background-only desktop app automation with a private virtual input lane, on macOS and Windows. Use whenever a task asks to open, inspect, click, type, edit, or send through a native desktop app such as Notes, Messages, Slack, Teams, Finder, System Settings, or Office. Use WorkIQ first for Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint), and the Slack MCP server for Slack when connected. Keeps the user's mouse, keyboard, focus, and current app untouched; launches and drives target apps in the background; handles one-time permissions; validates ambiguous actions; prevents duplicate sends; and prefers APIs or browser automation when truly headless execution is available. Also runs build, launch, interaction, validation, and demo workflows on Windows, directly or through a Windows VM in UTM: Windows-specific execution, native UI automation, screenshots or video, build provenance checks, and reversible guest changes. Use for 'check it on Windows' too."
 ---
 
 # Autonomous: Computer Use
 
-Operate desktop applications without taking over the user's Mac. The user should be able to keep
+Operate desktop applications without taking over the user's machine. The user should be able to keep
 working in another app while the task runs. Detailed targeting, editor, and app-specific gotchas are
 in the
-[`Computer Use reference`](../autonomous-skill-glossary/references/computer-use.md).
+[`Computer Use reference`](../autonomous-runs/references/computer-use.md).
+
+By platform: one-time macOS setup is in [`references/macos.md`](references/macos.md); Windows
+(native hosts, Cloud PCs, and UTM VMs: build provenance, launch, UI automation, evidence, and restoring the
+guest) is in [`references/windows.md`](references/windows.md).
 
 ## The contract
 
@@ -31,27 +35,6 @@ in the
 5. **Fail closed.** A refused or ambiguous action is not permission to foreground the app or switch
    to unguarded OS input. Re-read, choose a safer semantic target, or stop that step with exact
    evidence.
-
-## One-time macOS setup
-
-The host needs:
-
-```json
-"chat.agentHost.computerUse.enabled": true
-```
-
-The first activation may use `/computer on`. Grant `Copilot Computer Use.app`:
-
-- **Privacy & Security -> Screen & System Audio Recording**
-- **Privacy & Security -> Accessibility**
-
-Fully quit and reopen the Copilot host after changing either permission. If macOS attributes the
-helper to the parent process and the helper still reports a missing grant, grant the active host
-(for example, VS Code Insiders) under the same two panes.
-
-Do not request Input Monitoring, Full Disk Access, Contacts, Automation, Camera, or Microphone for
-ordinary desktop control. After screenshots/reads and clicks work, `no_viable_candidate` is a
-safe-targeting problem, not a missing-permission problem.
 
 ## Headless-first routing
 
@@ -170,4 +153,3 @@ Do not narrate routine setup, ask the user to watch the app, or request window m
 transient failures by re-reading and trying the correct semantic route. Ask only when policy
 requires approval or when a one-time OS grant is genuinely missing. During unattended work, record
 the blocked step, continue everything else, and leave exact recovery instructions.
-

@@ -1,6 +1,6 @@
 ---
 name: autonomous-prototypes
-description: "Autonomous: Prototypes and PRs. Build, iterate, and ship UI changes autonomously in real code: VS Code (Code OSS from microsoft/vscode, Agents and editor windows, Component Explorer fixtures), the VS Code website, and codicons. Covers a worktree from the latest upstream main, confirming the real component, putting new concepts behind experimental settings with v1/v2 or Design A/B variants, keeping changes surgical, polish passes, opening ONE Code OSS window so the user can try or live-demo it, then shipping: branch, draft PR with before/after and demo media, reviewers and assignee, failing checks, Copilot review comments, merge conflicts, and marking ready. Use for 'make a branch off main and build X', 'revise the UI', 'open OSS so I can try it', 'put it behind a setting', 'push to my branch', 'open a draft PR', or 'fix the checks and Copilot comments'. Pairs with autonomous-variations (options to pick from), autonomous-demos (recordings), and autonomous-long-runs (overnight work)."
+description: "Autonomous: Prototypes and PRs. Build, iterate, and ship UI changes autonomously in real code: VS Code (Code OSS from microsoft/vscode, Agents and editor windows, Component Explorer fixtures), the VS Code website, and codicons. Covers a worktree from the latest upstream main, confirming the real component, putting new concepts behind experimental settings with v1/v2 or Design A/B variants, keeping changes surgical, polish passes, opening ONE Code OSS window so the user can try or live-demo it, then shipping: branch, draft PR with before/after and demo media, reviewers and assignee, failing checks, Copilot review comments, merge conflicts, and marking ready. Use for 'make a branch off main and build X', 'revise the UI', 'open OSS so I can try it', 'put it behind a setting', 'push to my branch', 'open a draft PR', or 'fix the checks and Copilot comments'. Pairs with autonomous-variations (options to pick from), autonomous-demos (recordings), and autonomous-runs (overnight work)."
 ---
 
 # Autonomous: Prototypes and PRs
@@ -9,8 +9,8 @@ Turn a design ask into working UI in the real product, let the user try it, iter
 a clean PR, without the user having to babysit. Demos of the result follow
 [`autonomous-demos`](../autonomous-demos/SKILL.md); sets of variations to pick from follow
 [`autonomous-variations`](../autonomous-variations/SKILL.md); unattended multi-hour work also follows
-[`autonomous-long-runs`](../autonomous-long-runs/SKILL.md). Code OSS build, run, and component
-gotchas are in the glossary reference [`code-oss.md`](../autonomous-skill-glossary/references/code-oss.md).
+[`autonomous-runs`](../autonomous-runs/SKILL.md). Code OSS build, run, and component
+gotchas are in [`code-oss.md`](../autonomous-runs/references/code-oss.md).
 
 ## Standing rules
 
@@ -46,7 +46,7 @@ gotchas are in the glossary reference [`code-oss.md`](../autonomous-skill-glossa
 - Read everything the user attached: screenshots, meeting transcripts, notes, earlier sessions.
   List the decisions (names, states, levels, copy, availability rules) before writing code.
 - Settle the interaction contract up front (entry points, what clicking an item opens, what may be a
-  modal); see the glossary's IA contract section. Ask only if the user is present and it truly
+  modal); see the IA contract section of `code-oss.md` in autonomous-runs. Ask only if the user is present and it truly
   blocks; otherwise decide, and record assumptions to confirm.
 - When the user asks to review a plan first, write a short plan (not a long one) to
   `~/Desktop/<Feature> Plan.txt`, `open` it, and wait for approval.
@@ -68,7 +68,7 @@ npm install && npm run compile
 - To continue someone's PR: `gh pr view <n> --repo microsoft/vscode --json headRefName,body` (the body's
   how-to-test lists flags), then a worktree tracking that branch.
 - Seeding `node_modules` from a sibling checkout and other build traps (foundry native download, stale
-  `monaco.d.ts`, rate-limited built-in extension sync) are in the glossary `code-oss.md`.
+  `monaco.d.ts`, rate-limited built-in extension sync) are in `code-oss.md` in autonomous-runs.
 - Load the vscode repo skills the change needs before editing: `accessibility` for interactive UI,
   `ux-css-layout` for CSS and layout, `ux-theming` for colors and tokens, `sessions` for
   `src/vs/sessions/**`, `component-fixtures` for Component Explorer, and read the checkout's
@@ -129,8 +129,8 @@ gh pr create --repo microsoft/vscode --draft --base main --head eli/<area>/<slug
   PR ("open a separate PR for making the codicon consumable").
 - PR body: what and why in a few lines, before/after images per state, the demo (GIF or MP4) when
   asked, how to test (settings and steps), and any prototype-only parts. Upload media with the
-  `github-pr-media` skill (GitHub user-attachments) when available; otherwise follow the glossary's
-  GitHub publishing section. If the user says a GIF is enough, remove the extra video.
+  `github-pr-media` skill (GitHub user-attachments) when available; otherwise follow the GitHub posts
+  reference in autonomous-runs. If the user says a GIF is enough, remove the extra video.
 - Checks: `gh pr checks <n> --repo microsoft/vscode`; read failures with
   `gh run view <run-id> --repo microsoft/vscode --log-failed` and fix the real cause (the repo
   `fix-ci-failures` skill helps). Distinguish failures caused by the change from flaky or
@@ -172,7 +172,7 @@ gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$
    `@vscode/codicons` version in `package.json` and switches the usage (for example `report` to
    `report-question` for sessions that need attention).
 
-## Gotchas (details in the glossary `code-oss.md`)
+## Gotchas (details in `code-oss.md` in autonomous-runs)
 
 - Relaunch, do not reload, after TS changes; reloads degrade dev instances.
 - `TMPDIR=/tmp` when launching; kill only numeric pids you own; never `pkill`.
@@ -183,5 +183,5 @@ gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$
 
 ## Maintaining this skill
 
-Fix wrong steps in place, add reusable gotchas to the glossary, keep the description under 1024
+Fix wrong steps in place, add reusable gotchas to the autonomous-runs references, keep the description under 1024
 characters, and never use em or en dashes.

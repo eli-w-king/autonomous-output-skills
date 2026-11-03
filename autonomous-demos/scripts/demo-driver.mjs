@@ -7,6 +7,7 @@
 //
 // Routes (POST, JSON body, JSON reply {ok, result|error}):
 //   /connect {port, live?}         attach to the page on CDP port (live: true skips the cursor)
+//   /viewport {width, height, scale}  emulate the layout size and pixel ratio (2x frames on a 1x or small screen)
 //   /preflight {}                  list visible toasts, hovers, menus, dialogs, overlays (must be [])
 //   /cursor {} /hide-cursor {}     show or remove the demo pointer overlay
 //   /move {x, y, duration?}        glide the pointer
@@ -164,13 +165,17 @@ const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 async function glide(x, y, duration = 600) {
 	const start = { ...pointer };
-	const steps = Math.max(10, Math.round(duration / 14));
-	for (let index = 1; index <= steps; index++) {
-		const progress = ease(index / steps);
-		const next = [start.x + (x - start.x) * progress, start.y + (y - start.y) * progress];
+	// Time-based, so a glide takes the requested duration even when each step is slow (CDP round
+	// trips under a screencast, or Windows' ~15.6 ms timer granularity). Fixed step counts ran 2 to 3 times long.
+	const began = Date.now();
+	let progress = 0;
+	while (progress < 1) {
+		await sleep(8);
+		progress = Math.min(1, (Date.now() - began) / duration);
+		const eased = ease(progress);
+		const next = [start.x + (x - start.x) * eased, start.y + (y - start.y) * eased];
 		await page.evaluate(([px, py]) => window.__demoPlace?.(px, py), next);
 		await page.mouse.move(next[0], next[1]);
-		await sleep(duration / steps);
 	}
 	pointer = { x, y };
 }
@@ -378,6 +383,13 @@ const helpers = () => ({
 
 const routes = {
 	'/connect': body => connect(body.port, body.live === true),
+	'/viewport': async body => {
+		// Screencast frames follow the window's real scale factor, so pair this with a launch at
+		// --force-device-scale-factor=2 (launch-demo-oss.mjs --scale 2) when the display is 1x.
+		await cdp.send('Emulation.setDeviceMetricsOverride', { width: body.width ?? 1440, height: body.height ?? 900, deviceScaleFactor: body.scale ?? 2, mobile: false });
+		await sleep(800);
+		return page.evaluate(() => ({ width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));
+	},
 	'/preflight': () => preflight(),
 	'/cursor': () => injectCursor(),
 	'/hide-cursor': () => hideCursor(),

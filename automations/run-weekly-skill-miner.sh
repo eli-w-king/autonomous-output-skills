@@ -150,6 +150,7 @@ acquire_lock() {
 	if mkdir "$LOCK" 2>/dev/null; then
 		printf '%s\n' "$$" > "$LOCK/pid"
 		LOCK_OWNED=1
+		wait_for_sync
 		return 0
 	fi
 	local pid age
@@ -164,6 +165,19 @@ acquire_lock() {
 	mkdir "$LOCK" 2>/dev/null || return 1
 	printf '%s\n' "$$" > "$LOCK/pid"
 	LOCK_OWNED=1
+	wait_for_sync
+}
+
+# tools/sync-skills.py sync skips while this run holds its lock; let a sync that already started finish.
+wait_for_sync() {
+	local sync_lock waited=0
+	sync_lock="$(dirname "$SKILLS")/skills-sync.lock"
+	while [ -d "$sync_lock" ] && [ "$waited" -lt 600 ]; do
+		sleep 10
+		waited=$(( waited + 10 ))
+	done
+	[ "$waited" -gt 0 ] && note "waited ${waited}s for a skills sync to finish"
+	return 0
 }
 
 version_gt() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1)" = "$1" ]; }
@@ -249,6 +263,7 @@ write_agent_gitconfig() { # the agent gets an identity and no credential helpers
 build_agent_args() { # copilot prompt model usage-file
 	local name servers
 	AGENT_ARGS=(-p "$2" --model "$3" --no-ask-user --autopilot --max-autopilot-continues 10 --stream off --allow-all-tools
+		--reasoning-effort max --context long_context
 		--add-dir "$SKILLS" --add-dir "$BACKUPS" --add-dir "$MINER" --add-dir "$SESSIONS"
 		--disable-builtin-mcps --log-dir "$LOGS/cli" --usage-output-file "$4")
 	for name in 'git push' 'git fetch' 'git pull' 'git remote' 'git credential' 'git credential-osxkeychain' \
@@ -433,12 +448,23 @@ PY
 		return 1
 	fi
 	if [ "$REHEARSAL" = 1 ]; then
-		PUBLISH_RESULT="Rehearsal: would publish $(git rev-parse --short "$new"); nothing was pushed."
+		PUBLISH_RESULT="Rehearsal: would push $(git rev-parse --short "$new") to the private repo and publish it; nothing was pushed."
+		if bounded 1800 python3 tools/publish-public.py --dry-run --message-file "$message" > "$RUN_DIR/publish-public.log" 2>&1; then
+			PUBLISH_RESULT="$PUBLISH_RESULT The publish dry run is clean (see $(tilde "$RUN_DIR/publish-public.log"))."
+		else
+			PUBLISH_RESULT="$PUBLISH_RESULT The publish dry run failed (see $(tilde "$RUN_DIR/publish-public.log"))."
+		fi
 		return 0
 	fi
 	if bounded 300 git push --quiet origin refs/heads/main:refs/heads/main > "$RUN_DIR/push.log" 2>&1; then
-		PUBLISH_RESULT="Published: $(repo_url)/commit/$new"
+		PUBLISH_RESULT="Pushed to the private repo: $(repo_url)/commit/$new"
 		json_set "$MINER/runner.json" "last_published=$new"
+		# The public repo gets the same tree without private/, as one commit (tools/publish-public.py).
+		if bounded 1800 python3 tools/publish-public.py --message-file "$message" > "$RUN_DIR/publish-public.log" 2>&1; then
+			PUBLISH_RESULT="$PUBLISH_RESULT $(grep -E '^(Published|Nothing to publish)' "$RUN_DIR/publish-public.log" | tail -1)"
+		else
+			PUBLISH_RESULT="$PUBLISH_RESULT Not published to the public repo yet: $(grep -E '^Not published' "$RUN_DIR/publish-public.log" | tail -1) The next run tries again."
+		fi
 		return 0
 	fi
 	PUBLISH_RESULT="Not published: git push failed (see $(tilde "$RUN_DIR/push.log")). Your skills on this Mac are updated; the next run tries again."
@@ -495,9 +521,9 @@ run_flow() {
 	run_agent "$copilot" "$(compose_prompt)" "$MODEL" "$RUN_DIR/usage.json" "$RUN_DIR/agent.log" "$TIME_LIMIT"
 	code=$?
 	if [ "$code" -eq 3 ]; then fail "the list of MCP servers to turn off could not be read"; return 1; fi
-	if [ "$code" -ne 0 ] && [ $(( $(date +%s) - started )) -lt 180 ] && [ "$MODEL" != auto ]; then
-		note "agent exited $code within 3 minutes; retrying with --model auto"
-		run_agent "$copilot" "$(compose_prompt)" auto "$RUN_DIR/usage.json" "$RUN_DIR/agent.log.retry" "$TIME_LIMIT"
+	if [ "$code" -ne 0 ] && [ $(( $(date +%s) - started )) -lt 180 ] && [ "$MODEL" != gpt-6-astra ]; then
+		note "agent exited $code within 3 minutes; retrying with gpt-6-astra at the same settings"
+		run_agent "$copilot" "$(compose_prompt)" gpt-6-astra "$RUN_DIR/usage.json" "$RUN_DIR/agent.log.retry" "$TIME_LIMIT"
 		code=$?
 	fi
 	note "agent finished with exit $code"
@@ -563,6 +589,10 @@ rehearse() { # [--since ISO-TIME]
 	git -C "$root/repo" checkout --quiet -B main "$(git -C "$REPO" rev-parse HEAD)" || return 1
 	rsync -a --exclude .git "$REPO/" "$root/repo/"
 	git -C "$root/repo" remote set-url origin "$(git -C "$REPO" remote get-url origin)"
+	git -C "$root/repo" remote add public "$(git -C "$REPO" remote get-url public)" 2>/dev/null
+	git -C "$REPO" config --local --get-regexp '^credential\.' | while read -r key value; do
+		git -C "$root/repo" config --local --add "$key" "$value"
+	done
 	rsync -a "$SKILLS/" "$root/skills/"
 	for item in private private-terms.txt state.json ledger.json installed-manifest.json installed-snapshot; do
 		[ -e "$MINER/$item" ] && cp -R "$MINER/$item" "$root/miner/"
@@ -670,7 +700,7 @@ check() { # [--llm]
 		failed=1
 	fi
 	case "$(prompt_text)" in "$MARKER"*) say "ok    prompt block found" ;; *) say "FAIL  prompt block missing in $(tilde "$PROCEDURE")"; failed=1 ;; esac
-	for dir in collect-messages.py sync-skills.py validate-skills.py; do
+	for dir in collect-messages.py sync-skills.py validate-skills.py publish-public.py; do
 		[ -f "$REPO/tools/$dir" ] || { say "FAIL  missing tools/$dir"; failed=1; }
 	done
 	if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' 2>/dev/null; then
@@ -697,7 +727,7 @@ check() { # [--llm]
 		failed=1
 	fi
 	gitconfig="$(write_agent_gitconfig)"
-	if GIT_CONFIG_GLOBAL="$gitconfig" GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false \
+	if GIT_CONFIG_GLOBAL="$gitconfig" GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false SKILL_MINER_RUNNER=1 \
 		bounded 120 git -C "$REPO" push --dry-run --quiet origin refs/remotes/origin/main:refs/heads/main > /dev/null 2>&1; then
 		say "FAIL  the agent's git could push (it should have no credentials)"
 		failed=1

@@ -166,7 +166,7 @@ Keep it near 1 KB: everything else is in the brief on the drop.
 
 ```text
 You are session {KIND} of the <lab> variation lab, on {HOST}. Work autonomously and never ask
-questions. Load the autonomous-variations and autonomous-long-runs skills if you have them.
+questions. Load the autonomous-variations and autonomous-runs skills if you have them.
 Your full brief is on the lab drop. Fetch it, read all of it, and follow it from the top:
   node <lab home>/drop.mjs get brief-{KIND}.md <lab home>/brief-{KIND}.md
 This session has no workspace: use the absolute paths in the brief. If the sandbox denies a write,

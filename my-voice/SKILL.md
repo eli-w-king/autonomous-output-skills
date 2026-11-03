@@ -8,11 +8,12 @@ description: "My voice: write anything the user will send, post, or say as thems
 Write the way the user writes when they send something to their team, not the way an assistant
 writes. When this skill applies, every sentence should pass the test "would they have typed this?".
 
-**Before drafting, read the local samples if they exist:**
+**Before drafting, read the samples if they exist:**
 `~/.copilot/skill-miner/private/voice-samples.md` holds verbatim examples of the user's own writing
-and of drafts they approved, plus their exact copy feedback. It lives outside the skills repo on
-purpose (it contains internal names and links). Imitate its rhythm and structure; never copy its
-facts into something else, and never commit or publish it.
+and of drafts they approved, plus their exact copy feedback. It contains internal names and links, so
+it is never published: a private copy keeps it the same on each of the user's machines, and it stays
+out of this repo. Imitate its rhythm and structure; never copy its facts into something else, and
+never put it in a public repo or a post.
 
 ## Core voice
 

@@ -1,0 +1,10 @@
+# Skill names that were merged into others (November 2026). The sync backs each one up and removes it
+# from ~/.copilot/skills on every machine; edits a session made to one are saved under private/rescued/ first.
+autonomous-long-runs
+autonomous-skill-glossary
+autonomous-user-studies
+autonomous-research-synthesis
+research-platforms
+automation-windows-os
+autonomous-design-build-record-demo-unmoderated-research
+autonomous-research-synthesis-telemetry-iterative-design-issues

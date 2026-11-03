@@ -1,39 +1,38 @@
 # Install the autonomous output skills
 
-This repository holds eleven user-global skills:
+This repository holds seven user-global skills:
 
 | Skill | Role |
 |-------|------|
-| `autonomous-computer-use` | background-only macOS app automation with a private virtual input lane |
+| `autonomous-computer-use` | background-only desktop app automation with a private virtual input lane; Windows build, launch, UI automation, and evidence |
 | `autonomous-demos` | demos, screenshots, before/after, storyboards, PR media, recording toolkit |
 | `autonomous-prototypes` | build, iterate, and ship UI changes and PRs |
 | `autonomous-variations` | variation labs: N options per decision, rounds, porting the pick, one review page |
-| `autonomous-long-runs` | operating rules for overnight and unattended work |
+| `autonomous-runs` | operating rules for overnight and unattended work, and the shared gotchas by topic |
+| `autonomous-research` | studies, synthesis, and the Outset, Marvin, and User Interviews plumbing |
 | `my-voice` | writes what I send or post as me; kept current by the weekly skill miner |
-| `autonomous-skill-glossary` | shared gotchas and topic references |
-| `automation-windows-os` | optional Windows and UTM execution |
-| `autonomous-user-studies` | research: UserTesting and Outset studies, User Interviews recruiting |
-| `autonomous-research-synthesis` | research: readouts, quotes, slideshows, decision digests, findings to issue |
-| `research-platforms` | research: Outset, Marvin, and User Interviews plumbing |
 
-Installing means cloning the repository, installing those folders into `~/.copilot/skills/` with
-`tools/sync-skills.py`, and starting a fresh agent session. Copilot CLI and VS Code (Insiders and the
-Agents window) both read that folder, so one install covers both. After that, the weekly skill
-miner in `automations/weekly-skill-miner.md` keeps the repo and the installed copies in sync (step 6
-schedules it).
+Copilot CLI and VS Code (Insiders and the Agents window) both read `~/.copilot/skills/`, so one install
+covers both. On each machine, `tools/sync-skills.py` keeps that folder and the repos in sync in both
+directions, every 15 minutes and at logon (README.md, "How the skills stay current").
 
 ## 1. Authenticate GitHub CLI
 
-The repository is public; the install commands use GitHub CLI:
+Sign in to both accounts once on each machine: the default account, which can push to this public
+repo, and the account that owns the private repo. The sync asks GitHub CLI for the private account's
+token only for the private repo's URL, so the default account stays active.
 
 ```bash
-gh auth login
+gh auth login                      # the default (public) account
+gh auth login                      # again, for the private repo's account
+gh auth switch --user <default account>
 gh auth status
 ```
 
 ## 2. Check prerequisites
 
-Built and verified on macOS.
+Built on macOS; the sync, the research scripts, and the demo toolkit also run on Windows dev boxes
+(Git Bash for the `.sh` scripts, `python` instead of `python3`).
 
 Always:
 - GitHub CLI, git, curl, jq, rsync, sqlite3, Google Chrome.
@@ -64,82 +63,118 @@ For variation labs:
   `devtunnel` CLI, signed in, on the hub when the lab spans more than one box.
 
 For studies:
-- Outset and Marvin: create `~/.copilot/research.env` once with
-  `cp ~/.copilot/skills/research-platforms/research.env.template ~/.copilot/research.env && chmod 600 ~/.copilot/research.env`,
-  fill in the values, then
-  `node ~/.copilot/skills/research-platforms/scripts/outset-auth.mjs` once (you approve the device
-  code). Never commit `research.env`.
+- Outset and Marvin, on each machine: create `~/.copilot/research.env` once from
+  `~/.copilot/skills/autonomous-research/research.env.template` (its header has the macOS and Windows
+  commands), fill in the keys, then run
+  `node ~/.copilot/skills/autonomous-research/scripts/outset-auth.mjs` once on that machine (you
+  approve the device code; the sign-in is per machine). Never commit `research.env`.
 - UserTesting and User Interviews: an account email; you enter passwords and 2FA yourself.
 
 Optional:
 - `dap-cli` for breakpoint debugging while capturing Code OSS.
-- A Windows host or a Windows VM in UTM for `automation-windows-os`.
+- A Windows host or a Windows VM in UTM for the Windows part of `autonomous-computer-use`.
 
-## 3. Clone and install (also migrates the old skill names)
+## 3. Add the machine
+
+From any shell on the machine (it needs git, Python 3.8 or newer, and both GitHub CLI accounts). The
+exact commands for this setup, with the private repo filled in, are in `private/README.md` in the
+private repo.
+
+macOS or Linux:
 
 ```bash
-REPO="$HOME/.copilot/autonomous-output-skills"
-if [ -d "$REPO/.git" ]; then git -C "$REPO" pull --ff-only; else gh repo clone eli-w-king/autonomous-output-skills "$REPO"; fi
-
-# One time: retire the skill names used before October 2026 (backed up, not deleted).
-BACKUP="$HOME/.copilot/skills-backup/$(date +%Y%m%d-%H%M%S)"
-for s in autonomous-design-build-record-demo-unmoderated-research autonomous-research-synthesis-telemetry-iterative-design-issues; do
-  [ -d "$HOME/.copilot/skills/$s" ] && mkdir -p "$BACKUP" && mv "$HOME/.copilot/skills/$s" "$BACKUP/"
-done
-
-python3 "$REPO/tools/sync-skills.py" status    # what differs, changes nothing
-python3 "$REPO/tools/sync-skills.py" harvest   # bring edits sessions made to installed copies into the repo
-python3 "$REPO/tools/sync-skills.py" install   # back up, copy, and record what was installed
+R=~/.copilot/autonomous-output-skills; [ -d "$R/.git" ] || git clone -q https://github.com/eli-w-king/autonomous-output-skills.git "$R"; python3 "$R/tools/sync-skills.py" setup --private-url <private repo URL> --private-user <account> && python3 "$R/tools/sync-skills.py" sync && python3 "$R/tools/sync-skills.py" schedule
 ```
 
-`install` only manages skills that exist in this repo; other skills in `~/.copilot/skills` are never
-touched. It moves the copies it replaces to `~/.copilot/skills-backup/<timestamp>/` and records what
-it installed in `~/.copilot/skill-miner/`, so the next `harvest` knows exactly what sessions changed.
-It refuses to install while installed copies have edits that are not in the repo yet; if `harvest`
-reports a conflict, merge the saved files it lists into the repo file, run
-`sync-skills.py resolve <skill/path>`, then run `install` again. The `../<skill>/` links
-between skills assume the folders sit side by side.
+Windows (PowerShell):
+
+```powershell
+$r = "$HOME\.copilot\autonomous-output-skills"; if (!(Test-Path "$r\.git")) { git clone -q https://github.com/eli-w-king/autonomous-output-skills.git $r }; python "$r\tools\sync-skills.py" setup --private-url <private repo URL> --private-user <account>; if ($?) { python "$r\tools\sync-skills.py" sync; python "$r\tools\sync-skills.py" schedule }
+```
+
+- `setup` makes the private repo `origin` and this repo `public` in the clone, gives the private URL
+  its own credential helper, runs `gh auth setup-git`, checks that git reaches both repos without a
+  prompt, and saves the settings in `~/.copilot/skills-sync.json`.
+- The first `sync` pulls, harvests edits sessions made to the installed copies before anything is
+  replaced (a clean first run on a new machine harvests nothing), pushes them, installs every skill,
+  and removes the retired names after backing them up. Only skills in the repo are managed; other
+  skills in `~/.copilot/skills` are left alone. The first run takes up to a minute; later runs with
+  nothing to do take a second or two. Once a day a run also exports the messages I typed to agents on
+  that machine to `private/inbox/<host>/` (README.md, "My messages in one place"). The first run also
+  sets Copilot CLI's defaults to the top model, max effort, and the long context, once (README.md,
+  "Copilot CLI at the top settings"), and every run brings the weekly miner's state to this machine.
+- `schedule` adds the 15-minute and logon job: Task Scheduler on Windows ("Autonomous skills sync",
+  below-normal priority, no window), launchd on macOS (`com.autonomous-output-skills.skills-sync`,
+  background priority, low-priority I/O, Nice 10), or a crontab line on Linux.
+- A machine that set up an older version: if its clone still has the older tools, run the new
+  `sync-skills.py` from a fresh clone of the private repo with `--repo ~/.copilot/autonomous-output-skills`
+  for `setup` and the first `sync`, then `schedule` from the clone itself. If it has the dev-box
+  updater's "Autonomous skills update" task, delete it once the new job runs.
+- A machine that should only use the published skills (a teammate's, for example) can run
+  `node tools/install-devbox.mjs --schedule` instead: it pulls this repo and installs, and never
+  publishes. Edits made to its installed copies are backed up, not sent anywhere.
 
 ## 4. Verify
 
 ```bash
-SKILLS="autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-long-runs \
-  my-voice autonomous-user-studies autonomous-research-synthesis autonomous-skill-glossary research-platforms \
-  automation-windows-os"
-OLD="autonomous-design-build-record-demo-unmoderated-research \
-  autonomous-research-synthesis-telemetry-iterative-design-issues"
-for s in $SKILLS; do test -f "$HOME/.copilot/skills/$s/SKILL.md" && echo "ok $s"; done
-python3 "$HOME/.copilot/autonomous-output-skills/tools/sync-skills.py" status | tail -1
-python3 "$HOME/.copilot/autonomous-output-skills/tools/validate-skills.py" --quiet && echo "ok repo validates"
-for s in $OLD; do test -e "$HOME/.copilot/skills/$s" && echo "still installed: $s"; done
+python3 ~/.copilot/autonomous-output-skills/tools/sync-skills.py sync-status    # settings, schedule, last runs
+python3 ~/.copilot/autonomous-output-skills/tools/sync-skills.py status | tail -1
+python3 ~/.copilot/autonomous-output-skills/tools/validate-skills.py --quiet && echo "ok repo validates"
+for s in autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-runs \
+  autonomous-research my-voice; do test -f "$HOME/.copilot/skills/$s/SKILL.md" && echo "ok $s"; done
+for s in $(grep -v '^#' ~/.copilot/autonomous-output-skills/retired.txt); do
+  test -e "$HOME/.copilot/skills/$s" && echo "still installed: $s"; done
 
 D="$HOME/.copilot/skills/autonomous-demos/scripts"
 V="$HOME/.copilot/skills/autonomous-variations/scripts"
-for f in "$D"/*.mjs "$D"/*.cjs "$D"/*.js "$V"/*.mjs "$HOME"/.copilot/skills/research-platforms/scripts/*.mjs; do
-  node --check "$f" || echo "FAIL $f"
-done
+R="$HOME/.copilot/skills/autonomous-research/scripts"
+for f in "$D"/*.mjs "$D"/*.cjs "$D"/*.js "$V"/*.mjs "$R"/*.mjs; do node --check "$f" || echo "FAIL $f"; done
 for f in "$D"/*.py "$V"/*.py; do python3 -m py_compile "$f" || echo "FAIL $f"; done
-for f in "$D"/*.sh "$V"/*.sh "$HOME"/.copilot/skills/autonomous-research-synthesis/scripts/*.sh; do bash -n "$f" || echo "FAIL $f"; done
-command -v ffmpeg ffprobe
-node "$D/launch-demo-oss.mjs" --repo "$VSCODE_REPO" --dry-run > /dev/null && echo "ok launcher dry run"
+for f in "$D"/*.sh "$V"/*.sh "$R"/*.sh; do bash -n "$f" || echo "FAIL $f"; done
+node "$R/probe.mjs"                # research keys and connections, on a machine with research.env
 ```
 
-Then start a new agent session and confirm the eleven skills appear in the available-skills list, and
-that the two old names do not.
+On Windows, run the `.sh` checks in Git Bash (`C:\Program Files\Git\bin\bash.exe`), not the WSL `bash`
+that comes first on PATH. Then start a new agent session and confirm the seven skills appear in the
+available-skills list and the retired names do not.
 
 ## 5. Optional chat modes
 
-The study and synthesis skills include thin plan-then-build chat modes:
+`autonomous-research` includes thin plan-then-build chat modes:
 
 ```bash
 mkdir -p <workspace>/.github/chatmodes
-cp ~/.copilot/skills/autonomous-user-studies/chatmodes/*.chatmode.md <workspace>/.github/chatmodes/
-cp ~/.copilot/skills/autonomous-research-synthesis/chatmodes/*.chatmode.md <workspace>/.github/chatmodes/
+cp ~/.copilot/skills/autonomous-research/chatmodes/*.chatmode.md <workspace>/.github/chatmodes/
 ```
 
 Study launches, paid recruiting, and public-repository posts stay explicitly human-gated.
 
-## 6. Schedule the weekly skill update (macOS)
+## 6. Publish to the public repo
+
+```bash
+python3 ~/.copilot/autonomous-output-skills/tools/publish-public.py --dry-run
+python3 ~/.copilot/autonomous-output-skills/tools/publish-public.py
+```
+
+It merges `public/main` into the private main (teammates may push to the public repo), builds the
+tree without `private/` and the `.publishignore` paths, validates it with the private terms in
+`private/private-terms.txt`, and pushes one new commit on top of `public/main`. The private main then
+records the publish as a merge that keeps its own tree, so the next merge only brings in new public
+commits. The commit message must pass the validator, so it has no email addresses (and no
+Co-authored-by trailer). Private history never goes to the public repo. While
+`private/publish-hold.txt` exists in the private repo, every real publish stops before it changes
+anything (dry runs still work); delete it to publish again.
+
+## 7. Schedule the weekly skill update (one machine only)
+
+Windows (Task Scheduler):
+
+```powershell
+python "$HOME\.copilot\autonomous-output-skills\automations\run-weekly-skill-miner.py" --check
+python "$HOME\.copilot\autonomous-output-skills\automations\run-weekly-skill-miner.py" --install
+```
+
+macOS (launchd):
 
 ```bash
 "$HOME/.copilot/autonomous-output-skills/automations/run-weekly-skill-miner.sh" --check
@@ -147,33 +182,10 @@ Study launches, paid recruiting, and public-repository posts stay explicitly hum
 ```
 
 It runs on Mondays at 11:00 and checks again later that day and at login, to catch up after a missed
-Monday or retry after a failed run. Reports land in
-`~/.copilot/skill-miner/reports/`. Each scheduled Mac mines its own sessions. On a machine without
-the schedule, run `sync-skills.py install` after pulling to pick up the latest skills.
-
-## 7. Dev boxes
-
-A dev box (a remote agent host, for example a Windows Cloud PC) reads its own `~/.copilot/skills`, so
-sessions there have only the skills installed on that box, whoever starts them. Install them once per
-box, from any session on it or from a PowerShell window on it (it needs git and Node 22; the
-repository is public, so no sign-in):
-
-```powershell
-$r = "$HOME\.copilot\autonomous-output-skills"
-if (!(Test-Path $r)) { git clone -q https://github.com/eli-w-king/autonomous-output-skills.git $r }
-node "$r\tools\install-devbox.mjs" --schedule
-```
-
-- `install-devbox.mjs` pulls the repository and copies every skill into `~/.copilot/skills`. A copy
-  is replaced only when it differs, and the old one is backed up first.
-- `--schedule` reruns it every 4 hours as a scheduled task for this user, with no window, so the box
-  picks up each week's published update by itself. A lab's hub also runs it before it starts.
-- Check it: `Get-Content "$HOME\.copilot\install-devbox.log" -Tail 3` shows the commit installed, and
-  a new session on the box lists the skills.
-- A dev box only uses the skills: publish changes from the Mac (`sync-skills.py`, the weekly miner),
-  never from a box. Edits a session makes to a box's installed copies are backed up and replaced on
-  the next update, so a lesson worth keeping goes into the run's notes for the Mac to fold in.
-- Private context (`~/.copilot/skill-miner/private/`, the `my-voice` samples) stays on the Mac.
+Monday or retry after a failed run. It waits for a running sync, pushes to the private repo, then
+publishes. Reports land in `~/.copilot/skill-miner/reports/`. To move it to another machine, run
+`--rehearse` there first, then `--install` there and `--uninstall` on the old one; its state is
+already on every machine (README.md, "The weekly skill miner").
 
 ## Machine-specific checks
 

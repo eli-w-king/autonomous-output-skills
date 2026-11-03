@@ -12,8 +12,10 @@
 //     [--workspace <folder>] [--open <file>] [--theme "Dark 2026"] [--size 1440x900]
 //     [--mode invisible|offscreen|visible] [--hovers] [--mock-llm http://127.0.0.1:47331]
 //     [--settings extra-settings.json] [--storage extra-storage.json] [--agents-storage file.json]
-//     [--cdp <port>] [--inspect <port>] [--run-root ~/.demo-runs] [--dry-run]
+//     [--cdp <port>] [--inspect <port>] [--run-root ~/.demo-runs] [--scale 2] [--dry-run]
 //   --name defaults to a unique demo-<id>; reuse a name only for a run dir this launcher created.
+//   --scale forces the device scale factor. Pair --scale 2 with the driver's /viewport route for 2x
+//   frames whatever the display (Windows VMs and Cloud PCs often run at 100%).
 //
 // Notes
 // - The run dir path stays short on purpose: the IPC socket under it must stay below ~104 chars.
@@ -57,6 +59,7 @@ const mockUrl = arg('mock-llm');
 const workspace = arg('workspace') ? path.resolve(expandHome(arg('workspace'))) : undefined;
 const openFile = arg('open') ? path.resolve(expandHome(arg('open'))) : undefined;
 const runRoot = path.resolve(expandHome(arg('run-root', '~/.demo-runs')));
+const scale = Number(arg('scale', 0));
 const dryRun = flag('dry-run');
 
 if (!['invisible', 'offscreen', 'visible'].includes(mode)) {
@@ -68,7 +71,9 @@ if (!width || !height) {
 
 const electron = process.platform === 'darwin'
 	? path.join(ROOT, '.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS')
-	: path.join(ROOT, '.build/electron/code-oss');
+	: process.platform === 'win32'
+		? path.join(ROOT, '.build/electron/Code - OSS.exe')
+		: path.join(ROOT, '.build/electron/code-oss');
 if (!dryRun && !fs.existsSync(electron)) {
 	throw new Error(`no built Electron at ${electron}. Build the checkout first (npm install, npm run compile), or use the launch skill.`);
 }
@@ -92,6 +97,9 @@ if (path.dirname(runDir) !== runRoot) {
 	throw new Error(`run dir ${runDir} escapes ${runRoot}`);
 }
 const userDataDir = path.join(runDir, 'user-data');
+// App-shared state (~/.vscode-oss-shared) is not covered by --user-data-dir. On Windows it holds the
+// GitHub sign-in, so without this a demo would read and overwrite the user's real Code OSS session.
+const sharedDataDir = path.join(runDir, 'shared-data');
 const extensionsDir = path.join(runDir, 'extensions');
 const logsDir = path.join(runDir, 'logs');
 const stateHome = path.join(runDir, 'state');
@@ -175,7 +183,8 @@ const agentsStorage = {
 
 const env = {
 	...process.env,
-	TMPDIR: '/tmp',
+	// macOS: the default $TMPDIR is too long for the IPC socket path. Windows uses named pipes.
+	...(process.platform === 'win32' ? {} : { TMPDIR: '/tmp' }),
 	XDG_STATE_HOME: stateHome,
 	// Agent-host sessions and CLI state would otherwise land in the user's real ~/.copilot.
 	COPILOT_HOME: path.join(stateHome, '.copilot'),
@@ -186,6 +195,12 @@ const env = {
 	...(agents ? { HOME: home } : {}),
 };
 delete env.ELECTRON_RUN_AS_NODE;
+// Agent runtimes inject Git overrides for their own shell; keep them out of the app (as the vscode launch skill does).
+for (const key of Object.keys(env)) {
+	if (/^GIT_CONFIG_(COUNT|PARAMETERS|KEY_\d+|VALUE_\d+)$/.test(key)) {
+		delete env[key];
+	}
+}
 if (mockUrl) {
 	env.IS_SCENARIO_AUTOMATION = '1';
 	env.GITHUB_PAT = 'demo-fake-pat';
@@ -207,6 +222,7 @@ const args = [
 	'--disable-renderer-backgrounding',
 	'--disable-backgrounding-occluded-windows',
 	'--disable-background-timer-throttling',
+	...(scale ? [`--force-device-scale-factor=${scale}`] : []),
 	// Never let this instance ask macOS for the real keychain.
 	'--use-mock-keychain',
 	ROOT,
@@ -216,6 +232,7 @@ const args = [
 	'--disable-updates',
 	'--disable-workspace-trust',
 	`--user-data-dir=${userDataDir}`,
+	`--shared-data-dir=${sharedDataDir}`,
 	`--extensions-dir=${extensionsDir}`,
 	`--logsPath=${logsDir}`,
 	'--disable-extension=vscode.vscode-api-tests',
@@ -226,19 +243,37 @@ const args = [
 	...(openFile ? [openFile] : []),
 ];
 
-const summary = { runDir, userDataDir, cdpPort, inspectPort, mode, agents, theme, size: `${width}x${height}`, mockLlm: mockUrl ?? null };
+const summary = { runDir, userDataDir, sharedDataDir, cdpPort, inspectPort, mode, agents, theme, size: `${width}x${height}`, mockLlm: mockUrl ?? null };
 if (dryRun) {
 	console.log(JSON.stringify({ dryRun: true, ...summary, electron, args, settings, keybindings, globalStorage, agentsStorage }, null, 1));
 	process.exit(0);
 }
 
+// node:sqlite (Node 22.13+) needs no extra tool, which matters on Windows; older Node uses the sqlite3 CLI.
+let DatabaseSync;
+try {
+	({ DatabaseSync } = await import('node:sqlite'));
+} catch { }
+
 function writeStorage(dbFile, entries) {
 	fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-	const quote = value => `'${String(value).replaceAll('\'', '\'\'')}'`;
-	const statements = ['CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);'];
-	for (const [key, value] of Object.entries(entries)) {
-		statements.push(`INSERT INTO ItemTable (key, value) VALUES (${quote(key)}, ${quote(typeof value === 'string' ? value : JSON.stringify(value))});`);
+	const create = 'CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);';
+	const rows = Object.entries(entries).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]);
+	if (DatabaseSync) {
+		const db = new DatabaseSync(dbFile);
+		try {
+			db.exec(create);
+			const insert = db.prepare('INSERT INTO ItemTable (key, value) VALUES (?, ?)');
+			for (const [key, value] of rows) {
+				insert.run(key, value);
+			}
+		} finally {
+			db.close();
+		}
+		return;
 	}
+	const quote = value => `'${String(value).replaceAll('\'', '\'\'')}'`;
+	const statements = [create, ...rows.map(([key, value]) => `INSERT INTO ItemTable (key, value) VALUES (${quote(key)}, ${quote(value)});`)];
 	execFileSync('sqlite3', [dbFile, statements.join(' ')]);
 }
 
@@ -258,7 +293,7 @@ if (fs.existsSync(runDir)) {
 	}
 }
 fs.rmSync(runDir, { recursive: true, force: true });
-for (const dir of [path.join(userDataDir, 'User'), extensionsDir, logsDir, path.join(stateHome, '.copilot'), path.join(stateHome, '.codex'), home]) {
+for (const dir of [path.join(userDataDir, 'User'), sharedDataDir, extensionsDir, logsDir, path.join(stateHome, '.copilot'), path.join(stateHome, '.codex'), home]) {
 	fs.mkdirSync(dir, { recursive: true });
 }
 fs.writeFileSync(path.join(userDataDir, 'User', 'settings.json'), JSON.stringify(settings, null, '\t'));
