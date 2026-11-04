@@ -48,8 +48,9 @@ Turning results into decisions:
 > The one exception is a run a research loop owns, when the user has pre-approved launching for it
 > with a cap per round and a cap in total: then only the loop's `launch.mjs` launches, after computing
 > the all-in cost, refusing anything over a cap or unknown, and recording every launch in the study's
-> ledger ([`references/research-loop.md`](references/research-loop.md)). Everything else still stops
-> at the draft.
+> ledger ([`references/research-loop.md`](references/research-loop.md)). Only its `close.mjs` closes the
+> projects again, once a round or the study has ended, with the same guard, dry run and ledger.
+> Everything else still stops at the draft.
 
 > **HARD RULE, iterate in the real target surface.** App redesigns and demos come from **Code OSS
 > launched from microsoft-vscode**. Website redesigns come from the actual website/prototype repo and

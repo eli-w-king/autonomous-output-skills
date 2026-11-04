@@ -10,6 +10,8 @@ import { loadStudy, loadLedger, studyDir, armLabel, capitalize, publishedStill }
 import { committedSpend } from './lib/budget.mjs';
 import { CONFIG } from './lib/config.mjs';
 import { compareTitle, compareLines } from './lib/compare.mjs';
+import { limitsOf, deadlineOf, recruitingStopOf, launchWindow } from './lib/deadline.mjs';
+import { confirmationLines } from './lib/confirm.mjs';
 
 const argv = process.argv.slice(2);
 const opt = n => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined; };
@@ -144,6 +146,33 @@ if (!launches.length) {
 		return `${armLabel(study, a)} ${money(c.base_usd)} (${c.count} x ${money((p.ui_incentives ?? 0) / (c.count || 1))} incentive, ${money((p.ui_processing ?? 0) + (p.ui_recruit ?? 0))} fees, ${money(p.outset_recruitment)} survey-side recruitment; up to ${money(c.with_allowance_usd)} with the tax allowance)`;
 	});
 	L(`- Nothing launched. Latest quotes: ${quotes.join('; ')}.`);
+}
+L();
+
+// The close rules, and how far the close-out of each launched round has got.
+L('## When this study closes');
+L();
+{
+	const lim = limitsOf(study);
+	const cap = study.round_time_cap ?? {};
+	const deadline = deadlineOf(study);
+	const win = launchWindow(study);
+	L(`- **A round** closes when each of its studies has ${fl.participants_per_round ?? 5} completed interviews, or ${cap.hours_after_launch ?? 10} hours after it launched. A study with fewer than ${cap.min_completes_per_arm_to_synthesize ?? 3} completes gets ${cap.extend_hours ?? 2} more hours at a time, up to ${cap.hard_cap_hours ?? 24} hours.`);
+	L(`- **At most ${study.budget?.max_rounds ?? 3} rounds** and **${money(study.budget?.program_cap_usd ?? 1000)} in total** (${money(study.budget?.per_round_per_arm_usd ?? 250)} per round per study), a ceiling and not a target.`);
+	L(`- **The whole study** ends ${lim.study_hours} hours after its first launch${deadline ? `: **${pt(deadline)}**. Recruiting stops everywhere ${lim.response_window_hours} hours before that (${pt(recruitingStopOf(study))}), so interviews already under way can finish and be paid, and a round launches only if its ${cap.hours_after_launch ?? 10} hours fit before then (latest launch ${pt(win.latest_launch)})` : ' (not launched yet)'}. At the deadline the study ends whether or not the finish line is met.`);
+	L('- **When a round or the study ends:** everyone who finished is paid and the rest are rejected per the rules, the round\'s User Interviews project is closed so recruiting stops, its Outset study is closed to new interviews, and both are read back. The next runs look for each platform\'s confirmation email.');
+	const closes = study.rounds.flatMap(r => r.arms.filter(a => a.launched_at && (a.close || r.status === 'complete')).map(a => `- Round ${r.n}, ${armLabel(study, a)}: Outset ${a.close?.outset?.state ?? 'still open'}; User Interviews ${a.close?.ui?.state ?? 'still open'}${a.close?.ui?.why ? ` (${a.close.ui.why})` : ''}.`));
+	if (closes.length) {
+		L();
+		L('**Close-out**');
+		closes.forEach(l => L(l));
+	}
+	const conf = confirmationLines(ledger);
+	if (conf.length) {
+		L();
+		L('**Email confirmations**');
+		conf.forEach(l => L(`- ${capitalize(l)}.`));
+	}
 }
 L();
 

@@ -43,7 +43,7 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   two sessions.
 - `create_remote_session` starts a session with the host's default permissions, not the creating chat's. Its model
   is only `{provider, id}`, with no context tier or reasoning effort. Without a model, one started on Sonnet; with
-  `gpt-6-astra`, one started at medium effort and the default 272k context; in one lab the sessions it created still
+  the second approved model, one started at medium effort and the default 272k context; in one lab the sessions it created still
   ran at the launching chat's max effort and 1M context. There is no per-session way to set effort or context
   remotely, so audit every one and give work only to the sessions that pass. A workspace has to be trusted first ("The
   workspace is not trusted. Trust it before starting an unattended session."); sessions without a workspace work,
@@ -80,8 +80,10 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   about 45.
 - `get_remote_session` returns one snapshot: the status (`running`, `needsInput`, `completed`), `queuedMessages`
   and the latest turn's text. Use it to confirm that a message arrived, not to poll.
-- A host's sessions see only the skills installed on that host, in its own `~/.copilot/skills`. Install and update
-  them with `tools/install-devbox.mjs` from the skills repo (its INSTALL.md, "Dev boxes").
+- A host's sessions see only the skills installed on that host, in its own `~/.copilot/skills`. The skills sync
+  (`tools/sync-skills.py` from the skills repo, INSTALL.md "Add the machine") installs and updates them once a day
+  and at logon, so a skill change made on one host reaches another at that host's next daily run. Run
+  `sync-skills.py sync` on the other host to get it sooner.
 
 **Sandbox and approvals.**
 - Hosts differ. On one, a filesystem sandbox denied writes outside the allowed paths with no prompt ("Access

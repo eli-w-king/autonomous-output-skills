@@ -93,9 +93,13 @@ On each machine the clone, `~/.copilot/autonomous-output-skills`, has the privat
 and this one as `public`. The private URL has its own credential helper (GitHub CLI's token for the
 account that owns it), so `public` keeps GitHub CLI's default account and git never prompts.
 
-**One sync on every machine.** [`tools/sync-skills.py`](tools/sync-skills.py) `sync` runs every 15
-minutes and at logon: Task Scheduler on Windows (below-normal priority, no window), launchd on macOS
-(background priority, low-priority I/O, Nice 10). When nothing changed it exits within a few seconds,
+**One sync on every machine.** [`tools/sync-skills.py`](tools/sync-skills.py) `sync` runs once a day
+and at logon: Task Scheduler on Windows (below-normal priority, no window), launchd on macOS
+(background priority, low-priority I/O, Nice 10). The time comes from the private repo:
+`private/sync-schedule.txt` has one rule per machine (daily at 10:30 without that file). Every sync
+reads it, so a change there reaches each machine at its next run with nobody visiting the machine, and
+each machine records what it applied in `private/machines/<host>.txt`. When nothing changed a run
+exits within a few seconds,
 after one `git ls-remote` and a fingerprint check. Otherwise it:
 
 1. pulls the private main;

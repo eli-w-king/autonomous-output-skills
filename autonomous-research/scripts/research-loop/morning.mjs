@@ -26,6 +26,8 @@ import { loadMailLog, renderMail } from './lib/mail.mjs';
 import { loadStalls } from './lib/stalls.mjs';
 import { compareTitle, compareLines } from './lib/compare.mjs';
 import { afterApproval } from './lib/gatedm.mjs';
+import { limitsOf, deadlineOf, recruitingStopOf } from './lib/deadline.mjs';
+import { confirmationLines } from './lib/confirm.mjs';
 
 const argv = process.argv.slice(2);
 const opt = n => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined; };
@@ -374,6 +376,10 @@ async function main() {
 		L(`## ${s.title}`);
 		L();
 		L(`**Status:** round ${latest.n} of at most ${s.budget?.max_rounds ?? 3}. ${s.status_line ?? s.status}.`);
+		const ends = deadlineOf(s);
+		if (ends) {
+			L(`**Ends:** ${when(ends)}, ${limitsOf(s).study_hours} hours after the first launch, whether or not the finish line is met. Recruiting stops ${when(recruitingStopOf(s))}.`);
+		}
 		const launchedArms = s.rounds.flatMap(r => r.arms).filter(a => a.launched_at);
 		const roundsDone = s.rounds.map(r => r.arms.some(a => a.launched_at)
 			? `round ${r.n}: ${r.arms.reduce((n, a) => n + (a.counts?.completed ?? 0), 0)} of ${per * r.arms.length} (${r.arms.map(a => `${armLabel(s, a)}: ${a.counts?.completed ?? 0} of ${per}${a.counts?.in_progress ? `, ${a.counts.in_progress} in progress` : ''}`).join('; ')})`
@@ -406,6 +412,10 @@ async function main() {
 		L(`**Redesign:** ${redesignStatus(slug, s)}`);
 		const launches = ledger.entries.filter(e => e.type === 'launch');
 		L(`**Spend:** ${money(committedSpend(ledger))} committed of the ${money(s.budget?.program_cap_usd ?? 1000)} ceiling${launches.length ? ` (${launches.map(e => `round ${e.round} ${e.arm} ${money(e.cost_usd_with_allowance)}`).join(', ')})` : ''}.`);
+		const confirmations = confirmationLines(ledger);
+		if (confirmations.length) {
+			L(`**Email confirmations:** ${confirmations.join('; ')}.`);
+		}
 		L(`**Next:** ${s.next_action ?? 'nothing scheduled'}`);
 		L();
 		const links = [`[report](https://github.com/${LOOP_REPO}/blob/main/private/studies/${slug}/report.md)`];

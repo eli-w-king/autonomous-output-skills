@@ -6,7 +6,9 @@
 // cannot be computed, and when a cap itself is missing or not a positive number.
 // The all-in cost is the platform's own number: User Interviews' expected cost (incentives x count + processing
 // fees + recruit fees) plus Outset's recruitment estimate (zero for self-recruitment, verified per launch), plus a
-// tax allowance because User Interviews quotes "+ applicable taxes".
+// tax allowance because User Interviews quotes "+ applicable taxes". The study's time limit (lib/deadline.mjs) is checked
+// here too, so both of the launcher's checks refuse a round that cannot finish before recruiting stops.
+import { launchWindow } from './deadline.mjs';
 
 export function committedSpend(ledger) {
 	return ledger.entries.filter(e => e.type === 'launch').reduce((s, e) => s + Number(e.cost_usd_with_allowance ?? e.cost_usd ?? 0), 0);
@@ -58,7 +60,7 @@ export function allInCost(quote, taxAllowance = 0.1) {
 	};
 }
 
-export function checkLaunch({ study, ledger, round, arm, cost }) {
+export function checkLaunch({ study, ledger, round, arm, cost, now = Date.now() }) {
 	const caps = { ...ledger.caps, ...study.budget };
 	const reasons = [];
 	const capOk = v => Number.isFinite(Number(v)) && Number(v) > 0 && v !== null && v !== '';
@@ -66,6 +68,11 @@ export function checkLaunch({ study, ledger, round, arm, cost }) {
 		if (!capOk(caps[k])) {
 			reasons.push(`cap ${k} is missing or invalid (${JSON.stringify(caps[k])})`);
 		}
+	}
+	// The study's time limit: nothing launches after recruiting stops, and a round must fit its time cap before then.
+	const window = launchWindow(study, now);
+	if (!window.ok) {
+		reasons.push(window.reason);
 	}
 	if (!cost?.known) {
 		reasons.push(`cost unknown: ${(cost?.problems ?? ['no quote']).join('; ')}`);

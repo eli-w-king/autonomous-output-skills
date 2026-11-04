@@ -49,7 +49,8 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    for every session or chat you start, for any reason: `create_session`, `create_remote_session`,
    a hub, a base, a lab, or just "make another session". Use the best model the user permits, at
    maximum reasoning effort and the largest context it supports. Today that is Claude Opus 5.5
-   (`claude-opus-5.5`) or GPT-6 Astra (`gpt-6-astra`), at max effort with 1M context. Never rely on
+   (`claude-opus-5.5`) or the other model listed in `~/.copilot/autonomous-output-skills/private/models.txt`
+   (private), at max effort with 1M context. Never rely on
    a default, and never choose a smaller, faster or cheaper model or a lower setting, not even when
    the preferred one is slow or busy. Set all three when you start the session (which tools inherit
    or drop them is under "Remote agent hosts and dev boxes" in [`references/dev-boxes.md`](references/dev-boxes.md)), then verify them

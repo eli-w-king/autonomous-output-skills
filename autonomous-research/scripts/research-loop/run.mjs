@@ -24,6 +24,9 @@ import { hostname } from 'node:os';
 import { runLockStatus, heartbeatRunLock } from './lib/runlock.mjs';
 import { checkGates } from './lib/gate.mjs';
 import { recordStalls } from './lib/stalls.mjs';
+import { activity } from './lib/idle.mjs';
+import { due as confirmationsDue } from './lib/confirm.mjs';
+import { deadlineOf, recruitingStopOf, studyPhase, roundClosesAt } from './lib/deadline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -57,6 +60,19 @@ const summary = { at: new Date().toISOString(), studies: [] };
 }
 
 const DONE = new Set(['done', 'stopped', 'handed-to-owner']);
+
+// Nothing to research: no study running, and no ended study still waiting for an email confirmation. Exit now, before
+// any browser or platform call (the run's agent then asks once for the schedule to be turned off; see idle.mjs).
+{
+	const act = activity(listStudies().filter(x => !only || x === only).map(slug => ({ slug, study: loadStudy(slug), ledger: loadLedger(slug) })));
+	if (act.idle) {
+		const out = { ...summary, idle: true, reason: 'nothing is being researched: no active study and no confirmation still open' };
+		console.log(JSON.stringify(out, null, 1));
+		mkdirSync(STATE_DIR, { recursive: true });
+		writeFileSync(join(STATE_DIR, 'last-run.json'), JSON.stringify(out, null, 1));
+		process.exit(0);
+	}
+}
 
 async function steering(slug, study) {
 	const out = { new: [] };
@@ -193,21 +209,28 @@ async function roundState(slug) {
 		const now = Date.now();
 		const allFive = r.arms.every(a => (a.counts?.completed ?? 0) >= (s.criteria?.finish_line?.participants_per_round ?? 5));
 		const firstLaunch = Math.min(...r.arms.filter(a => a.launched_at).map(a => Date.parse(a.launched_at)));
+		// The study's time limit wins over the round's own cap: recruiting stops everywhere at the recruiting stop
+		// (the deadline minus the response window), so the round closes then at the latest and is never extended past it.
+		const stop = recruitingStopOf(s);
+		const atStop = stop && now >= Date.parse(stop);
+		const closesAt = roundClosesAt(s, r);
 		if (allFive) {
 			r.status = 'complete';
 			r.completed_at = new Date().toISOString();
+			r.close_reason = 'target';
 			addHistory(s, `round ${r.n} complete: every arm has 5 completed interviews`);
-		} else if (r.closes_at && now >= Date.parse(r.closes_at)) {
+		} else if (closesAt && now >= Date.parse(closesAt)) {
 			const thin = r.arms.some(a => (a.counts?.completed ?? 0) < (cap.min_completes_per_arm_to_synthesize ?? 3));
 			const hard = firstLaunch + (cap.hard_cap_hours ?? 24) * 3600e3;
-			if (thin && now < hard) {
-				r.closes_at = new Date(Math.min(now + (cap.extend_hours ?? 2) * 3600e3, hard)).toISOString();
+			if (thin && now < hard && !atStop) {
+				r.closes_at = new Date(Math.min(now + (cap.extend_hours ?? 2) * 3600e3, hard, stop ? Date.parse(stop) : Infinity)).toISOString();
 				addHistory(s, `round ${r.n} extended to ${r.closes_at}: an arm has fewer than ${cap.min_completes_per_arm_to_synthesize ?? 3} completes`);
 			} else {
 				r.status = 'complete';
 				r.completed_at = new Date().toISOString();
 				r.capped = true;
-				addHistory(s, `round ${r.n} closed at its time cap`);
+				r.close_reason = atStop ? 'recruiting-stop' : 'time-cap';
+				addHistory(s, atStop ? `round ${r.n} closed: the study's recruiting stopped at ${stop}` : `round ${r.n} closed at its time cap`);
 			}
 		}
 		if (r.status === 'complete' && !r.synthesized_at) {
@@ -316,11 +339,22 @@ await withLock(join(STATE_DIR, 'locks', 'run.lock'), async () => {
 			}
 			const s = loadStudy(slug);
 			const cur = s.rounds.at(-1);
-			const dm = gateDmStatus(s, loadLedger(slug));
+			const ledgerNow = loadLedger(slug);
+			const dm = gateDmStatus(s, ledgerNow);
 			item.gate_dm = dm;
+			const phase = studyPhase(s);
+			item.deadline = { deadline: deadlineOf(s), recruiting_stop: recruitingStopOf(s), phase };
+			// A round's arm is closed out when Outset is unpublished and User Interviews has its close request (or closed).
+			const closedOut = a => a.close?.outset?.state === 'closed' && ['close requested', 'closed'].includes(a.close?.ui?.state);
+			const stopped = phase === 'response-window' || phase === 'past-deadline';
+			const toClose = s.rounds.filter(r => r.status === 'complete' || stopped).flatMap(r => r.arms.filter(a => a.launched_at && !closedOut(a)).map(a => `round ${r.n} arm ${a.arm}`));
+			const confirms = confirmationsDue(ledgerNow);
 			item.agent_work = [
 				...(s.instructions ?? []).filter(i => i.status === 'new').map(i => `steering instruction ${i.id} from ${i.author}: act, then reply on the issue`),
 				...(dm.status === 'due' || dm.status === 'check' ? [`send the one DM about round ${dm.round}'s Outset approval (procedure step 6b: gatedm.mjs ${dm.status === 'check' ? 'says an earlier claim was never recorded as sent: look in the channel first' : 'claim, send once, record it'})`] : []),
+				...(confirms.length ? [`check ${confirms.length} email confirmation${confirms.length === 1 ? '' : 's'} of close-outs or payouts (procedure step 2c)`] : []),
+				...(toClose.length ? [`close out ${toClose.join(', ')}: pay or reject everyone Submitted, then close.mjs (procedure step 4c)`] : []),
+				...(phase === 'past-deadline' && !DONE.has(s.status) ? [`the study reached its deadline (${deadlineOf(s)}): final close-out, final report and status (procedure step 4c, then step 5)`] : []),
 				...(cur.status === 'recruiting' && cur.arms.some(a => (a.counts?.completed ?? 0) > 0) ? [`score newly completed interviews of round ${cur.n} (procedure step 4a)`] : []),
 				...(cur.status === 'complete' && !cur.synthesized_at ? [`synthesize round ${cur.n}, then decide and act in this same run: for a redesign, go straight on to it and the next round's launch (procedure steps 4 to 6b)`] : []),
 				...(cur.synthesized_at && s.next_action ? [s.next_action] : []),

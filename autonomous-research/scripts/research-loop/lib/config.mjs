@@ -20,6 +20,7 @@
 //                       "clone": "<local clone, read only>" },
 //   "gate_dm": { "channel": "<chat channel of the owner's own DM, for the one message per round at the publish gate>",
 //                "next_run": "<when the next scheduled run starts, as the DM says it; for example 'within 2 hours'>" },
+//   "schedule": { "name": "<the automation that runs the loop>", "id": "<its id, for the request to turn it off>" },
 //   "timezone": "America/Los_Angeles"
 // }
 import { existsSync, readFileSync } from 'node:fs';
@@ -76,6 +77,9 @@ export const CONFIG = {
 		channel: raw.gate_dm?.channel || null,
 		nextRun: raw.gate_dm?.next_run || null,
 	},
+	// The scheduled automation that runs the loop: the run asks once for it to be turned off when nothing is being
+	// researched, and starting a new study turns it back on.
+	schedule: raw.schedule?.name || raw.schedule?.id ? { name: raw.schedule.name ?? null, id: raw.schedule.id ?? null } : null,
 	timezone: raw.timezone || 'America/Los_Angeles',
 };
 

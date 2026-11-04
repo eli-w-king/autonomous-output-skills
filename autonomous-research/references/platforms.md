@@ -58,9 +58,10 @@ the token was minted with too much scope: re-run `outset-auth.mjs`.
 **One exception: a research loop's launch connection.** When the user pre-approves launching for a
 research loop with per-round and total caps ([`research-loop.md`](research-loop.md)), the loop keeps a
 second, separate connection with `studies:launch` (`OUTSET_LAUNCH_CLIENT_ID` and
-`OUTSET_LAUNCH_REFRESH_TOKEN`, from `outset-auth.mjs --launch`). Only the loop's `launch.mjs` uses it,
-only for `publish_study`, `unpublish_study` and `launch_recruitment`, and only after its budget check
-passes and is written to the study's ledger. The everyday token stays without the scope, and
+`OUTSET_LAUNCH_REFRESH_TOKEN`, from `outset-auth.mjs --launch`). Only the loop's two guarded scripts use
+it: `launch.mjs` for `publish_study` and `launch_recruitment`, only after its budget check passes and is
+written to the study's ledger, and `close.mjs` for `unpublish_study`, only to close a round that has
+ended, after its guard and a ledger entry, with the result read back. The everyday token stays without the scope, and
 `probe.mjs` still checks that. Without such a loop, nothing changes: a human launches.
 
 ---
@@ -445,6 +446,34 @@ awake. Until then the participant link shows "Study closed" (gotcha 18), so a te
 - `list_custom_interviewer_personas` needs a `survey_id` (gotcha 13).
 - `check_guide_quality` prefers probing targets to scripted follow-ups, because its AI moderator works
   from targets. Keep a hint ladder verbatim on purpose when it defines what counts as help.
+
+### 26. Ending a study: Outset's statuses, and what the API can do (found 2026-11-03)
+
+A study is Draft, Published, Paused or Closed (Outset's help article "Understanding Different Stages of
+a Study"). Paused stops new participants without interrupting interviews under way and can be
+published again; Closed is permanent (no edits, no republishing, recruitment finalized, refunds
+processed) and exists only in the web app, which asks for an acknowledgement. A study left open closes
+by itself after 30 days. From the API, the launch connection's `unpublish_study` is the stop: it takes
+the study offline for new participants (REST `active: false`, and the participant link shows "Study
+closed"), and it does not cancel a recruitment launched on a panel. A self-recruited study (participants
+sent by a native recruiting project) has nothing to mark per participant: `get_recruitment_status`
+shows `automated_recruitment: false` and no incentive, and an interview completes on its own. When a
+study completes, Outset's info address sends "Outset - <study name> has completed"; those arrive at
+16:00 UTC.
+
+### 27. User Interviews: closing is a request, and its own check comes first (found 2026-11-03)
+
+"Close project" (the project's options menu) is a close request, not a switch. The web app first calls
+`GET /api/projects/<id>/status_updates/new.json?statusTypeId=9`, which only reads: `200 {}` when it may
+close, `422` with `unmarkedParticipation` ("1 unmarked participation"), `unmarkedAttendance` or
+`scheduledSession` otherwise. A participant still Submitted or Started counts as unmarked. Then it
+posts `POST /api/projects/<id>/close_requests.json` with `{"data": {"attributes":
+{"projectConsideredSuccessfulId": 1, "issueIds": [...], "details": "..."}}}`: the success answer is
+required (1 Yes, 2 No, 3 N/A cancelled, 4 N/A test), the rest optional. The modal says "When you send a
+request to close a project, recruiting will not continue." The project then reads status 9, "Pending
+Close Request", until the platform's team finishes it (5 to 8 are the completed states; 1 is Launched,
+2 Currently recruiting, 4 Done recruiting). A GET on `close_requests` returns a 500: it is post only.
+No email arrived for several payouts in a row, so do not count on one for a payout.
 
 ---
 

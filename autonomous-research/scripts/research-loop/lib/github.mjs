@@ -168,26 +168,58 @@ export function publishStudy(slug, studyDirPath, { message } = {}) {
 		rmSync(join(dest, 'stills'), { recursive: true, force: true });
 		cpSync(stills, join(dest, 'stills'), { recursive: true });
 	}
+	return commitAndPush(rel, message ?? `Research loop: ${slug} state`);
+}
+
+/**
+ * Copy one local file to a path under private/ in the private repo (for example the prior findings the loop keeps
+ * current) and push it, with the same validator and clean-clone guarantees as publishStudy.
+ */
+export function publishPrivateFile(localPath, relPath, { message } = {}) {
+	if (!existsSync(join(PRIVATE_CLONE, '.git'))) {
+		throw new Error(`no clone of the private repo at ${PRIVATE_CLONE}`);
+	}
+	if (!/^private\//.test(relPath) || relPath.includes('..')) {
+		throw new Error(`only files under private/ are published this way, not ${relPath}`);
+	}
+	if (!existsSync(localPath)) {
+		throw new Error(`no file at ${localPath}`);
+	}
+	discardLocal(relPath);
+	syncWithUpstream();
+	mkdirSync(join(PRIVATE_CLONE, ...relPath.split('/').slice(0, -1)), { recursive: true });
+	cpSync(localPath, join(PRIVATE_CLONE, ...relPath.split('/')));
+	return commitAndPush(relPath, message ?? `Research loop: update ${relPath}`);
+}
+
+function commitAndPush(rel, message) {
 	git(['add', '--', rel]);
 	const staged = spawnSync('git', ['-C', PRIVATE_CLONE, 'diff', '--cached', '--quiet'], { encoding: 'utf8' }).status !== 0;
 	if (!staged) {
 		return { pushed: false, reason: 'no changes' };
 	}
 	// The repository's own validator, when it has one, gates every push (secrets, file names, private terms and dashes
-	// in published paths). It checks the whole tree, so it can fail on text that is not the loop's; either way nothing
-	// is pushed, the clone is left clean, and the next run tries again.
+	// in published paths). It checks the whole tree, so it can fail on files this push does not touch (someone else's
+	// text, already on main); those are reported, not blocking. An error in the files being pushed, or one that cannot
+	// be tied to a file, blocks the push: nothing is pushed, the clone is left clean, and the next run tries again.
 	const validator = join(PRIVATE_CLONE, 'tools', 'validate-skills.py');
 	const v = existsSync(validator) ? runValidator() : { status: 0 };
+	let elsewhere = 0;
 	if (v.status !== 0) {
-		discardLocal(rel);
-		throw new Error(`validate-skills.py failed; nothing pushed: ${`${v.stdout ?? ''}${v.stderr ?? ''}`.trim().split('\n').slice(-6).join(' | ')}`);
+		const errors = validatorErrors(`${v.stdout ?? ''}${v.stderr ?? ''}`);
+		const own = errors.filter(e => !e.path || e.path === rel || e.path.startsWith(`${rel}/`));
+		if (!errors.length || own.length) {
+			discardLocal(rel);
+			throw new Error(`validate-skills.py failed; nothing pushed: ${`${v.stdout ?? ''}${v.stderr ?? ''}`.trim().split('\n').slice(-6).join(' | ')}`);
+		}
+		elsewhere = errors.length;
 	}
-	git(['commit', '--quiet', '-m', message ?? `Research loop: ${slug} state`, '-m', 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>']);
+	git(['commit', '--quiet', '-m', message, '-m', 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>']);
 	for (let i = 0; i < 3; i++) {
 		try {
 			syncWithUpstream();
 			git(['push', '--quiet', 'origin', 'HEAD:main']);
-			return { pushed: true, commit: git(['rev-parse', '--short', 'HEAD']).trim() };
+			return { pushed: true, commit: git(['rev-parse', '--short', 'HEAD']).trim(), ...(elsewhere ? { validator_errors_elsewhere: elsewhere } : {}) };
 		} catch (e) {
 			if (i === 2) {
 				throw e;
@@ -195,6 +227,17 @@ export function publishStudy(slug, studyDirPath, { message } = {}) {
 		}
 	}
 	return { pushed: false };
+}
+
+/** The validator's error lines with the repository path each names ("error: <path>[:<line>]: <message>"); a line
+ * whose first part is not a plain repository path (spaces, a drive letter, no slash or dot) gets no path, which
+ * blocks the push. */
+export function validatorErrors(output) {
+	return String(output).split('\n').map(l => l.trim()).filter(l => /^error:/i.test(l)).map(l => {
+		const m = /^error:\s*([^\s:]+?)(?::\d+)?:\s/i.exec(l);
+		const path = m && /[/.]/.test(m[1]) ? m[1].replace(/\\/g, '/') : null;
+		return { path, line: l };
+	});
 }
 
 

@@ -14,7 +14,8 @@ truth.
   install           copy the repo's skills into ~/.copilot/skills and record what was installed
   sync              what the schedule runs on every machine (below)
   setup             point this machine's clone at the private repo (origin) and the public one (public)
-  schedule          run sync every 15 minutes and at logon (Task Scheduler, launchd, or a crontab line)
+  schedule          run sync once a day and at logon (Task Scheduler, launchd, or a crontab line), at the time
+                    private/sync-schedule.txt sets for this machine (daily at 10:30 without that file)
   sync-status       the settings, the schedule, the last runs, and open conflicts
 
 Two repos: the private repo (remote origin) has everything, including private/, and the public repo
@@ -33,6 +34,12 @@ backed up and removed from ~/.copilot/skills; edits a session made to it are fir
 private/rescued/<host>/. Each run appends one line, with its duration, to ~/.copilot/skills-sync.log.
 It never prompts (GIT_TERMINAL_PROMPT=0, GCM_INTERACTIVE=never).
 
+Schedule: private/sync-schedule.txt in the private repo says when each machine syncs. Every sync reads
+it after pulling; when the rule for this machine changed, it re-registers its own job (only a job that
+runs this clone's sync-skills.py), records it in private/machines/<host>.txt, and commits that, so a
+change to the file reaches every machine at its next run. launchd cannot reload a job from inside it,
+so on macOS a helper reloads it right after the run, and the next run confirms it.
+
 Base tracking: install keeps an exact snapshot of what it installed plus a manifest in
 ~/.copilot/skill-miner/, so harvest knows precisely which installed files changed since and merges
 them against the right base. After a file is harvested (or resolved), its installed content becomes
@@ -50,7 +57,7 @@ writes the snapshot and manifest last.
 Usage: sync-skills.py status|harvest|resolve|install [PATH...] [--dry-run] [--json] [--include-new] [--force]
        sync-skills.py sync [--repo CLONE]
        sync-skills.py setup --private-url URL --private-user NAME [--public-url URL] [--public-user NAME] [--host NAME]
-       sync-skills.py schedule [--every MINUTES] [--remove]
+       sync-skills.py schedule [--daily HH:MM | --every MINUTES] [--remove]
        sync-skills.py sync-status
 Environment: COPILOT_SKILLS_DIR (default ~/.copilot/skills), SKILL_MINER_DIR (default ~/.copilot/skill-miner)
 Exit codes: 0 ok, 1 error, 2 usage error, 3 conflicts or unharvested edits (nothing overwritten), 4 install rolled back
@@ -58,9 +65,12 @@ Exit codes: 0 ok, 1 error, 2 usage error, 3 conflicts or unharvested edits (noth
 import argparse
 import datetime as dt
 import difflib
+import fnmatch
 import hashlib
+import html
 import json
 import os
+import plistlib
 import re
 import shutil
 import socket
@@ -106,9 +116,13 @@ CLI_DEFAULTS_VERSION = 1
 MAX_COMMIT_BYTES = 5 * 1024 * 1024
 DEFAULT_PUBLIC_URL = 'https://github.com/eli-w-king/autonomous-output-skills.git'
 DEFAULT_PUBLIC_USER = 'eli-w-king'
-TASK_NAME = 'Autonomous skills sync'
+TASK_NAME = os.environ.get('SKILLS_SYNC_TASK', 'Autonomous skills sync')
 OLD_TASK_NAME = 'Autonomous skills update'
-LAUNCHD_LABEL = 'com.autonomous-output-skills.skills-sync'
+LAUNCHD_LABEL = os.environ.get('SKILLS_SYNC_LABEL', 'com.autonomous-output-skills.skills-sync')
+# When each machine syncs: one rule per line, read by every sync (see read_schedule_rules).
+SCHEDULE_FILE = 'private/sync-schedule.txt'
+DEFAULT_SCHEDULE = 'daily 10:30'
+RELOAD_MARKER = STATE / 'schedule-reloaded.txt'
 COAUTHOR = 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>'
 
 GIT_ENV = {k: v for k, v in os.environ.items() if k not in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN')}
@@ -1641,7 +1655,7 @@ def sync_once(settings, run):
     manifest = load_manifest()
     if (online and remote == head == tracking and not dirty_paths() and installed_matches(manifest, head)
             and not inbox_due(settings) and not load_state().get('inbox_backfill') and not cli_defaults_due(settings)
-            and miner_settled() and not my_taste_pending(settings)):
+            and miner_settled() and not my_taste_pending(settings) and not schedule_due(settings)):
         return 0
     if cli_defaults_due(settings):
         apply_cli_defaults(run)
@@ -1681,6 +1695,9 @@ def sync_once(settings, run):
     taste = copy_my_taste(settings, run)
     written += taste
     applied += [f'my-taste: {p}' for p in taste]
+    schedule_files = apply_schedule(settings, run, slug)
+    written += schedule_files
+    applied += [f'schedule: {p}' for p in schedule_files]
     harvested = set(written)
     waiting, too_big, to_commit = [], [], []
     now = time.time()
@@ -1846,7 +1863,7 @@ def cmd_setup(args):
             settings[key] = getattr(args, key)
     settings.setdefault('public_url', DEFAULT_PUBLIC_URL)
     settings.setdefault('public_user', DEFAULT_PUBLIC_USER)
-    settings.setdefault('interval_minutes', 15)
+    settings.pop('interval_minutes', None)
     if not settings.get('private_url') or not settings.get('private_user'):
         print('setup needs --private-url and --private-user the first time')
         return 2
@@ -1916,16 +1933,111 @@ def cmd_setup(args):
     return 0
 
 
-def task_xml(every, python, script):
+def describe(schedule):
+    kind, value = schedule.split()
+    return f'daily at {value} and at logon' if kind == 'daily' else f'every {value} minutes and at logon'
+
+
+def parse_schedule_value(kind, value):
+    """A schedule as 'daily HH:MM' or 'every MINUTES', or None when it is not valid."""
+    value = str(value or '')
+    if kind == 'daily':
+        m = re.fullmatch(r'(\d{1,2}):(\d{2})', value)
+        if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
+            return f'daily {int(m.group(1)):02d}:{m.group(2)}'
+    elif kind == 'every' and value.isdigit() and 5 <= int(value) <= 1440:
+        return f'every {int(value)}'
+    return None
+
+
+def read_schedule_rules(text):
+    """private/sync-schedule.txt: one rule per line, '<host> daily HH:MM' or '<host> every MINUTES', optionally
+    followed by 'until <ISO time>'. <host> is the name in "Sync from <host>" commits, in lowercase; * and ? match
+    any characters; # starts a comment. Returns ([(pattern, schedule, until)], the numbers of lines not valid)."""
+    rules, bad = [], []
+    for n, line in enumerate(text.splitlines(), 1):
+        words = line.split('#', 1)[0].split()
+        if not words:
+            continue
+        until = None
+        if len(words) == 5 and words[3] == 'until':
+            try:
+                until = dt.datetime.fromisoformat(words[4].replace('Z', '+00:00'))
+            except ValueError:
+                bad.append(n)
+                continue
+            if until.tzinfo is None:
+                until = until.astimezone()
+            words = words[:3]
+        value = parse_schedule_value(words[1], words[2]) if len(words) == 3 else None
+        if value is None:
+            bad.append(n)
+        else:
+            rules.append((words[0].lower(), value, until))
+    return rules, bad
+
+
+def wanted_schedule(settings, now=None):
+    """(schedule, None) from the first rule in the repo's private/sync-schedule.txt that matches this machine and has
+    not expired, or (None, why not)."""
+    try:
+        text = (REPO / SCHEDULE_FILE).read_text(encoding='utf-8-sig')
+    except OSError:
+        return None, f'no {SCHEDULE_FILE}'
+    rules, bad = read_schedule_rules(text)
+    if bad:
+        return None, f"{SCHEDULE_FILE} line {', '.join(map(str, bad))} is not valid"
+    slug = host_slug(host_name(settings))
+    now = now or dt.datetime.now().astimezone()
+    for pattern, value, until in rules:
+        if fnmatch.fnmatchcase(slug, pattern) and (until is None or now < until):
+            return value, None
+    return None, f'no rule in {SCHEDULE_FILE} matches {slug}'
+
+
+def default_python():
+    python = Path(sys.executable).resolve()
+    if os.name == 'nt' and python.name.lower() == 'pythonw.exe':
+        python = python.with_name('python.exe')
+    return python
+
+
+def next_daily(hhmm, now=None):
+    """The next local HH:MM at least a minute away: a daily trigger that starts in the past may run at once."""
+    now = now or dt.datetime.now()
+    hour, minute = map(int, hhmm.split(':'))
+    at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return at if at > now + dt.timedelta(minutes=1) else at + dt.timedelta(days=1)
+
+
+def task_xml(schedule, python, script):
     from xml.sax.saxutils import escape
     user = subprocess.run(['whoami'], capture_output=True, text=True).stdout.strip()
     conhost = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32' / 'conhost.exe'
-    start = (dt.datetime.now() + dt.timedelta(minutes=2)).replace(second=0, microsecond=0).isoformat()
     arguments = f'--headless "{python}" "{script}" sync'
+    kind, value = schedule.split()
+    if kind == 'daily':
+        trigger = f'''    <CalendarTrigger>
+      <StartBoundary>{next_daily(value).isoformat()}</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>'''
+    else:
+        start = (dt.datetime.now() + dt.timedelta(minutes=2)).replace(second=0, microsecond=0).isoformat()
+        trigger = f'''    <TimeTrigger>
+      <Repetition>
+        <Interval>PT{value}M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>{start}</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>'''
     return f'''<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Syncs ~/.copilot/skills with the skills repo every {every} minutes and at logon ({escape(str(script))} sync). Log: ~/.copilot/skills-sync.log</Description>
+    <Description>Syncs ~/.copilot/skills with the skills repo {describe(schedule)} ({escape(str(script))} sync). Log: ~/.copilot/skills-sync.log</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -1933,14 +2045,7 @@ def task_xml(every, python, script):
       <UserId>{escape(user)}</UserId>
       <Delay>PT1M</Delay>
     </LogonTrigger>
-    <TimeTrigger>
-      <Repetition>
-        <Interval>PT{every}M</Interval>
-        <StopAtDurationEnd>false</StopAtDurationEnd>
-      </Repetition>
-      <StartBoundary>{start}</StartBoundary>
-      <Enabled>true</Enabled>
-    </TimeTrigger>
+{trigger}
   </Triggers>
   <Principals>
     <Principal id="Author">
@@ -1979,71 +2084,295 @@ def task_xml(every, python, script):
 '''
 
 
+def launchd_paths():
+    return Path.home() / 'Library' / 'LaunchAgents' / f'{LAUNCHD_LABEL}.plist', f'gui/{os.getuid()}'
+
+
+def launchd_plist(schedule, python, script):
+    logs = STATE / 'logs'
+    logs.mkdir(parents=True, exist_ok=True)
+    path = os.environ.get('PATH', '/usr/bin:/bin:/usr/sbin:/sbin').split(os.pathsep)
+    for tool in ('git', 'gh'):
+        found = shutil.which(tool)
+        if found and str(Path(found).parent) not in path:
+            path.insert(0, str(Path(found).parent))
+    data = {
+        'Label': LAUNCHD_LABEL,
+        'ProgramArguments': [str(python), str(script), 'sync'],
+        'RunAtLoad': True,
+        'ProcessType': 'Background',
+        'LowPriorityIO': True,
+        'Nice': 10,
+        'AbandonProcessGroup': True,
+        'EnvironmentVariables': {'PATH': os.pathsep.join(path)},
+        'StandardOutPath': '/dev/null',
+        'StandardErrorPath': str(logs / 'skills-sync.launchd.log'),
+    }
+    kind, value = schedule.split()
+    if kind == 'daily':
+        hour, minute = map(int, value.split(':'))
+        data['StartCalendarInterval'] = {'Hour': hour, 'Minute': minute}
+    else:
+        data['StartInterval'] = int(value) * 60
+    return data
+
+
+# launchd cannot reload a job from inside it (bootout stops the job, this sync included), so a detached helper waits
+# for this process to exit, reloads the job (which runs it once, RunAtLoad), and leaves a marker that run confirms.
+RELOAD_SCRIPT = '''pid=$1; domain=$2; label=$3; plist=$4; marker=$5; value=$6
+n=0; while kill -0 "$pid" 2>/dev/null; do n=$((n+1)); [ "$n" -gt 900 ] && exit 1; sleep 1; done
+launchctl bootout "$domain/$label" >/dev/null 2>&1
+n=0; until launchctl bootstrap "$domain" "$plist" >/dev/null 2>&1; do n=$((n+1)); [ "$n" -gt 10 ] && exit 1; sleep 1; done
+printf '%s\\n' "$value" > "$marker"
+'''
+
+
+def register_job(schedule, python, script, defer=False):
+    """Register this machine's sync job for schedule. Returns (True, what) once it is in place, ('pending', what)
+    when launchd reloads it after this process exits (defer, macOS), or (False, why not)."""
+    if os.name == 'nt':
+        folder = Path(tempfile.mkdtemp())
+        try:
+            (folder / 'task.xml').write_text(task_xml(schedule, python, script), encoding='utf-16')
+            r = subprocess.run(['schtasks', '/Create', '/F', '/TN', TASK_NAME, '/XML', str(folder / 'task.xml')],
+                               capture_output=True, text=True)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+        if r.returncode:
+            return False, f'schtasks failed: {(r.stderr or r.stdout).strip()}'
+        return True, f'Scheduled "{TASK_NAME}": {describe(schedule)}, below-normal priority, no window.'
+    if sys.platform == 'darwin':
+        plist, domain = launchd_paths()
+        what = f'Scheduled {LAUNCHD_LABEL}: {describe(schedule)}, background priority (Nice 10, low-priority I/O).'
+        if not defer:
+            subprocess.run(['launchctl', 'bootout', f'{domain}/{LAUNCHD_LABEL}'], capture_output=True)
+        write_atomic(plist, plistlib.dumps(launchd_plist(schedule, python, script)))
+        if defer:
+            try:
+                RELOAD_MARKER.unlink()
+            except OSError:
+                pass
+            subprocess.Popen(['/bin/sh', '-c', RELOAD_SCRIPT, 'skills-sync-reload', str(os.getpid()), domain,
+                              LAUNCHD_LABEL, str(plist), str(RELOAD_MARKER), schedule],
+                             start_new_session=True, close_fds=True, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return 'pending', what
+        r = subprocess.run(['launchctl', 'bootstrap', domain, str(plist)], capture_output=True, text=True)
+        if r.returncode:
+            return False, f'launchctl could not load {tilde(plist)}: {r.stderr.strip()}'
+        return True, what
+    kind, value = schedule.split()
+    hour, minute = value.split(':') if kind == 'daily' else ('', '')
+    when = f'{int(minute)} {int(hour)} * * *' if kind == 'daily' else f'*/{value} * * * *'
+    return False, (f'Add these lines with crontab -e:\n{when} "{python}" "{script}" sync >/dev/null 2>&1\n'
+                   f'@reboot "{python}" "{script}" sync >/dev/null 2>&1')
+
+
+def registered_job():
+    """This machine's sync job as registered: {'schedule', 'python', 'here' (it runs this clone's sync-skills.py)},
+    or None when there is none (and on Linux, where the crontab is not read)."""
+    script = os.path.normcase(os.path.realpath(REPO / 'tools' / 'sync-skills.py'))
+    if os.name == 'nt':
+        r = subprocess.run(['schtasks', '/Query', '/TN', TASK_NAME, '/XML'], capture_output=True, text=True,
+                           errors='replace')
+        if r.returncode:
+            return None
+        xml = r.stdout
+        m = re.search(r'<Arguments>(.*?)</Arguments>', xml, re.S)
+        found = re.search(r'"([^"]+)"\s+"([^"]+)"\s+sync\b', html.unescape(m.group(1))) if m else None
+        schedule = None
+        if '<ScheduleByDay>' in xml:
+            t = re.search(r'<CalendarTrigger>.*?<StartBoundary>[^<]*?T(\d\d):(\d\d)', xml, re.S)
+            schedule = parse_schedule_value('daily', f'{t.group(1)}:{t.group(2)}') if t else None
+        else:
+            t = re.search(r'<TimeTrigger>.*?<Interval>PT(?:(\d+)H)?(?:(\d+)M)?</Interval>', xml, re.S)
+            if t:
+                schedule = parse_schedule_value('every', int(t.group(1) or 0) * 60 + int(t.group(2) or 0))
+        return {'schedule': schedule, 'python': found.group(1) if found else None,
+                'here': bool(found) and os.path.normcase(os.path.realpath(found.group(2))) == script}
+    if sys.platform == 'darwin':
+        plist, _ = launchd_paths()
+        try:
+            data = plistlib.loads(plist.read_bytes())
+        except (OSError, ValueError):
+            return None
+        args = data.get('ProgramArguments') or []
+        calendar = data.get('StartCalendarInterval')
+        schedule = None
+        if isinstance(calendar, dict) and 'Hour' in calendar:
+            schedule = parse_schedule_value('daily', f"{calendar['Hour']}:{int(calendar.get('Minute', 0)):02d}")
+        elif data.get('StartInterval'):
+            schedule = parse_schedule_value('every', int(data['StartInterval']) // 60)
+        return {'schedule': schedule, 'python': args[0] if args else None,
+                'here': len(args) >= 2 and os.path.normcase(os.path.realpath(args[1])) == script}
+    return None
+
+
+def machine_status_body(schedule, pending=False):
+    if os.name == 'nt':
+        job = f'Task Scheduler "{TASK_NAME}", below-normal priority, no window'
+    elif sys.platform == 'darwin':
+        job = f'launchd {LAUNCHD_LABEL}, background priority (Nice 10, low-priority I/O)'
+    else:
+        job = 'crontab'
+    return (f'schedule: {describe(schedule)}'
+            + (' (launchd reloads the job when the run that wrote this ends)' if pending else '') + f'\njob: {job}\n')
+
+
+def write_machine_status(slug, schedule, pending=False):
+    """private/machines/<host>.txt: this machine's schedule, so the repo shows every machine's. Rewritten only when
+    it changes, so it is committed only then."""
+    body = machine_status_body(schedule, pending)
+    rel = f'private/machines/{slug}.txt'
+    try:
+        if (REPO / rel).read_text(encoding='utf-8').split('since:')[0] == body:
+            return []
+    except OSError:
+        pass
+    write_atomic(REPO / rel, (body + f'since: {now_iso()}\n').encode())
+    return [rel]
+
+
+def status_stale(slug, state):
+    """This machine registered its own job, but private/machines/<host>.txt does not show it yet."""
+    pending = state.get('schedule_pending')
+    shown = pending['value'] if pending else state.get('schedule')
+    if not (shown and state.get('schedule_managed')):
+        return False
+    try:
+        current = (REPO / f'private/machines/{slug}.txt').read_text(encoding='utf-8').split('since:')[0]
+    except OSError:
+        current = ''
+    return current != machine_status_body(shown, bool(pending))
+
+
+def schedule_due(settings):
+    """The repo's rule for this machine changed since this machine last acted on it, a launchd reload waits to be
+    confirmed, or private/machines/<host>.txt is behind. Cheap: two small file reads."""
+    state = load_state()
+    if state.get('schedule_pending') or status_stale(host_slug(host_name(settings)), state):
+        return True
+    want, _ = wanted_schedule(settings)
+    return want is not None and want != state.get('schedule_seen')
+
+
+def apply_schedule(settings, run, slug):
+    """Bring this machine's sync job in line with the repo's schedule for it, but only a job that runs this clone's
+    sync-skills.py (a machine never scheduled with sync-skills.py schedule is left alone), and keep
+    private/machines/<host>.txt current. Returns the repo paths written."""
+    state = load_state()
+    written = change_schedule(settings, run, slug, state)
+    if not written and status_stale(slug, state):
+        pending = state.get('schedule_pending')
+        written = write_machine_status(slug, pending['value'] if pending else state['schedule'], bool(pending))
+    return written
+
+
+def change_schedule(settings, run, slug, state):
+    want, _ = wanted_schedule(settings)
+    force = False
+    pending = state.get('schedule_pending')
+    if pending:
+        try:
+            reloaded = RELOAD_MARKER.read_text(encoding='utf-8').strip()
+        except OSError:
+            reloaded = ''
+        if reloaded and reloaded == pending.get('value'):
+            try:
+                RELOAD_MARKER.unlink()
+            except OSError:
+                pass
+            del state['schedule_pending']
+            state['schedule'] = reloaded
+            save_state(state)
+            run.note(f'schedule now {describe(reloaded)}')
+            return write_machine_status(slug, reloaded)
+        if pending.get('value') == want and time.time() - pending.get('at', 0) < 900:
+            return []
+        del state['schedule_pending']
+        force = True
+    if want is None or (want == state.get('schedule_seen') and not force):
+        if force:
+            save_state(state)
+        return []
+    job = registered_job()
+    if not job or not job['here']:
+        state['schedule_seen'] = want
+        state['schedule_managed'] = False
+        save_state(state)
+        return []
+    state['schedule_managed'] = True
+    if job['schedule'] == want and not force:
+        state['schedule'] = state['schedule_seen'] = want
+        save_state(state)
+        return write_machine_status(slug, want)
+    ok, what = register_job(want, job['python'] or default_python(), REPO / 'tools' / 'sync-skills.py', defer=True)
+    if ok == 'pending':
+        state['schedule_seen'] = want
+        state['schedule_pending'] = {'value': want, 'at': time.time()}
+        save_state(state)
+        run.note(f'schedule changes to {describe(want)} when this run ends')
+        return write_machine_status(slug, want, pending=True)
+    if ok:
+        state['schedule'] = state['schedule_seen'] = want
+        save_state(state)
+        run.note(f'schedule now {describe(want)}')
+        return write_machine_status(slug, want)
+    save_state(state)
+    run.note(f'schedule not changed ({first_error(what)})')
+    return []
+
+
 def cmd_schedule(args):
     settings = load_settings()
-    every = args.every or settings.get('interval_minutes') or 15
-    if not 5 <= every <= 1440:
-        print('--every takes 5 to 1440 minutes')
-        return 2
+    state = load_state()
     script = REPO / 'tools' / 'sync-skills.py'
     if 'def cmd_sync(' not in script.read_text(encoding='utf-8', errors='replace'):
         print(f'{tilde(script)} is an older version without sync; run sync first, so the clone has the new tools')
         return 1
-    python = Path(sys.executable).resolve()
-    if os.name == 'nt' and python.name.lower() == 'pythonw.exe':
-        python = python.with_name('python.exe')
-    if os.name == 'nt':
-        if args.remove:
+    if args.remove:
+        for key in ('schedule', 'schedule_seen', 'schedule_pending', 'schedule_managed'):
+            state.pop(key, None)
+        save_state(state)
+        if os.name == 'nt':
             r = subprocess.run(['schtasks', '/Delete', '/F', '/TN', TASK_NAME], capture_output=True, text=True)
             print(r.stdout.strip() or r.stderr.strip())
             return r.returncode
-        xml = Path(tempfile.mkdtemp()) / 'task.xml'
-        xml.write_text(task_xml(every, python, script), encoding='utf-16')
-        r = subprocess.run(['schtasks', '/Create', '/F', '/TN', TASK_NAME, '/XML', str(xml)], capture_output=True, text=True)
-        shutil.rmtree(xml.parent, ignore_errors=True)
-        if r.returncode:
-            print(f'schtasks failed: {(r.stderr or r.stdout).strip()}')
-            return 1
-        print(f'Scheduled "{TASK_NAME}": every {every} minutes and at logon, below-normal priority, no window.')
-    elif sys.platform == 'darwin':
-        import plistlib
-        plist = Path.home() / 'Library' / 'LaunchAgents' / f'{LAUNCHD_LABEL}.plist'
-        domain = f'gui/{os.getuid()}'
-        subprocess.run(['launchctl', 'bootout', f'{domain}/{LAUNCHD_LABEL}'], capture_output=True)
-        if args.remove:
+        if sys.platform == 'darwin':
+            plist, domain = launchd_paths()
+            subprocess.run(['launchctl', 'bootout', f'{domain}/{LAUNCHD_LABEL}'], capture_output=True)
             if plist.exists():
                 plist.unlink()
             print('Removed the schedule. Nothing else was deleted.')
             return 0
-        logs = STATE / 'logs'
-        logs.mkdir(parents=True, exist_ok=True)
-        path = os.environ.get('PATH', '/usr/bin:/bin:/usr/sbin:/sbin').split(os.pathsep)
-        for tool in ('git', 'gh'):
-            found = shutil.which(tool)
-            if found and str(Path(found).parent) not in path:
-                path.insert(0, str(Path(found).parent))
-        plist.parent.mkdir(parents=True, exist_ok=True)
-        plist.write_bytes(plistlib.dumps({
-            'Label': LAUNCHD_LABEL,
-            'ProgramArguments': [str(python), str(script), 'sync'],
-            'StartInterval': every * 60,
-            'RunAtLoad': True,
-            'ProcessType': 'Background',
-            'LowPriorityIO': True,
-            'Nice': 10,
-            'EnvironmentVariables': {'PATH': os.pathsep.join(path)},
-            'StandardOutPath': '/dev/null',
-            'StandardErrorPath': str(logs / 'skills-sync.launchd.log'),
-        }))
-        r = subprocess.run(['launchctl', 'bootstrap', domain, str(plist)], capture_output=True, text=True)
-        if r.returncode:
-            print(f'launchctl could not load {tilde(plist)}: {r.stderr.strip()}')
-            return 1
-        print(f'Scheduled {LAUNCHD_LABEL}: every {every} minutes and at login, background priority (Nice 10, low-priority I/O).')
+        print('Remove the two lines with crontab -e.')
+        return 0
+    if args.daily and args.every:
+        print('use --daily or --every, not both')
+        return 2
+    want, why = wanted_schedule(settings)
+    if args.daily or args.every:
+        chosen = parse_schedule_value('daily', args.daily) if args.daily else parse_schedule_value('every', args.every)
+        if not chosen:
+            print('--daily takes a 24-hour time (HH:MM); --every takes 5 to 1440 minutes')
+            return 2
+        if want and want != chosen:
+            print(f'note: {SCHEDULE_FILE} sets {describe(want)} for this machine; the sync keeps this one until that '
+                  'rule changes')
     else:
-        print(f'Add these lines with crontab -e:\n*/{every} * * * * "{python}" "{script}" sync >/dev/null 2>&1\n'
-              f'@reboot "{python}" "{script}" sync >/dev/null 2>&1')
-    settings['interval_minutes'] = every
+        chosen = want or DEFAULT_SCHEDULE
+        if want is None and 'not valid' in (why or ''):
+            print(f'note: {why}; using {describe(chosen)}')
+    ok, what = register_job(chosen, default_python(), script)
+    print(what)
+    if ok is not True and (os.name == 'nt' or sys.platform == 'darwin'):
+        return 1
+    state['schedule'] = chosen
+    state['schedule_seen'] = want
+    state['schedule_managed'] = ok is True
+    state.pop('schedule_pending', None)
+    save_state(state)
+    settings.pop('interval_minutes', None)
     if settings.get('private_url'):
         save_settings(settings)
     return 0
@@ -2070,23 +2399,30 @@ def schedule_state():
         if r.returncode:
             return [f'{LAUNCHD_LABEL}: not scheduled']
         keep = [line.strip() for line in r.stdout.splitlines()
-                if line.strip().startswith(('state =', 'runs =', 'last exit code', 'run interval'))]
+                if line.strip().startswith(('state =', 'runs =', 'last exit code', 'run interval', '"Hour"', '"Minute"'))]
         return [f"{LAUNCHD_LABEL}: {'; '.join(keep)}"]
     return ['schedule: see crontab -l']
 
 
 def cmd_sync_status(args):
     settings = load_settings()
+    state = load_state()
     print(f"settings {tilde(SETTINGS)}{'' if settings else ': missing (run setup)'}")
-    for key in ('host', 'private_url', 'private_user', 'public_url', 'public_user', 'interval_minutes'):
+    for key in ('host', 'private_url', 'private_user', 'public_url', 'public_user', 'my_taste_source'):
         if key in settings:
             print(f'  {key}: {settings[key]}')
     print(f"clone {tilde(REPO)}: origin {git('remote', 'get-url', 'origin') or '-'}, public {git('remote', 'get-url', 'public') or '-'}")
+    want, why = wanted_schedule(settings)
+    job = registered_job()
+    print(f"schedule: {describe(job['schedule']) if job and job['schedule'] else 'unknown'}"
+          + ('' if not job or job['here'] else ' (the job runs another clone)')
+          + f"; {SCHEDULE_FILE}: {describe(want) if want else why}"
+          + ('; a launchd reload is waiting for its first run' if state.get('schedule_pending') else ''))
     for line in schedule_state():
         print(line)
     if SYNC_LOCK.exists():
         print(f'a sync is running (lock {tilde(SYNC_LOCK)})')
-    conflicts = load_state().get('conflicts', {})
+    conflicts = state.get('conflicts', {})
     if conflicts:
         print('conflict branches pushed from here: ' + ', '.join(list(conflicts.values())[-5:]))
     if SYNC_LOG.is_file():
@@ -2110,7 +2446,9 @@ def main():
     parser.add_argument('--public-url', help=f'setup: the public repo (default {DEFAULT_PUBLIC_URL})')
     parser.add_argument('--public-user', help=f'setup: the account that publishes to it (default {DEFAULT_PUBLIC_USER})')
     parser.add_argument('--host', help='setup: the name used in commit messages and branch names (default: the host name)')
-    parser.add_argument('--every', type=int, help='schedule: minutes between runs (default 15)')
+    parser.add_argument('--daily', help='schedule: run once a day at this local time, HH:MM (default: the rule in '
+                        'private/sync-schedule.txt for this machine, else 10:30)')
+    parser.add_argument('--every', type=int, help='schedule: run every this many minutes instead (5 to 1440)')
     parser.add_argument('--remove', action='store_true', help='schedule: remove the schedule')
     parser.add_argument('--repo', help='the clone to work on (default: the one this script is in); used to bootstrap a machine')
     parser.add_argument('--since', help='backfill-inbox: the start of the window, an ISO time (for example 2026-03-01T00:00:00Z)')

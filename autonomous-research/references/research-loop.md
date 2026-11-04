@@ -17,8 +17,8 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
 
 | File | What |
 | --- | --- |
-| `study.json` | the source (issue or brief), success criteria file, plan, budget caps, round time cap, platform ids (survey, recruiting project), designs and their commits, rounds with arms (and each round's one DM at the publish gate, `gate_dm`), stimulus with checksums, status, `needs_you`, `next_action`, steering instructions, history |
-| `ledger.json` | every budget check, refusal, block and launch: study, round, arm, all-in cost, count, time |
+| `study.json` | the source (issue or brief), success criteria file, plan, budget caps, round time cap, the study's time limit (`limits`, `deadline_at`), platform ids (survey, recruiting project), designs and their commits, rounds with arms (each arm's close-out in `close`, and each round's one DM at the publish gate, `gate_dm`), stimulus with checksums, status, `needs_you`, `next_action`, steering instructions, the last refresh of the prior research (`prior_research_refresh`), history |
+| `ledger.json` | every budget check, refusal, block and launch: study, round, arm, all-in cost, count, time; every payment and rejection; every close check, close and read-back; every email confirmation check (found or not) |
 | `success-criteria.md` | written before the first launch: research questions, the main task, per-participant scoring (without help, with help, failure, hint ladder, blocking problem), the finish line, evidence labels |
 | `guide-r<n>.json` | the interview guide as data: settings, welcome, moderator context, goals, sections, questions with probing depth, moderator targets and stimulus keys |
 | `rounds/r<n>/arm-<X>/` | platform ids, attached stills, transcripts (local only), `analysis.json` and `analysis.md`; participant tracking ids stay in a local `participants.local.json` and are never published |
@@ -34,10 +34,17 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
    the morning retrospective, a morning hand-off folder and the time zone. The scripts find it by walking up from the
    working directory, or from `RESEARCH_LOOP_CONFIG`.
 2. Keys in `~/.copilot/research.env` (see `research.env.template`). Two Outset connections: the everyday one from
-   `outset-auth.mjs`, and the launch one from `outset-auth.mjs --launch`, used only by `launch.mjs`.
+   `outset-auth.mjs`, and the launch one from `outset-auth.mjs --launch`, used only by `launch.mjs` (publish, launch)
+   and `close.mjs` (unpublish, to close a finished round).
 3. `node scripts/research-loop/probe-outset.mjs` (both connections, tool counts, which one can launch) and
-   `node --test scripts/research-loop/test` (the money and screener logic).
+   `node --test scripts/research-loop/test` (the money, deadline, close-out and screener logic).
 4. A study folder per subject, then the schedule (see [`research-loop-automation.md`](research-loop-automation.md)).
+   Starting a new study:
+   - turn the schedule back on if it is off (a quiet loop asks for it to be turned off; see "When things close"),
+     with the automations tool (enabled) or by asking the chat that owns it;
+   - refresh the prior research before writing the guide: `wiki.mjs refresh`, read every changed page, update the
+     topic's prior findings, `wiki.mjs mark` (the same refresh runs before each redesign);
+   - set `limits` (or keep the defaults) and, once it launches, the deadline follows from the first launch.
 
 | Script | Does |
 | --- | --- |
@@ -54,12 +61,51 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
 | `check-sessions.mjs` | audits a run's session: model, effort, context, and any permission request without an answer |
 | `stalls.mjs` | lists sessions on the machine waiting 10 minutes or more for an approval; every run scans, and the morning summary shows any at the top |
 | `gatedm.mjs` | the one DM to the owner per round when a round's study stops at an admin's approval to publish: `due` (the exact text and channel), `claim`, `sent`, `release`; recorded in the round's `gate_dm`, so a round never gets two (`gate_dm` in `loop.config.json` names the channel) |
+| `close.mjs` | the only code that closes a round's projects: a guard (only once the round is complete, recruiting has stopped, or the deadline passed), a dry run, ledger entries, Outset unpublished and the User Interviews close request sent, both read back |
+| `confirm.mjs` | email confirmations of close-outs and payouts on a later run: `due`, then `check --file <mailbox search>`; found or not in the ledger, a "Needs you" note after two misses |
+| `idle.mjs` | whether anything is being researched (local files only); when not, the run ends in seconds and asks once for the schedule to be turned off |
+| `wiki.mjs` | refresh the prior research: pull the research wiki's clone as is, list the pages changed since the study's last refresh, record the refresh and publish the updated prior findings |
 
 ## The finish line (default)
 
 Five participants per round. A design is done when at least 4 of 5 complete the main task without help, nobody hits a
 blocking problem, and the design still follows the owner's taste rules. Each study also writes its own success
 criteria from its source before the first launch. After the round limit (default 3), the owner decides.
+
+## When things close
+
+The full set of close rules, which the report shows for every study:
+
+- **A round** closes when each of its studies (arms) has 5 completed real interviews, or 10 hours after it launched. An
+  arm with fewer than 3 completes gets 2 more hours at a time, up to 24 hours (`round_time_cap`).
+- **At most 3 rounds** per study, **$250 per round per arm**, and **$1,000 for the program**: a ceiling, not a target.
+- **Every study ends 72 hours after its first launch** (`limits.study_hours`, or an explicit `deadline_at`), whether or
+  not the finish line is met. **Recruiting stops everywhere 6 hours before the deadline** (`limits.response_window_hours`,
+  the response window), so interviews already under way can finish and be paid. A round launches only when its whole
+  time cap fits before the recruiting stop; `launch.mjs` refuses otherwise, in both of its checks.
+- **When a round ends, when recruiting stops, and at the deadline: close-out.** Pay every eligible Submitted
+  participant and reject per the rules, then `close.mjs` per arm: the Outset study is unpublished (no new interview
+  starts; ones under way are not interrupted) and the User Interviews project gets its close request (recruiting stops),
+  both read back. At the deadline, also the final report, a note on the issue, and status `done` (finish line met) or
+  `handed-to-owner`.
+- **Confirmations by email.** On a later run (never by waiting in a chat), the run searches the owner's mailbox for
+  each platform's confirmation of every close and payout, records found or not in the ledger and the report, and adds
+  a "Needs you" note when one is still missing after two checks. A failed search is not a check.
+- **Run only when something is being researched.** With no study running and nothing left to confirm, a run exits in
+  seconds (no browser, no platform API) and asks the chat that owns the schedule, once, to turn it off; runs cannot
+  change automations. Starting a new study turns it back on (see "Setting it up").
+
+## Closing and paying, platform by platform
+
+- **User Interviews:** each participant whose survey interview is complete is paid in participant management
+  (Submitted, Complete, "Confirm & pay"); anyone else is rejected per the study's rules. Its "Close project" is a close
+  request: the app first checks (`GET /api/projects/<id>/status_updates/new.json?statusTypeId=9`, read only; 422 with
+  "unmarked participation" or "scheduled session" while anyone is still Submitted or Started), then posts the request
+  (`POST /api/projects/<id>/close_requests.json` with a required "Do you consider this project a success?" answer and
+  optional details); the project reads "Pending Close Request" (status 9) until the platform's team finishes it.
+- **Outset:** nothing to mark per participant for a self-recruited study (no Outset incentive or recruitment; an
+  interview completes on its own). The API's `unpublish_study` stops new interviews (like the web app's Pause) without
+  interrupting ones under way; the permanent Close is only in the web app, and a study closes by itself after 30 days.
 
 ## Money
 
@@ -95,7 +141,8 @@ instructions, even when they are posted as the owner's account. Comments from an
 ## Each run
 
 `procedure.md` is what a scheduled run follows; the schedule's prompt only points at it, so the procedure can change
-without touching the schedule. In order: take the run lock; orient; run `run.mjs` (steering, launch what is ready,
+without touching the schedule. In order: take the run lock; stop at once when nothing is being researched
+(`idle.mjs`); orient; run `run.mjs` (steering, launch what is ready,
 harvest real interviews, recruiting state, round state, report, issue, publish); act on steering; score interviews as
 they arrive; synthesize completed
 rounds (score every participant before writing prose; verbatim quotes with interview links; real participants only;
@@ -210,6 +257,14 @@ The schedule, its procedure template, and how to prove a run: [`research-loop-au
 - Do not `git pull --rebase` in a clone that other processes also fetch in. Two fetches at once can leave the same
   line twice in FETCH_HEAD, and pull then refuses with "Cannot rebase onto multiple branches" (about 1 run in 5 in a
   test here). `git fetch --no-write-fetch-head origin` and `git rebase @{upstream}` never read it.
+- Look for the platform's own guard before writing one. User Interviews' "Close project" first calls a read-only check
+  that refuses while any participation is unmarked; calling that check in a dry run showed which project could close
+  (one with a participant still Started could not) without changing anything.
+- Expect some platforms to send no confirmation email. User Interviews sent none for several payouts in a row; a check
+  that ends in "no email after two checks" is a result to report, not an error to retry forever.
+- A repository validator that checks the whole tree fails on other people's files too. Block a study's publish only on
+  errors in the files being pushed (or errors tied to no file), and report the rest; otherwise one unrelated line on
+  main stops every report from publishing.
 - A survey platform's guide checker may disagree with a human-moderation rubric: AI moderators work from probing
   targets, not scripted follow-ups. Keep hint ladders verbatim on purpose (they define what counts as help) and say so.
 - A recruiting site's own API (the calls its web app makes) is far more reliable than clicking: duplicate in the UI,

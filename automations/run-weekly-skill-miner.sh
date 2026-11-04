@@ -521,9 +521,10 @@ run_flow() {
 	run_agent "$copilot" "$(compose_prompt)" "$MODEL" "$RUN_DIR/usage.json" "$RUN_DIR/agent.log" "$TIME_LIMIT"
 	code=$?
 	if [ "$code" -eq 3 ]; then fail "the list of MCP servers to turn off could not be read"; return 1; fi
-	if [ "$code" -ne 0 ] && [ $(( $(date +%s) - started )) -lt 180 ] && [ "$MODEL" != gpt-6-astra ]; then
-		note "agent exited $code within 3 minutes; retrying with gpt-6-astra at the same settings"
-		run_agent "$copilot" "$(compose_prompt)" gpt-6-astra "$RUN_DIR/usage.json" "$RUN_DIR/agent.log.retry" "$TIME_LIMIT"
+	fallback=$(sed -e 's/#.*//' "$REPO/private/models.txt" 2>/dev/null | awk 'NF {print $1}' | grep -vxF "$MODEL" | head -1)
+	if [ "$code" -ne 0 ] && [ -n "$fallback" ] && [ $(( $(date +%s) - started )) -lt 180 ]; then
+		note "agent exited $code within 3 minutes; retrying with $fallback at the same settings"
+		run_agent "$copilot" "$(compose_prompt)" "$fallback" "$RUN_DIR/usage.json" "$RUN_DIR/agent.log.retry" "$TIME_LIMIT"
 		code=$?
 	fi
 	note "agent finished with exit $code"

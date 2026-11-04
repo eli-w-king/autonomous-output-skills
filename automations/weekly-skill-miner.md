@@ -111,8 +111,8 @@ The runner lists them under "This run" at the end of the prompt:
    that is expected. Merge it as step 1 says when you need it, and don't report it; the runner
    merges whatever else landed before it pushes.
 9. **Sub-agents.** Start every sub-agent prompt with `[weekly-skill-miner]`, and start every sub-agent
-   at this run's model with max reasoning effort and the long context (`claude-opus-5.5`, or
-   `gpt-6-astra` if it is unavailable; `reasoning_effort` max, `context_tier` long_context), never at
+   at this run's model with max reasoning effort and the long context (`claude-opus-5.5`, or the
+   next model in `private/models.txt` if it is unavailable; `reasoning_effort` max, `context_tier` long_context), never at
    the agent type's default. Anything that reads the collected messages runs as a read-only sub-agent
    (the explore agent) and returns its results as text.
 

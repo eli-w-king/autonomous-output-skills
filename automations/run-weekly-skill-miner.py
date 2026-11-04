@@ -46,8 +46,19 @@ spec.loader.exec_module(sync)
 
 SESSIONS = Path(os.environ.get('COPILOT_SESSION_STATE', '~/.copilot/session-state')).expanduser()
 TASK_NAME = 'Autonomous weekly skill miner'
-MODEL = os.environ.get('SKILL_MINER_MODEL', 'claude-opus-5.5')
-FALLBACK_MODEL = 'gpt-6-astra'  # the other approved model; never a smaller one or "auto"
+
+
+def approved_models():
+    """The models the miner may run on, best first, from private/models.txt (a name there may not be public)."""
+    try:
+        lines = (SCRIPT.parents[1] / 'private' / 'models.txt').read_text(encoding='utf-8').splitlines()
+    except OSError:
+        lines = []
+    return [name for name in (line.split('#', 1)[0].strip() for line in lines) if name]
+
+
+MODEL = os.environ.get('SKILL_MINER_MODEL') or (approved_models() or ['claude-opus-5.5'])[0]
+FALLBACK_MODEL = next((m for m in approved_models() if m != MODEL), None)  # never a smaller one or "auto"
 EFFORT, CONTEXT = 'max', 'long_context'
 TIME_LIMIT = int(os.environ.get('SKILL_MINER_TIME_LIMIT', '14400'))
 RUN_WEEKDAY, RUN_HOUR, CHECK_HOURS = 0, 11, (11, 14, 17, 20)
@@ -593,7 +604,7 @@ def run_flow():
         if code == 3:
             fail(run, 'the list of MCP servers to turn off could not be read')
             return 1
-        if code not in (0, 124) and time.time() - started < 180:
+        if FALLBACK_MODEL and code not in (0, 124) and time.time() - started < 180:
             note(f'agent exited {code} within 3 minutes; retrying with {FALLBACK_MODEL} at the same settings')
             code = run_agent(copilot, compose_prompt(run), FALLBACK_MODEL, run.dir / 'usage.json', run.dir / 'agent.log.retry', TIME_LIMIT)
         note(f'agent finished with exit {code}')

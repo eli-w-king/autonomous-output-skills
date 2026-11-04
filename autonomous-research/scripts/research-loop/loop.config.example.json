@@ -10,6 +10,7 @@
 	"morning_dir": "~/research-loop/morning",
 	"mail": { "domains": ["outset.ai", "userinterviews.com"], "start": "<ISO time the mail check starts from>" },
 	"prior_research": { "label": "<how reports name the research findings are compared with>", "base_url": "<link prefix for its pages>", "clone": "<local clone, read only>" },
+	"schedule": { "name": "<the automation that runs the loop>", "id": "<its id, for the one request to turn it off>" },
 	"gate_dm": { "channel": "<chat channel of the owner's own DM, for the one message per round at the publish gate>", "next_run": "<when the next scheduled run starts, as the DM says it; for example 'within 2 hours'>" },
 	"timezone": "America/Los_Angeles"
 }

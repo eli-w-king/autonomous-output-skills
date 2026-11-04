@@ -14,7 +14,7 @@ This repository holds seven user-global skills:
 
 Copilot CLI and VS Code (Insiders and the Agents window) both read `~/.copilot/skills/`, so one install
 covers both. On each machine, `tools/sync-skills.py` keeps that folder and the repos in sync in both
-directions, every 15 minutes and at logon (README.md, "How the skills stay current").
+directions, once a day and at logon (README.md, "How the skills stay current").
 
 ## 1. Authenticate GitHub CLI
 
@@ -103,9 +103,12 @@ $r = "$HOME\.copilot\autonomous-output-skills"; if (!(Test-Path "$r\.git")) { gi
   that machine to `private/inbox/<host>/` (README.md, "My messages in one place"). The first run also
   sets Copilot CLI's defaults to the top model, max effort, and the long context, once (README.md,
   "Copilot CLI at the top settings"), and every run brings the weekly miner's state to this machine.
-- `schedule` adds the 15-minute and logon job: Task Scheduler on Windows ("Autonomous skills sync",
-  below-normal priority, no window), launchd on macOS (`com.autonomous-output-skills.skills-sync`,
-  background priority, low-priority I/O, Nice 10), or a crontab line on Linux.
+- `schedule` adds the daily and logon job, at the time `private/sync-schedule.txt` in the private repo
+  sets for this machine (10:30 without that file; `--daily HH:MM` or `--every MINUTES` to choose):
+  Task Scheduler on Windows ("Autonomous skills sync", below-normal priority, no window), launchd on macOS
+  (`com.autonomous-output-skills.skills-sync`, background priority, low-priority I/O, Nice 10), or crontab
+  lines on Linux. From then on every sync applies a change to that file by itself (README.md, "One sync on
+  every machine").
 - A machine that set up an older version: if its clone still has the older tools, run the new
   `sync-skills.py` from a fresh clone of the private repo with `--repo ~/.copilot/autonomous-output-skills`
   for `setup` and the first `sync`, then `schedule` from the clone itself. If it has the dev-box
