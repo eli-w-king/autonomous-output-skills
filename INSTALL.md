@@ -66,12 +66,20 @@ For Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint, Planner):
   for WorkIQ permission/policy denials or missing consent.
 
 For websites and web forms (Playwright MCP):
-- Each machine needs it in its own `~/.copilot/mcp-config.json`, under `mcpServers`:
-  `"microsoft/playwright-mcp": { "type": "stdio", "command": "npx", "args": ["@playwright/mcp@latest"], "tools": ["*"] }`.
-  It uses Google Chrome and Node. A laptop's `mcp-config.json` does not reach a dev box.
-- Start a new session, then check it with one navigate and snapshot of a page you can see.
-- Its Chrome profile (`~/Library/Caches/ms-playwright-mcp/` on macOS) keeps sign-ins per machine.
-  Sign in once in that window if a site asks.
+- Discover the host's existing Playwright tools first; do not install a duplicate connection.
+  For standalone Copilot CLI use, add this under `mcpServers` in that machine's
+  `~/.copilot/mcp-config.json`:
+  `"playwright": { "type": "local", "command": "npx", "args": ["-y", "@playwright/mcp@latest"], "tools": ["*"] }`.
+  This needs Node and a supported browser. For other clients, follow the
+  [official client-specific setup](https://github.com/microsoft/playwright-mcp#configuration).
+- A laptop's Copilot CLI `mcp-config.json` is not forwarded to a dev box. For independent runs,
+  configure and verify the connection on the executing host; forwarded VS Code customizations
+  are a separate mechanism (see the [dev-box reference](autonomous-runs/references/dev-boxes.md)).
+- Start a new session and verify navigation plus a snapshot in an owned or explicitly shared tab.
+  Check whether the host launches a headed/headless browser or attaches to an existing one.
+  Persistent profiles can retain sign-ins; isolated contexts do not. Profile locations vary by
+  platform and configuration. Let the user handle sign-in if needed; never copy cookies or tokens
+  between machines.
 
 For Code OSS work (demos, prototypes, app studies):
 - A `microsoft/vscode` checkout built with the Node from its `.nvmrc` (`npm install`,

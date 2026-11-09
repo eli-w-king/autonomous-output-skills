@@ -80,15 +80,21 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   about 45.
 - `get_remote_session` returns one snapshot: the status (`running`, `needsInput`, `completed`), `queuedMessages`
   and the latest turn's text. Use it to confirm that a message arrived, not to poll.
-- A host's sessions see the skills installed on that host, in its own `~/.copilot/skills`. While a VS Code window
-  is connected to the box, it also forwards the laptop's personal skills (`~/.copilot/skills`, `~/.agents/skills`,
-  `~/.claude/skills`) and its extension and plugin skills as "VS Code Synced Data" (VS Code `includeUserStorage`
-  for remote agent hosts, Insiders 1.140). Sessions started without that window (automations on the box,
-  `create_remote_session`, anything after the laptop closes) cannot count on it, and MCP servers in the laptop's
-  `~/.copilot/mcp-config.json` are not forwarded. So keep each host's own install current: the skills sync
-  (`tools/sync-skills.py` from the skills repo, INSTALL.md "Add the machine") installs and updates them once a day
-  and at logon, so a skill change made on one host reaches another at that host's next daily run. Run
-  `sync-skills.py sync` on the other host to get it sooner.
+- A host's sessions discover skills installed in that host's own `~/.copilot/skills`. Supported VS Code builds
+  also forward eligible, enabled personal and extension skills to connected remote agent-host sessions as
+  "VS Code Synced Data", and forward installed plugins as plugin references. Remote scopes include user storage
+  (`includeUserStorage` in `agentHostActiveClientService.ts`); availability still depends on the build, harness,
+  and enablement. Check the target session's available skills instead of assuming every customization arrived.
+- Client forwarding is not a permanent install into the box's skills directory. A received session may retain
+  its customization snapshot, but new box-local sessions and unattended automations must not depend on the laptop
+  staying connected. Keep required skills installed on each host. The repo's `tools/sync-skills.py` updates
+  **repo-managed skills only** on configured machines at their scheduled run and logon; run it with `sync` on the
+  other host to update sooner. A newly installed third-party skill or plugin is not automatically adopted by this
+  repo's sync. Install it on the target host too if independent runs need it.
+- Instructions are not tool installation or authentication. Eligible VS Code MCP configurations and plugin
+  definitions can be forwarded, but the laptop's `~/.copilot/mcp-config.json` is not. Executables, dependencies,
+  browser profiles, and sign-ins must work on the executing host. Verify an actual tool read there before
+  unattended work; do not copy credentials or assume a forwarded skill makes its tools usable.
 
 **Sandbox and approvals.**
 - Hosts differ. On one, a filesystem sandbox denied writes outside the allowed paths with no prompt ("Access

@@ -53,26 +53,24 @@ tools can do it without UI automation.
 
 ## Websites with Playwright MCP
 
-For a website task (open a link from an email, fill a form, check a request's status), use the
-Playwright MCP tools (`browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`,
-`browser_wait`). In practice it is much faster than Computer Use for this: it opened an access
-request from an email link, filled the form, and later read the request's status, each in a handful
-of calls with no retries. Why:
+For a website task (open a link from an email, fill a form, check a request's status), prefer
+Playwright MCP over native Computer Use when no service API fits. Discover the configured tools
+and read their definitions rather than assuming tool names or arguments.
 
-- It reads the page's own accessibility tree. One snapshot lists every control with its role, name
-  and a ref, so there is no screenshot to read and no coordinate math.
-- Each click or fill is one call on a ref, and Playwright waits until the control is ready.
-- It goes straight to a URL (the link in the email or API result) instead of clicking through menus.
-- It drives its own Chrome window and profile, so the user's mouse, keyboard and own browser are
-  never involved, and there is no question of which app or window is in front.
+Playwright can reduce interaction overhead: navigate directly to an exact link, inspect the page's
+accessibility snapshot, and click or fill named controls using their refs. Its actionability checks
+avoid many timing retries. This avoids native app/window targeting and, for accessible controls,
+screenshot interpretation and coordinate clicks. Computer Use also supports accessibility actions;
+Playwright is not guaranteed to be faster for every task.
 
 How to use it:
 
-1. Navigate to the exact URL, then snapshot.
-2. Act on refs from the latest snapshot only. Snapshot again after anything that changes the page;
-   old refs go stale.
-3. Pages that load in steps look incomplete at first (a form showed no terms section until it
-   finished loading). Wait or snapshot again before deciding something is missing.
+1. Use an owned browser context or a tab explicitly shared for this task, then navigate to the exact
+   URL. Never take over unrelated user or agent tabs.
+2. Act on refs from the latest snapshot only. Reuse an action's returned snapshot when it is current;
+   otherwise snapshot again after page changes. Old refs can go stale.
+3. Pages that load in steps look incomplete at first. Wait for the relevant content before deciding
+   a field or terms section is missing; a click's actionability check is not proof the page is done.
 4. A large snapshot may be saved to a file instead of returned. Read that file; if it is empty,
    snapshot again.
 5. Console errors such as blocked inline scripts can be harmless when the page still works. Never
@@ -80,20 +78,22 @@ How to use it:
 6. Prove the result from the page (status text, request number) or the confirmation email, not from
    the click.
 
-It is real Google Chrome in a visible window, with its own profile under
-`~/Library/Caches/ms-playwright-mcp/` on macOS, so sign-ins persist between sessions. On the
-user's Mac a brand-new profile reached Microsoft internal sites already signed in. On another
-machine, expect one sign-in in that window the first time. Never type passwords or MFA codes; during
-unattended work, record a sign-in prompt as a blocked step.
+Browser mode depends on the host: Playwright can launch a headed or headless browser, use an
+isolated context, or attach to existing tabs through an extension or CDP. Do not promise a separate
+Chrome window, no focus changes, or persistent sign-in without checking that setup. Prefer an owned
+headless context when suitable. Persistent profiles may retain sign-in; isolated profiles do not.
+Never copy browser credentials between machines or type passwords or MFA codes. During unattended
+work, record a sign-in prompt as a blocked step.
 
-Fill forms, but stop before anything that states or commits something for the user: training or
-policy attestations, terms, legal or HR forms, payments, and sends (see consequential actions
-below). Leave the filled form open and tell the user exactly what is left to check and submit.
+Preparing a form is not approval to submit it. Leave training/policy attestations and personal
+declarations to the user. For terms, legal or HR forms, payments, sends, and other submissions,
+follow the tool's policy and obtain the required explicit approval (see consequential actions
+below). If blocked, leave the draft and name the remaining step. Never replay an ambiguous write;
+read the resulting state first.
 
-Use something else when it fits better: WorkIQ for Microsoft 365 data (it found the email that held
-the link, faster still), Computer Use for native apps, CDP for Electron windows you launched. If the
-Playwright tools are not loaded, use tool search once for `playwright`, then check
-[installation](../INSTALL.md).
+Keep WorkIQ first for Microsoft 365 data, Computer Use for native apps, and CDP for owned Electron
+windows. If Playwright tools are missing, discover them once, then check
+[installation](../INSTALL.md). Never change tools to bypass an access denial or browser policy.
 
 ## Microsoft 365 with WorkIQ
 
