@@ -169,6 +169,10 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
 - Ask before creating Azure resources (storage accounts, apps, identities) in a shared team subscription, even with
   the rights to: they bring compliance follow-ups for the subscription's owners and upkeep for the user. Prefer
   something that already exists, or something local.
+- Verify the official WorkIQ plugin and a minimal read on each host before unattended work
+  ([INSTALL.md](../../INSTALL.md), "Check prerequisites"). Authentication is host-managed; do not assume it
+  carries across machines. If sign-in or tenant consent is requested, complete it through that host/admin
+  while the user is available. Missing tools alone do not establish an authentication error.
 - Outset's sign-in and the research keys are per machine too: see "Credentials" in
   [`autonomous-research`](../../autonomous-research/references/platforms.md).
 

@@ -126,7 +126,7 @@ rerun once.
 
 ## 2b. Email from the platforms' teams
 1. `mail.mjs since` gives the start time and the handled ids.
-2. Search the mailbox by sender domain only (Work IQ fetch,
+2. Search the mailbox by sender domain only (Work IQ `fetch`; load the `workiq` skill first,
    `/me/messages?$search="from:<domain>"&$select=id,receivedDateTime,from,subject&$top=50` per domain), then
    `mail.mjs new --file <saved output>`.
 3. Read each new message's body and sort it into `problem`, `status`, `sign-in` or `unrelated`. For a problem,
@@ -189,6 +189,8 @@ what launched, interviews, synthesis, redesign, what broke and how it was handle
 ## 8. Close
 Rerun `run.mjs --no-launch --run-token <token>` if anything changed. Append one line to progress.md: time, what
 changed, what is next. Release the lock: `runlock.mjs release --token <token>`. Last, for each drafted reply:
-`mail.mjs reply --id <id> --status sending` (exit 3: skip it), then Work IQ do_action `/me/messages/<id>/reply` with
+Follow the official `workiq` skill's reply contract and required send confirmation first. If approval is
+missing, leave the reply drafted. For an approved reply:
+`mail.mjs reply --id <id> --status sending` (exit 3: skip it), then Work IQ `do_action` `/me/messages/<id>/reply` with
 `{"comment": "<reply>"}` (the sender only), then `mail.mjs reply --id <id> --status sent` (or `failed`).
 ```

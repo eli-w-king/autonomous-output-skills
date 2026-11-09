@@ -53,22 +53,33 @@ tools can do it without UI automation.
 
 ## Microsoft 365 with WorkIQ
 
-WorkIQ reads and writes the signed-in user's Outlook, Teams, OneDrive, and SharePoint data without a
-window. Use it before opening those apps:
+WorkIQ provides Microsoft 365 data access without opening an app window. Use the official plugins
+from `microsoft/work-iq` ([installation](../INSTALL.md)):
 
-- **Teams:** read with `fetch`, and send with `create_entity`, on `/me/chats/{chat-id}/messages` or
-  `/teams/{team-id}/channels/{channel-id}/messages`.
-- **Your own Teams self chat (Notes):** `/me/chats/48%3Anotes/messages` works for reads and creates,
-  and it doesn't appear in the `/me/chats` listing. Create with jsonBody
-  `{"body": {"contentType": "text", "content": "..."}}`.
-- **Outlook:** mail, calendar, and contacts. Send with `do_action` on `/me/sendMail`. Reply,
-  forward, and move with the matching `do_action` routes.
-- **OneDrive and SharePoint:** search with `retrieve`, or with `call_function` on
-  `/me/drive/root/search(q='...')`. Download file content with `fetch_blob`.
+- **`workiq`:** the hosted MCP connection and authoritative tool guidance. Load this skill and its
+  relevant references before the first call. Its routing, paths, payloads, confirmation, and recovery
+  rules take precedence over examples in these skills.
+- **`workiq-productivity`:** read-only reports (daily triage, email analytics, action items, channel
+  digests and audits, org charts, Planner search and status, meeting cost, SharePoint browsing). Use
+  the matching skill's report structure, but follow the current `workiq` skill for data access.
+  Older productivity recipes use `ask` for everything and mention a local CLI; neither overrides
+  the core skill or requires installing a second server.
 
-Call `search_paths` before using any path you have not verified. Use `fetch` with `$select` and
-`$top`, and call `get_schema` only when a write returns 400. Use Computer Use for these apps only
-when WorkIQ has no path for the step, and then apply the message and ambiguity rules below.
+Discover the exact tools advertised by the configured `workiq` MCP server. If both that server and
+an app-level Work IQ connector are present, prefer the official plugin's server, not an arbitrary
+tool with the same suffix. Never switch connections to retry an access denial.
+
+Follow the installed core skill's routing: specific entities and bounded lists use entity tools;
+WorkIQ 3 uses `retrieve` for workplace evidence and local synthesis, reserving `ask` for an explicitly
+requested Copilot or named-agent answer. Retrieval is tenant-dependent; installing the plugin does
+not enable it, and missing retrieval is not permission to silently substitute `ask`.
+
+If tools are missing, check discovery once and report what is actually unavailable; absence alone
+does not prove an authentication failure. Sign-in or consent errors require the host/admin's
+remediation, and permission or policy denials stop the operation. For an otherwise authorized step
+that WorkIQ does not implement, or a setup without WorkIQ, browser or Computer Use may provide the
+needed UI capability. Never use that fallback to bypass a denial, missing consent, or confirmation.
+Apply the message and ambiguity rules below.
 
 ## Slack
 
@@ -119,9 +130,9 @@ may already have happened:
 For a message, inspect both the composer and transcript. A non-empty composer does not prove that
 no message was sent, and an empty composer does not prove that exactly one message was sent.
 
-For a WorkIQ send that times out or returns an unknown result, fetch the recent chat messages
-(`/me/chats/{chat-id}/messages` with `$top=5` and `$select=id,body,createdDateTime`) or Sent Items
-before retrying. A repeated create or sendMail can duplicate the message.
+For a WorkIQ send that times out or returns an unknown result, follow the current `workiq` recovery
+reference to reconcile with a safe read where supported. Do not replay an ambiguous write; if its
+outcome cannot be established, report it as indeterminate.
 
 ## Messages, forms, and other consequential actions
 
@@ -138,8 +149,9 @@ Before sending:
 - If WorkIQ cannot resolve a one-on-one chat (they may be missing from `/me/chats`), ask the user for
   the chat ID, or use Computer Use after verifying the chat title.
 
-Send once. Then verify an empty composer and exactly one matching outgoing transcript entry. Never
-delete a duplicate without separate approval.
+Send once. For UI sends, verify an empty composer and exactly one matching outgoing transcript
+entry. For WorkIQ sends, follow the operation's documented outcome and recovery rules. Never delete
+a duplicate without separate approval.
 
 For a send from another machine, start a remote session on that host (`create_remote_session`, using
 the host ID from `list_agent_hosts`). Put the approval and exact text in its prompt, have it report to

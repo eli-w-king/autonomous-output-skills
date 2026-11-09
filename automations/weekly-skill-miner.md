@@ -206,7 +206,10 @@ More:
   Only my own words and drafts I approved: never other people's words, and never agent text I did not
   approve.
 - A new skill only when a coherent workflow recurs (3 or more sessions on 2 or more days) and fits no
-  existing skill (for example Work IQ, Figma or Pencil, or sharing links). At most 2 per run. Give it
+  existing skill (for example Figma or Pencil, or sharing links). Never one an installed plugin
+  already covers: Microsoft 365 work belongs to the official `workiq` and `workiq-productivity`
+  plugins. Put integration lessons in `autonomous-computer-use`, but keep API contracts and tool
+  routing in the official `workiq` skill rather than copying them. At most 2 per run. Give it
   frontmatter whose name matches the folder and a description under 1024 characters with the trigger
   phrases I use, and add it to the tables in `README.md` and the list in `INSTALL.md`.
 - Keep skills lean: merge duplicates and move detail into `references/` when a `SKILL.md` grows past

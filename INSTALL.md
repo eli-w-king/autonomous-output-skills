@@ -46,6 +46,25 @@ For Computer Use:
   restart VS Code Insiders. No Input Monitoring or Full Disk Access is needed for ordinary app
   automation.
 
+For Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint, Planner):
+- The official WorkIQ plugins on each machine, then a new session:
+  `copilot plugin marketplace add microsoft/work-iq`, `copilot plugin install workiq@work-iq`, and
+  `copilot plugin install workiq-productivity@work-iq`.
+- `workiq` supplies the hosted connection and core instructions; `workiq-productivity` supplies report
+  templates, not another server. The hosted plugin needs no local WorkIQ CLI. Follow the core skill's
+  current routing even when a productivity example uses older `ask`-only instructions.
+- For an existing installation, use `copilot plugin update <installed-name>`. A direct install pinned
+  to a commit may stay at that revision; reinstall from the same official repository/subdirectory to
+  update it without adding a duplicate marketplace copy. Restart the session to load new instructions.
+- Verify the plugin's tools and a minimal read on each host before unattended work. Sign in through
+  that host if requested; tenant consent and appropriate Microsoft 365 licensing are required.
+  Do not assume another machine's authentication carries over, or diagnose missing tools as a sign-in
+  failure without evidence.
+- Prefer one active WorkIQ connection. If an older app connector overlaps, disable it only after
+  checking the change's scope and the hosts that use it; do not revoke access needed by other runs.
+- Without WorkIQ, browser or Computer Use can handle supported UI tasks. They are not workarounds
+  for WorkIQ permission/policy denials or missing consent.
+
 For Code OSS work (demos, prototypes, app studies):
 - A `microsoft/vscode` checkout built with the Node from its `.nvmrc` (`npm install`,
   `npm run compile`), with `.build/electron` present.
