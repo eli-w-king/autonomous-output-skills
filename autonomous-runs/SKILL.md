@@ -28,8 +28,9 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    state to finish sooner. When the user sets a deadline ("the PDF in 20 minutes"), ship the best
    complete version at the deadline, then keep going on the rest unless told to stop.
 4. **Answer pings briefly, then keep working.** "How is it going", "are you done", "almost done?":
-   two to four lines (done, now, next, honest ETA). "Stop everything" means stop now. "End this turn"
-   means end the turn.
+   two to four lines (done, now, next, honest ETA), with the links to what is ready (local preview,
+   branch or PR, files) in the reply itself; the user should never have to ask for a link or dig it
+   out of a file. "Stop everything" means stop now. "End this turn" means end the turn.
 5. **Share the Mac politely.** Never steal focus. Use APIs or CDP for owned browser/Electron
    surfaces and the dedicated background Computer Use lane for native apps. All Computer Use
    actions must be app-targeted; never move the real pointer, type through the foreground keyboard,
@@ -39,27 +40,35 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    and stop only those (for Code OSS, `autonomous-demos/scripts/stop-demo-oss.mjs`). Open files for
    the user with `open -g` while they are away and plain `open` when they ask to see something now;
    do not use Computer Use for simple file opening.
-6. **Brief background agents completely.** For big runs, split independent work across background
-   agents. Each brief is self-contained: the goal, the hard rules (paste the relevant demo or data
+6. **Split the work, and brief it completely.** For big runs, split independent work across parallel
+   sessions or background agents, on every machine the user offers, and hand side tasks (a banner, a
+   quick fix, a question) to a session of their own so the main thread keeps moving. Each brief is
+   self-contained: the goal, the hard rules (paste the relevant demo or data
    rules), exact inputs and output paths, what not to touch (for example "do not edit the website",
    "CDP port 9411 belongs to another agent; never connect to it"), and when to stop. Save each brief
    to a file in the run folder before starting its agent. Follow up with additions instead of
    starting over ("same rules as the brief").
-7. **Every new session runs on the top model, at max effort and the largest context.** This holds
+7. **Every new session runs on the top model, at max effort and the largest context, in autopilot
+   with every permission allowed.** This holds
    for every session or chat you start, for any reason: `create_session`, `create_remote_session`,
    a hub, a base, a lab, or just "make another session". Use the best model the user permits, at
    maximum reasoning effort and the largest context it supports. Today that is Claude Opus 5.5
    (`claude-opus-5.5`) or the other model listed in `~/.copilot/autonomous-output-skills/private/models.txt`
    (private), at max effort with 1M context. Never rely on
    a default, and never choose a smaller, faster or cheaper model or a lower setting, not even when
-   the preferred one is slow or busy. Set all three when you start the session (which tools inherit
+   the preferred one is slow or busy. Start it in autopilot with every permission allowed as well, so
+   it never stops on an approval prompt; the user should never have to ask for any of this
+   (`create_remote_session` takes the host's default permissions, so set allow-all on that host
+   first: see "Sandbox and approvals" in [`references/dev-boxes.md`](references/dev-boxes.md)). Set
+   all four when you start the session (which tools inherit
    or drop them is under "Remote agent hosts and dev boxes" in [`references/dev-boxes.md`](references/dev-boxes.md)), then verify them
    before it does real work: the brief's first step reads the session's own
    `~/.copilot/session-state/<id>/events.jsonl` (`selectedModel`, `reasoningEffort` `max`,
    `contextTier` `long_context` in `session.start`, `session.resume` and `session.model_change`) and
-   stops on any shortfall, and you read the same file wherever you can reach it. A session saying
-   which model it is proves nothing. Record the proof (link, model, effort, context, where you read
-   it) in the ledger or status file. If you cannot set or verify all three, that is a blocker:
+   stops on any shortfall, and you read the same file wherever you can reach it, including that every
+   `permission.requested` has a `permission.completed` once it has run a command. A session saying
+   which model it is proves nothing. Record the proof (link, model, effort, context, approvals, where
+   you read it) in the ledger or status file. If you cannot set or verify all four, that is a blocker:
    give that session no work, put it under "Needs you", and redo anything that ran at lower
    settings. If the user says not to start new sessions, run the work as background agents of the
    current chat. Sub-agents count too: one that does real work (mining, building, reviewing,
@@ -75,7 +84,8 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    once (`runAutomation`) and check its `events.jsonl`: every `permission.requested` must have a
    `permission.completed` from `host_policy`. Updating an automation does not fix runs already
    waiting; stop them, and delete one-off automations when their work is done so a stale run can
-   never be resumed by an approval click.
+   never be resumed by an approval click. A scheduled run has no tools to disable or delete its own
+   automation; have it message an interactive chat that can.
 8. **Keep claims honest.** Telemetry comes from the VS Code data agent or Kusto on the Azure VPN
    (ask the user to connect only when they are present), aggregate only, exact event names,
    denominators, or an explicit "unavailable". Quotes are verbatim and attributable, never invented.
@@ -93,6 +103,9 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
     what is real versus scripted, how it was verified, what could not be done and why, and links.
     Open the deliverable folder. Stop the processes you started, except what the user asked to keep
     open (for example one Code OSS window for a live demo).
+12. **Build for every machine.** Scripts, schedules, review pages and setup you make for the user's
+    own workflow work on every machine they use, including dev boxes added later, so nothing depends
+    on one machine's paths or state.
 
 ## Status file format
 
@@ -137,6 +150,10 @@ Desktop, tell the user the path to paste into the right session, and continue th
 - Give long agent waits generous timeouts and wait on real UI signals, not fixed sleeps.
 - Background `nohup` logs are block-buffered; check live state over CDP rather than trusting `tail`.
 - After a reboot or model switch, reread the handoff, the ledger, and the status file before acting.
+- Read an oversized tool result from the complete saved file it points to, never from a preview,
+  and never retype long opaque values (continuation links, tokens, ids): load them in code from the
+  saved response. A one-character typo in a continuation link once still returned HTTP 200, with the
+  wrong page.
 
 ## Overnight lab runs
 
@@ -161,6 +178,11 @@ When many chats or background agents work at once (for example a variation lab p
   and a chain of 30-minute waits for a worker froze another. Waiting belongs to an automation that
   checks on a schedule, or to the worker's own completion message (queued, which wakes an idle chat).
   End the turn instead of waiting.
+- **Recover stalled sessions before the user finds them.** At each checkpoint, check every session
+  you started. One that has stopped moving gets no more queued messages: clear its queue, restart it
+  from its brief, or move its work to a healthy machine, and keep going. When a box or remote session
+  fails, fall back to another box, or retry only after checking that the first attempt started
+  nothing, instead of stopping; say in the report what stalled and why.
 - **Push shared changes outward.** When shared content changes (an example the user rejected), tell
   every chat or lab that shows it to merge and retake its stills, and track the replies.
 - **Dev boxes run on their own.** When the work is spread over dev boxes so the user can close the
@@ -182,7 +204,7 @@ Read the matching one before the work it names:
 | [`references/recording.md`](references/recording.md) | any screenshot, recording, or storyboard capture of Code OSS (including on Windows); Compare Models runs |
 | [`references/computer-use.md`](references/computer-use.md) | driving macOS apps in the background; permissions; native and Electron text editing; consequential actions; duplicate-send prevention |
 | [`references/studies.md`](references/studies.md) | authoring an Outset study or driving UserTesting, User Interviews, or Outset in a browser |
-| [`references/evidence.md`](references/evidence.md) | research or demo work others will rely on: the real surface, the run ledger, evidence chains, validating stimuli and media |
+| [`references/evidence.md`](references/evidence.md) | research or demo work others will rely on: the real surface, the run ledger, evidence chains, feedback from meeting transcripts, validating stimuli and media |
 | [`references/machine-sharing.md`](references/machine-sharing.md) | launching or driving windows on a machine other agents use: off-screen windows, input guards, shared state |
 | [`references/github-posts.md`](references/github-posts.md) | media or research copy in GitHub issues, PRs, and comments |
 | [`references/labs-and-pages.md`](references/labs-and-pages.md) | pages assembled from pieces built apart: CSS leaks, syncing from commits, local servers without CORS |

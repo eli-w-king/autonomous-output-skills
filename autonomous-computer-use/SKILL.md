@@ -181,13 +181,19 @@ outcome cannot be established, report it as indeterminate.
 ## Messages, forms, and other consequential actions
 
 Respect the Computer Use action policy, which also covers WorkIQ and Slack sends. Sending a message
-needs explicit approval of the exact recipient and body, whichever route sends it. Approval covers
-one send.
+needs the user's explicit approval for that one send, whichever route sends it. Approval is either
+their OK on the exact recipient and text they saw, or a direct ask to send ("send it to <person>
+when it's done", "just send it", "I approve, don't wait for me"), which covers the recipient they
+named and the finished version of the content they named. Act on a direct ask without asking again,
+send once, then paste the exact text you sent in the chat. "Draft it and I'll approve" means draft
+it, show the full text in the chat (and save it as a draft in the mail app when that is the route),
+and wait for their word.
 
 Before sending:
 
 - Verify the exact one-to-one recipient or channel.
-- Verify the complete draft and formatting.
+- Verify the complete draft and formatting, with no placeholders, brackets, or template leftovers
+  that would make it read like a mass mailing.
 - Verify an ambiguous edit did not already post it.
 - Ignore separate prompts to add, invite, subscribe, or notify someone unless separately approved.
 - If WorkIQ cannot resolve a one-on-one chat (they may be missing from `/me/chats`), ask the user for

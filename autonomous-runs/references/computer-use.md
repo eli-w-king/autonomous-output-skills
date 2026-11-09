@@ -103,8 +103,9 @@ composer after the ambiguous edit was insufficient.
 
 ## Sending messages safely
 
-Sending on the user's behalf requires approval of the exact recipient and body. Approval covers one
-send.
+Sending on the user's behalf requires their approval for that one send: their OK on the exact
+recipient and body, or a direct ask to send (see "Messages, forms, and other consequential actions"
+in [`autonomous-computer-use`](../../autonomous-computer-use/SKILL.md)).
 
 Before sending:
 
@@ -127,6 +128,10 @@ deletion requires separate approval.
 - **Slack:** the Electron composer is patchable, not a simple field. Tune tree depth/children to
   reach it, replace the empty paragraph, and treat failed post-verification as indeterminate. Never
   infer exactly-once delivery from a cleared composer alone.
+- **Chrome:** clicks sent to a web page in a background Chrome window did not reach the page, and a
+  reload in the background left it blank. Never count a background click on a web page as done:
+  drive web pages with Playwright or CDP, verify the result through the app or its API, or leave the
+  click to the user as a "Needs you" item.
 
 ## Minimal checklist
 

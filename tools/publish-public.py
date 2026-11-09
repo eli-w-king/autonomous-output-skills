@@ -53,7 +53,7 @@ def git(*args, env=None, input=None, timeout=300):
 
 def publish_tree(commit):
     """main's tree without private/, .publishignore, and what .publishignore lists. Returns (tree, removed paths)."""
-    with tempfile.TemporaryDirectory() as tmp:
+    with sync.scratch_dir() as tmp:
         env = dict(sync.GIT_ENV, GIT_INDEX_FILE=str(Path(tmp) / 'index'))
         rc, _, err = git('read-tree', commit, env=env)
         if rc:
@@ -215,6 +215,8 @@ def main():
                        '--commits', public_main, '--published', '--quiet']
             for t in terms:
                 command += ['--private-terms', str(t)]
+            if (repo / 'private' / 'public-terms.txt').is_file():
+                command += ['--public-terms', str(repo / 'private' / 'public-terms.txt')]
             r = subprocess.run(command, capture_output=True, text=True, timeout=900, env=sync.GIT_ENV)
             report = (r.stdout + r.stderr).strip()
         finally:

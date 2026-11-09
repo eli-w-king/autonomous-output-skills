@@ -13,7 +13,8 @@ gate, and completed studies into decisions.
 
 Running a study:
 
-1. **Plan** the brief: topic, surface, platform, audience, participants, length, success criteria.
+1. **Plan** the brief: topic, surface, platform, audience, participants, length, success criteria, and
+   what past research already knows (the team's whole research wiki, every author, its papers too).
 2. **Capture** stimulus from the real target (Code OSS, the deployed website, or the actual prototype).
 3. **Author** the study in UserTesting (browser builder) or Outset (MCP).
 4. **Screen and recruit**: a tight, fraud-resistant screener on the platform or in User Interviews.
@@ -26,7 +27,8 @@ Turning results into decisions:
 
 1. **Harvest** the complete evidence bundle: study metadata, stimuli, questions and answers,
    audience, transcripts, and behavior or video observations (Outset, UserTesting, or local exports).
-2. **Analyze** into ranked, traceable findings with verbatim quotes, contradictions, and confidence.
+2. **Analyze** into ranked, traceable findings with verbatim quotes, contradictions, and confidence,
+   each compared with past research (confirms, contradicts, extends, or new).
 3. **Triangulate** each finding with quantitative data appropriate to the target surface.
 4. **Iterate** in the real target repo: Code OSS for app work, the website/prototype repo for web
    work, up to 3 switchable solutions when the problem warrants them.
@@ -34,6 +36,9 @@ Turning results into decisions:
    and validate the file.
 6. **Draft** the GitHub issue: recommendation first, then video, findings, decision, method, and
    study links.
+7. **Contribute back**, the last step of every study: when it is done, add it to the team's research
+   wiki as one pull request that follows the wiki's own contribution workflow
+   ([`references/research-loop.md`](references/research-loop.md), "Contributing a finished study back").
 
 ## Hard rules
 
@@ -73,7 +78,7 @@ Turning results into decisions:
 | Harvest results (Outset, UserTesting, local exports) | [`references/harvest.md`](references/harvest.md) |
 | Outset, Marvin, and User Interviews: auth, the client, the results watcher, API gotchas, the launch safety property | [`references/platforms.md`](references/platforms.md) |
 | Recording the demo video of a redesign | [`references/demo-video-capture.md`](references/demo-video-capture.md) |
-| Run studies unattended in a loop: launch within a budget, check responses, synthesize, redesign, repeat; the schedule and its procedure | [`references/research-loop.md`](references/research-loop.md), [`references/research-loop-automation.md`](references/research-loop-automation.md) |
+| Run studies unattended in a loop: launch within a budget, check responses, synthesize, redesign, repeat; close out, and contribute a finished study back to the research wiki; the schedule and its procedure | [`references/research-loop.md`](references/research-loop.md), [`references/research-loop-automation.md`](references/research-loop-automation.md) |
 | Chat-mode wrappers and when to use them | [`references/packaging.md`](references/packaging.md), [`chatmodes/`](chatmodes/README.md) |
 | Browser-driven builders (UserTesting, User Interviews, Outset UI): selectors and quirks | [`../autonomous-runs/references/studies.md`](../autonomous-runs/references/studies.md) |
 | Capture technique for stimuli and demos | [`../autonomous-demos/SKILL.md`](../autonomous-demos/SKILL.md) |

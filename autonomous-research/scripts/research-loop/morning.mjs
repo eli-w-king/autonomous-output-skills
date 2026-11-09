@@ -27,7 +27,7 @@ import { loadStalls } from './lib/stalls.mjs';
 import { compareTitle, compareLines } from './lib/compare.mjs';
 import { afterApproval } from './lib/gatedm.mjs';
 import { limitsOf, deadlineOf, recruitingStopOf } from './lib/deadline.mjs';
-import { confirmationLines } from './lib/confirm.mjs';
+import { confirmationSummary } from './lib/confirm.mjs';
 
 const argv = process.argv.slice(2);
 const opt = n => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined; };
@@ -412,9 +412,9 @@ async function main() {
 		L(`**Redesign:** ${redesignStatus(slug, s)}`);
 		const launches = ledger.entries.filter(e => e.type === 'launch');
 		L(`**Spend:** ${money(committedSpend(ledger))} committed of the ${money(s.budget?.program_cap_usd ?? 1000)} ceiling${launches.length ? ` (${launches.map(e => `round ${e.round} ${e.arm} ${money(e.cost_usd_with_allowance)}`).join(', ')})` : ''}.`);
-		const confirmations = confirmationLines(ledger);
-		if (confirmations.length) {
-			L(`**Email confirmations:** ${confirmations.join('; ')}.`);
+		const confirmations = confirmationSummary(ledger);
+		if (confirmations) {
+			L(`**Confirmations:** ${confirmations}.`);
 		}
 		L(`**Next:** ${s.next_action ?? 'nothing scheduled'}`);
 		L();

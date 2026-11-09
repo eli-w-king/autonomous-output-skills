@@ -2,7 +2,9 @@
 // Configure a User Interviews project for one arm of a study through the app's own API, then verify every setting by
 // reading it back. Study-specific values come from the study folder: ui-copy.json (participant-facing copy, device,
 // length, response limit) and ui-screener.json (the screener spec applied to the inherited screener).
-//   node ui-setup-project.mjs --study <slug> --project <projectId> --outset <outsetStudyId>
+//   node ui-setup-project.mjs --study <slug> --project <projectId> --outset <outsetStudyId> [--screener <spec file>]
+// --screener names another spec file in the study folder, for a project whose screener ids differ from the template's
+// (User Interviews gives a duplicated project's screener new ids; ui-screener-r2.json maps them for round 2).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { uiFetch } from './lib/ui-browser.mjs';
@@ -19,7 +21,7 @@ if (!slug || !pid || !studyId) {
 }
 const readJson = f => JSON.parse(readFileSync(join(studyDir(slug), f), 'utf8').replace(/^\uFEFF/, ''));
 const copy = readJson('ui-copy.json');
-const spec = readJson('ui-screener.json');
+const spec = readJson(opt('screener') ?? 'ui-screener.json');
 const hours = Number(copy.responseLimitHours ?? 6);
 const { page } = await ensureUiBrowser();
 const link = `https://outset.ai/start/${studyId}?iid=TRACKINGID`;

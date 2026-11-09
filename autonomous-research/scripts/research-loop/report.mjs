@@ -39,6 +39,21 @@ if (study.reminders?.length) {
 const current = study.rounds[study.rounds.length - 1];
 L(`**Status:** ${study.status_line ?? study.status}. **Updated:** ${pt(new Date().toISOString())} (${CONFIG.timezone}). **Round:** ${current.n} of at most ${study.budget?.max_rounds ?? 3}.`);
 L();
+// A round that has not launched yet: the latest launch that still finishes before recruiting stops, said plainly.
+if (!current.arms.some(a => a.launched_at) && deadlineOf(study)) {
+	const win = launchWindow(study);
+	const clock = iso => new Date(iso).toLocaleString('en-US', { timeZone: CONFIG.timezone, hour: 'numeric', minute: '2-digit' });
+	const day = iso => new Date(iso).toLocaleString('en-US', { timeZone: CONFIG.timezone, weekday: 'long' });
+	const date = iso => new Date(iso).toLocaleString('en-US', { timeZone: CONFIG.timezone, month: 'short', day: 'numeric' });
+	const hours = study.round_time_cap?.hours_after_launch ?? 10;
+	const stop = win.recruiting_stop;
+	L(win.ok
+		? `**Round ${current.n} has to launch by about ${clock(win.latest_launch)} ${day(win.latest_launch)} (${date(win.latest_launch)}) to finish before the ${day(stop)} ${clock(stop)} recruiting stop.** It needs its ${hours} hours before recruiting stops everywhere; after that, it cannot launch.`
+		: Date.now() >= Date.parse(stop)
+			? `**Round ${current.n} will not launch:** recruiting stopped everywhere at ${clock(stop)} ${day(stop)} (${date(stop)}).`
+			: `**Round ${current.n} can no longer launch:** its ${hours} hours would not finish before the ${day(stop)} ${clock(stop)} recruiting stop (the latest launch was ${clock(win.latest_launch)} ${day(win.latest_launch)}).`);
+	L();
+}
 if (study.needs_you?.length) {
 	L('**Needs you**');
 	for (const n of study.needs_you) {
@@ -160,7 +175,8 @@ L();
 	L(`- **A round** closes when each of its studies has ${fl.participants_per_round ?? 5} completed interviews, or ${cap.hours_after_launch ?? 10} hours after it launched. A study with fewer than ${cap.min_completes_per_arm_to_synthesize ?? 3} completes gets ${cap.extend_hours ?? 2} more hours at a time, up to ${cap.hard_cap_hours ?? 24} hours.`);
 	L(`- **At most ${study.budget?.max_rounds ?? 3} rounds** and **${money(study.budget?.program_cap_usd ?? 1000)} in total** (${money(study.budget?.per_round_per_arm_usd ?? 250)} per round per study), a ceiling and not a target.`);
 	L(`- **The whole study** ends ${lim.study_hours} hours after its first launch${deadline ? `: **${pt(deadline)}**. Recruiting stops everywhere ${lim.response_window_hours} hours before that (${pt(recruitingStopOf(study))}), so interviews already under way can finish and be paid, and a round launches only if its ${cap.hours_after_launch ?? 10} hours fit before then (latest launch ${pt(win.latest_launch)})` : ' (not launched yet)'}. At the deadline the study ends whether or not the finish line is met.`);
-	L('- **When a round or the study ends:** everyone who finished is paid and the rest are rejected per the rules, the round\'s User Interviews project is closed so recruiting stops, its Outset study is closed to new interviews, and both are read back. The next runs look for each platform\'s confirmation email.');
+	L('- **When a round or the study ends:** everyone who finished is paid and the rest are rejected per the rules, the round\'s User Interviews project is closed so recruiting stops, its Outset study is closed to new interviews, and both are read back. The next runs look for each platform\'s confirmation email, and check the platform itself when none comes.');
+	L(`- **Last step of every study:** it is contributed back to the team's research wiki with one pull request (the final readout, its source page, and updates to the related pages), following the wiki's own ingest workflow.${study.wiki_pr?.url ? ` Pull request: [#${study.wiki_pr.number}](${study.wiki_pr.url}) (${study.wiki_pr.state ?? 'open'}).` : study.wiki_pr?.branch ? ' Being prepared.' : ''}`);
 	const closes = study.rounds.flatMap(r => r.arms.filter(a => a.launched_at && (a.close || r.status === 'complete')).map(a => `- Round ${r.n}, ${armLabel(study, a)}: Outset ${a.close?.outset?.state ?? 'still open'}; User Interviews ${a.close?.ui?.state ?? 'still open'}${a.close?.ui?.why ? ` (${a.close.ui.why})` : ''}.`));
 	if (closes.length) {
 		L();
@@ -170,7 +186,7 @@ L();
 	const conf = confirmationLines(ledger);
 	if (conf.length) {
 		L();
-		L('**Email confirmations**');
+		L('**Confirmations** (by email, or on the platform itself when no email comes)');
 		conf.forEach(l => L(`- ${capitalize(l)}.`));
 	}
 }

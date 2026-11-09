@@ -34,14 +34,21 @@ user's latest word beats anything here.
   instead of generic web widgets, a small footprint, and nothing that looks out of place.
 - **Embedded beats layered.** Details open on the page or in the thing itself: no modals, scrims,
   floating cards or camera zooms.
-- **Whole things only.** Tiles, windows and demos are never cropped, resized or shrunk to fit, and
-  never look pasted on top of the layout they land in.
+- **Whole things only.** On product pages and in labs, tiles, windows and demos are never cropped,
+  resized or shrunk to fit, and never look pasted on top of the layout they land in. Promo art is
+  the exception (below).
 - **The design explains itself.** No on-screen text explaining an interaction.
 
 ## Content
 
-- **Grown-up and safe.** Nothing childish or cartoony, and no sensitive flows (sign-in, purchases,
-  personal data) in product demos.
+- **Grown-up and safe.** Nothing childish, cartoony or cute (serious beats cute), and no sensitive
+  flows (sign-in, purchases, personal data) in product demos.
+
+## Promo art
+
+- **The real product is the art.** Event covers, invites and banners show the real product UI: a
+  wall of real demo tiles or UI widgets in two or three columns, some bleeding off the frame's
+  edges, rather than mockups or abstract illustration.
 
 ## Maintaining this file
 

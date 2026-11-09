@@ -57,6 +57,10 @@ user is unavailable, hosting media in your own repo + creating the issue via `gh
 (assignees included) is the pragmatic path. Assignees can be set with
 `--assignee a,b`; verify with `gh issue view <n> --json assignees`.
 
+**So are pushed commits.** A force-push does not take a leaked commit off GitHub: it keeps serving
+it by SHA until GitHub Support purges it. Scan content (names, paths, secrets) before the first push
+instead of counting on a history rewrite.
+
 ---
 
 ## Writing / editing a public research issue (copy + CLI)

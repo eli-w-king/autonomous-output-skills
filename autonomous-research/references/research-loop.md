@@ -6,10 +6,13 @@ study, synthesizes rounds as they complete, redesigns in real code when the find
 next round, until the design meets its finish line or the round limit hands it back to a person.
 
 This file is the procedure and the contracts. The scripts are in `scripts/research-loop/`. The private parts of a
-team's setup (its question bank, guide rubric, prior findings and study state) live outside anything published: in a
-private repository's `private/` folder, read at run time from the live clone that the skills sync keeps current
-(for example `~/.copilot/autonomous-output-skills/private/research-loop/`). Every guide, including a later round's,
-is checked against that rubric and question bank, and against the prior findings, so known issues are designed out.
+team's setup (its question bank, guide rubric, prior findings and study state) live outside anything published, in a
+private repository's `private/` folder. They are built from the team's past research, all of it: every study in its
+research wiki whoever ran it, the wiki's concept pages and syntheses, and the papers, surveys and articles it holds.
+Who wrote a source is recorded as metadata and never used to leave a source out. The loop reads them from its home
+folder's `private/research-loop/`, which `wiki.mjs mark --publish` pushes to the private repository (the skills sync's
+copy can be a day behind). Every guide, including a later round's, is drafted against the question bank, scored with
+the rubric, and checked against the prior findings, so known issues are designed out and open questions get probed.
 
 ## What a study holds
 
@@ -18,7 +21,7 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
 | File | What |
 | --- | --- |
 | `study.json` | the source (issue or brief), success criteria file, plan, budget caps, round time cap, the study's time limit (`limits`, `deadline_at`), platform ids (survey, recruiting project), designs and their commits, rounds with arms (each arm's close-out in `close`, and each round's one DM at the publish gate, `gate_dm`), stimulus with checksums, status, `needs_you`, `next_action`, steering instructions, the last refresh of the prior research (`prior_research_refresh`), history |
-| `ledger.json` | every budget check, refusal, block and launch: study, round, arm, all-in cost, count, time; every payment and rejection; every close check, close and read-back; every email confirmation check (found or not) |
+| `ledger.json` | every budget check, refusal, block and launch: study, round, arm, all-in cost, count, time; every payment and rejection; every close check, close and read-back; every confirmation check, by email (found or not) and on the platform (matches or not) |
 | `success-criteria.md` | written before the first launch: research questions, the main task, per-participant scoring (without help, with help, failure, hint ladder, blocking problem), the finish line, evidence labels |
 | `guide-r<n>.json` | the interview guide as data: settings, welcome, moderator context, goals, sections, questions with probing depth, moderator targets and stimulus keys |
 | `rounds/r<n>/arm-<X>/` | platform ids, attached stills, transcripts (local only), `analysis.json` and `analysis.md`; participant tracking ids stay in a local `participants.local.json` and are never published |
@@ -42,8 +45,10 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
    Starting a new study:
    - turn the schedule back on if it is off (a quiet loop asks for it to be turned off; see "When things close"),
      with the automations tool (enabled) or by asking the chat that owns it;
-   - refresh the prior research before writing the guide: `wiki.mjs refresh`, read every changed page, update the
-     topic's prior findings, `wiki.mjs mark` (the same refresh runs before each redesign);
+   - refresh the prior research before writing the guide: `wiki.mjs refresh`, read every changed page and source
+     (`wiki/` and `raw/`, every author), update the topic's prior findings (and the question bank and rubric when a
+     source shows a new way of asking or scoring), then `wiki.mjs mark --publish <files>`; the same refresh runs
+     before each redesign;
    - set `limits` (or keep the defaults) and, once it launches, the deadline follows from the first launch.
 
 | Script | Does |
@@ -62,9 +67,10 @@ One folder per study (`studies/<slug>/`), the only state the loop trusts:
 | `stalls.mjs` | lists sessions on the machine waiting 10 minutes or more for an approval; every run scans, and the morning summary shows any at the top |
 | `gatedm.mjs` | the one DM to the owner per round when a round's study stops at an admin's approval to publish: `due` (the exact text and channel), `claim`, `sent`, `release`; recorded in the round's `gate_dm`, so a round never gets two (`gate_dm` in `loop.config.json` names the channel) |
 | `close.mjs` | the only code that closes a round's projects: a guard (only once the round is complete, recruiting has stopped, or the deadline passed), a dry run, ledger entries, Outset unpublished and the User Interviews close request sent, both read back |
-| `confirm.mjs` | email confirmations of close-outs and payouts on a later run: `due`, then `check --file <mailbox search>`; found or not in the ledger, a "Needs you" note after two misses |
+| `confirm.mjs` | confirmations of close-outs and payouts on a later run: `due`; `check --file <mailbox search>` (found or not in the ledger); after two checks without an email, `platform` reads the platforms, read only, and records "confirmed on the platform", with a "Needs you" note only when a platform disagrees with the ledger |
 | `idle.mjs` | whether anything is being researched (local files only); when not, the run ends in seconds and asks once for the schedule to be turned off |
-| `wiki.mjs` | refresh the prior research: pull the research wiki's clone as is, list the pages changed since the study's last refresh, record the refresh and publish the updated prior findings |
+| `wiki.mjs` | refresh the prior research: pull the research wiki's clone as is, list what changed in `wiki/` and `raw/` since the study's last refresh, record the refresh and publish the updated files in one commit |
+| `wiki-pr.mjs` | the last step of every study, the only code that writes to the research wiki: `plan`, `prepare` (the owner's fork, a separate clone, the study's branch), `check` (what an ingest may touch, nothing removed, no personal data, the wiki's own checks), `open` (one pull request per study, read back, linked from the report and the issue), `block` |
 
 ## The finish line (default)
 
@@ -88,12 +94,45 @@ The full set of close rules, which the report shows for every study:
   starts; ones under way are not interrupted) and the User Interviews project gets its close request (recruiting stops),
   both read back. At the deadline, also the final report, a note on the issue, and status `done` (finish line met) or
   `handed-to-owner`.
-- **Confirmations by email.** On a later run (never by waiting in a chat), the run searches the owner's mailbox for
-  each platform's confirmation of every close and payout, records found or not in the ledger and the report, and adds
-  a "Needs you" note when one is still missing after two checks. A failed search is not a check.
-- **Run only when something is being researched.** With no study running and nothing left to confirm, a run exits in
-  seconds (no browser, no platform API) and asks the chat that owns the schedule, once, to turn it off; runs cannot
-  change automations. Starting a new study turns it back on (see "Setting it up").
+- **The last step of every study: contribute it back.** Once a study is `done` or `handed-to-owner`, it goes back to
+  the team's research wiki as one pull request (see "Contributing a finished study back"). The study counts as busy
+  until that pull request is open.
+- **Confirmations, by email and then on the platform.** On a later run (never by waiting in a chat), the run searches
+  the owner's mailbox for each platform's confirmation of every close and payout and records found or not in the
+  ledger and the report. When no email has come after two checks, it checks the platform itself, read only, with the
+  calls it already makes (a recruiting project's status and paid count, a survey study's `active`): what matches the
+  ledger is recorded as "confirmed on the platform", and only a platform that disagrees with the ledger gets a "Needs
+  you" note saying what differs. A failed search or read is not a check; the next run tries again.
+- **Run only when something is being researched.** With no study running, nothing left to confirm and nothing left to
+  contribute, a run exits in seconds (no browser, no platform API) and asks the chat that owns the schedule, once, to
+  turn it off; runs cannot change automations. Starting a new study turns it back on (see "Setting it up").
+
+## Contributing a finished study back
+
+The last step of every study, run by the loop or by hand: what it learned goes back to the team's research wiki, so
+the next study starts from it. When the owner's account can read the wiki but not push to it, the wiki's owner merges
+through pull requests, so a study goes back as exactly one pull request from the owner's fork
+(`prior_research.contribute` in `loop.config.json`: the wiki's repository, the account, a separate clone to prepare it
+in, and names that must never appear).
+
+1. Write the final readout in the style of the wiki's own readouts: what the study set out to learn, the method, the
+   findings across rounds with counts, verbatim quotes with participant ids and interview links, what changed between
+   rounds and why, how it compares to past research (with links to the wiki's pages), limits, and what is still open.
+2. `wiki-pr.mjs prepare` (refused until the study has ended): forks the wiki if needed, makes the separate clone and
+   the study's branch from the wiki's main. The clone the loop reads is never touched.
+3. Follow the wiki's own contribution workflow (its `AGENTS.md` or `README`), modeled on its newest ingest: the readout
+   as one new raw report, one new source page, updates to the related concept pages (contradictions flagged, not
+   overwritten), and the wiki's index and log in the place and format their newest entries use.
+4. `wiki-pr.mjs check` stages only `raw/` and `wiki/` and refuses: deleting or renaming anything, changing an existing
+   raw file, removing text from a page, adding files outside what an ingest adds, emails, recruiting tracking ids,
+   phone numbers or names, and em or en dashes in new text (a line it extends is checked only for what it adds). It
+   formats the files it adds with the wiki's own formatter, then runs the wiki's own checks (its type check, its site
+   build, and the formatter on the added files). A check that already fails on the wiki's main as a whole is never
+   applied to other people's pages.
+5. `wiki-pr.mjs open` with a plain description (what the study was, what it adds, which pages it updates,
+   confidentiality): pushes the branch to the fork only, never to the wiki itself, opens the one pull request, reads it
+   back, and records it; the report, the issue and a note on the issue carry the link.
+6. No chat messages about it: the pull request notifies the wiki's owner.
 
 ## Closing and paying, platform by platform
 
@@ -147,10 +186,12 @@ harvest real interviews, recruiting state, round state, report, issue, publish);
 they arrive; synthesize completed
 rounds (score every participant before writing prose; verbatim quotes with interview links; real participants only;
 each finding tied to the prior findings as a known issue it confirms or contradicts, an open question it answers, or
-new, and set against the research the study is compared with (`prior_research` in `loop.config.json`): confirms,
-contradicts, extends or new, with links to its pages. The report and the morning summary show that comparison in their
-own section); decide (consolidate, finish, redesign, or hand back); redesign in real code and capture new stills when needed;
-build the next round and launch it through `launch.mjs`; close the run and release the lock. The run that finds a round
+new, and set against past research (`prior_research` in `loop.config.json`: the whole research wiki, every author, its
+papers too): confirms, contradicts, extends or new, with links to its pages. The report and the morning summary show
+that comparison in their own section, "How this compares to past research" (`prior_research.label` names it)); decide
+(consolidate, finish, redesign, or hand back); redesign in real code and capture new stills when needed;
+build the next round and launch it through `launch.mjs`; when a study ends, contribute it back; close the run and
+release the lock. The run that finds a round
 complete goes straight from synthesis to the redesign and the next round's launch, so a new study reaches its publish
 gate while people are at work. When it stops there, the owner gets one DM (`gatedm.mjs`) with the link, the one step
 only they can take (Submit for review) and what happens after approval.
@@ -261,11 +302,19 @@ The schedule, its procedure template, and how to prove a run: [`research-loop-au
 - Look for the platform's own guard before writing one. User Interviews' "Close project" first calls a read-only check
   that refuses while any participation is unmarked; calling that check in a dry run showed which project could close
   (one with a participant still Started could not) without changing anything.
-- Expect some platforms to send no confirmation email. User Interviews sent none for several payouts in a row; a check
-  that ends in "no email after two checks" is a result to report, not an error to retry forever.
+- Expect platforms to send no confirmation email. Neither the recruiting site nor the survey platform emailed one for
+  payouts or for closes here, while the platforms themselves showed every one. So after two empty checks, ask the
+  platform (read only) instead of the owner: a "Needs you" note per missing email only made the owner re-check closes
+  and payouts that were fine.
 - A repository validator that checks the whole tree fails on other people's files too. Block a study's publish only on
   errors in the files being pushed (or errors tied to no file), and report the rest; otherwise one unrelated line on
   main stops every report from publishing.
+- Do not narrow past research to one researcher's studies. Authorship in a research wiki is often unrecorded, so a
+  filter by author drops most of the evidence (the papers on autonomy and delegation included); read every source and
+  keep authorship as metadata.
+- A contribution workflow may describe files the repository has since renamed or reordered (an index and a log named
+  one way in its instructions and another on disk, a log kept newest first though it says chronological). Follow the
+  repository's newest ingest commit, not the instructions alone.
 - A survey platform's guide checker may disagree with a human-moderation rubric: AI moderators work from probing
   targets, not scripted follow-ups. Keep hint ladders verbatim on purpose (they define what counts as help) and say so.
 - A recruiting site's own API (the calls its web app makes) is far more reliable than clicking: duplicate in the UI,

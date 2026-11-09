@@ -135,7 +135,7 @@ export function publishStudy(slug, studyDirPath, { message } = {}) {
 	syncWithUpstream();
 	const dest = join(PRIVATE_CLONE, 'private', 'studies', slug);
 	mkdirSync(dest, { recursive: true });
-	const keep = /^(study\.json|ledger\.json|report\.md|retrospective\.md|success-criteria\.md|guide-r\d+(\.v\d+)?\.json|guide-review-r\d+\.md)$/;
+	const keep = /^(study\.json|ledger\.json|report\.md|retrospective\.md|success-criteria\.md|final-readout\.md|wiki-pr\.md|guide-r\d+(\.v\d+)?\.json|guide-review-r\d+\.md)$/;
 	for (const f of readdirSync(studyDirPath)) {
 		if (keep.test(f)) {
 			cpSync(join(studyDirPath, f), join(dest, f));
@@ -175,21 +175,50 @@ export function publishStudy(slug, studyDirPath, { message } = {}) {
  * Copy one local file to a path under private/ in the private repo (for example the prior findings the loop keeps
  * current) and push it, with the same validator and clean-clone guarantees as publishStudy.
  */
-export function publishPrivateFile(localPath, relPath, { message } = {}) {
+export function publishPrivateFile(localPath, relPath, opts = {}) {
+	return publishPrivateFiles([{ localPath, relPath }], opts);
+}
+
+/** The deepest folder shared by repository paths (a single path is its own scope). */
+export function commonDir(paths) {
+	if (paths.length === 1) {
+		return paths[0];
+	}
+	const parts = paths.map(p => p.split('/'));
+	const out = [];
+	for (let i = 0; parts.every(p => i < p.length - 1 && p[i] === parts[0][i]); i++) {
+		out.push(parts[0][i]);
+	}
+	return out.join('/');
+}
+
+/**
+ * Copy local files to paths under private/ and push them in ONE commit (for example the prior findings, question bank
+ * and rubric refreshed together), with the same guarantees. files: [{ localPath, relPath }].
+ */
+export function publishPrivateFiles(files, { message } = {}) {
 	if (!existsSync(join(PRIVATE_CLONE, '.git'))) {
 		throw new Error(`no clone of the private repo at ${PRIVATE_CLONE}`);
 	}
-	if (!/^private\//.test(relPath) || relPath.includes('..')) {
-		throw new Error(`only files under private/ are published this way, not ${relPath}`);
+	if (!files.length) {
+		return { pushed: false, reason: 'no files' };
 	}
-	if (!existsSync(localPath)) {
-		throw new Error(`no file at ${localPath}`);
+	for (const { localPath, relPath } of files) {
+		if (!/^private\//.test(relPath) || relPath.includes('..')) {
+			throw new Error(`only files under private/ are published this way, not ${relPath}`);
+		}
+		if (!existsSync(localPath)) {
+			throw new Error(`no file at ${localPath}`);
+		}
 	}
-	discardLocal(relPath);
+	const rel = commonDir(files.map(f => f.relPath));
+	files.forEach(f => discardLocal(f.relPath));
 	syncWithUpstream();
-	mkdirSync(join(PRIVATE_CLONE, ...relPath.split('/').slice(0, -1)), { recursive: true });
-	cpSync(localPath, join(PRIVATE_CLONE, ...relPath.split('/')));
-	return commitAndPush(relPath, message ?? `Research loop: update ${relPath}`);
+	for (const { localPath, relPath } of files) {
+		mkdirSync(join(PRIVATE_CLONE, ...relPath.split('/').slice(0, -1)), { recursive: true });
+		cpSync(localPath, join(PRIVATE_CLONE, ...relPath.split('/')));
+	}
+	return commitAndPush(rel, message ?? `Research loop: update ${files.map(f => f.relPath).join(', ')}`);
 }
 
 function commitAndPush(rel, message) {

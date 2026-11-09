@@ -12,7 +12,8 @@ in [`SKILL.md`](../SKILL.md). The pipeline:
 
 1. **Harvest** the complete evidence bundle: study metadata, stimuli, questions and answers,
    audience, transcripts, and behavior or video observations (Outset, UserTesting, or local exports).
-2. **Analyze** into ranked, traceable findings with verbatim quotes, contradictions, and confidence.
+2. **Analyze** into ranked, traceable findings with verbatim quotes, contradictions, and confidence,
+   each compared with past research (confirms, contradicts, extends, or new).
 3. **Triangulate** each finding with quantitative data appropriate to the target surface.
 4. **Iterate** in the real target repo: Code OSS for app work, the website/prototype repo for web
    work, up to 3 switchable solutions when the problem warrants them.
@@ -20,6 +21,9 @@ in [`SKILL.md`](../SKILL.md). The pipeline:
    and validate the file.
 6. **Draft** the GitHub issue: recommendation first, then video, findings, decision, method, and
    study links.
+7. **Contribute back** when the study is done: one pull request to the team's research wiki, following
+   its own contribution workflow ([`research-loop.md`](research-loop.md), "Contributing a finished study
+   back").
 
 Most requests need only part of this. See "Pick the output" below before starting.
 
@@ -244,6 +248,10 @@ Build an evidence matrix before writing prose. For each finding capture:
 - **contradictions**: evidence that does not fit the claim,
 - **stimulus_version** and study round,
 - **confidence**: high/medium/low with a one-line reason,
+- **past research**: how it compares with what the team's research already found (the whole
+  research wiki or repository, every author, its papers too): `confirms`, `contradicts`, `extends`,
+  or `new`, with links to the pages. Authorship is metadata, never a filter. The readout gets a short
+  section, "How this compares to past research",
 - a rank (1 = strongest).
 
 Persist normalized sources plus links between `finding`, `evidence`, `recommendation`, and

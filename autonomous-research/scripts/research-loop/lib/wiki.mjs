@@ -27,12 +27,12 @@ export function commitAt(clone, iso) {
 	return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : null;
 }
 
-/** Wiki pages added, changed or removed between two commits: [{ status: 'A'|'M'|'D'|'R', path }]. */
-export function changedPages(clone, from, to = 'HEAD', dir = 'wiki/') {
+/** Wiki pages and raw sources added, changed or removed between two commits: [{ status: 'A'|'M'|'D'|'R', path }]. */
+export function changedPages(clone, from, to = 'HEAD', dirs = ['wiki/', 'raw/']) {
 	if (!from) {
 		return [];
 	}
-	const r = git(clone, ['diff', '--name-status', `${from}..${to}`, '--', dir]);
+	const r = git(clone, ['diff', '--name-status', `${from}..${to}`, '--', ...[dirs].flat()]);
 	if (r.status !== 0) {
 		throw new Error(`git diff failed: ${(r.stderr || r.stdout).slice(0, 300)}`);
 	}

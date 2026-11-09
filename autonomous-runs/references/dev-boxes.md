@@ -57,6 +57,10 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   `data.responsesReasoning` with the `model` and `effort` of that turn, and a sub-agent's `subagent.configured`
   event has its `model`, `reasoningEffort` and `contextTier`. `session.start` can show no effort at all for a
   session that runs at medium, so read the turn, not just the start.
+- On a machine many sessions share, the newest session folder may belong to someone else, and automation ids
+  differ from session ids: find a new worker's `events.jsonl` by the exact text of its brief. Parse only the
+  structured events (start, resume, model change, usage and permission events); a text search for setting
+  names also matches echoes inside prompts and hook output.
 - Copilot CLI's user defaults (`~/.copilot/settings.json`: `model` `claude-opus-5.5`, `effortLevel` `max`,
   `contextTier` `long_context`, and `subagents.agents.<name>` with all three set to `inherit` for each built-in
   sub-agent) make a `copilot` run started with no flags, and every sub-agent it starts, use the top settings
@@ -79,7 +83,9 @@ The procedure, starting with the rule that such a lab runs on its own with its h
 - `create_remote_session` and `send_remote_message` share a limit of 50 requests per window; one lab hit it at
   about 45.
 - `get_remote_session` returns one snapshot: the status (`running`, `needsInput`, `completed`), `queuedMessages`
-  and the latest turn's text. Use it to confirm that a message arrived, not to poll.
+  and the latest turn's text. Use it to confirm that a message arrived, not to poll. The text is cut at 16,384
+  characters, so a worker with a big result freezes it as one packet (compressed, base64, in parts under about
+  10,000 characters, with the original's SHA-256) and sends the parts one reply at a time.
 - A host's sessions discover skills installed in that host's own `~/.copilot/skills`. Supported VS Code builds
   also forward eligible, enabled personal and extension skills to connected remote agent-host sessions as
   "VS Code Synced Data", and forward installed plugins as plugin references. Remote scopes include user storage
@@ -115,7 +121,9 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   never appeared on either dev box within 15 minutes.
 - GitHub is not one when nothing may be pushed, and a box may not be signed in: one had an invalid injected
   `GH_TOKEN` and no gh login. Never ask an agent to sign in interactively; send the base as a bundle. Where gh does
-  work, run `Remove-Item Env:GH_TOKEN` first so its stored login is used.
+  work, run `Remove-Item Env:GH_TOKEN` first so its stored login is used, and clone a private repo with
+  `gh repo clone <owner>/<repo> <dir>`: a plain `git clone` with only `GH_TOKEN` set fails with "unable to get
+  password from user".
 - Tunnel connect tokens are masked in an agent's tool output, so one session cannot pass them to another. Give the
   drop's port anonymous access and gate the server with an app key instead: a 192-bit key in an `X-Lab-Key` header,
   compared in constant time, and a lockout per client address. Set the lockout high (50 bad keys in 15 minutes):
@@ -164,9 +172,28 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
 - Node reads a lab server's script once. When a kit merge changes `serve.mjs`, restart your own server; keep the
   script's SHA-256 next to the PID to notice.
 - Run `git config --global core.longpaths true` before deep worktrees.
-- Read a scheduled task's next run time from `schtasks /query /tn <name> /fo LIST /v`. Two days after the
-  clocks changed, `Get-ScheduledTaskInfo` showed a daily 11:00 trigger's next run as 12:00 while
-  `schtasks` showed 11:00; the trigger itself was right.
+- A Cloud PC's system clock is on UTC while each session shows the client's time zone (time zone redirection).
+  Task Scheduler reads a trigger's StartBoundary without a UTC offset in the system's zone, so a daily 10:00 ran
+  at 02:00 Pacific. `schtasks /query /v` prints times in the system's zone without saying so, and
+  `Get-ScheduledTaskInfo` prints them in the session's: read NextRunTime there. Write the offset
+  (`2026-11-04T10:00:00-08:00`, stored as `18:00:00+00:00`). A fixed offset moves an hour when the clocks change,
+  so whatever registers a trigger also checks it: `sync-skills.py` once a day, the weekly miner at each check.
+- `tempfile.TemporaryDirectory()` can raise `[WinError 32]` at cleanup when another process holds the fresh folder
+  for a moment (most likely a scan of the files just written there). It ended one day's scheduled sync on a dev box.
+  In unattended scripts, make the folder with `mkdtemp` and remove it with a few retries that never raise
+  (`scratch_dir()` in `tools/sync-skills.py`).
+- An atomic replace (`os.replace`) can fail for a moment with `[WinError 5]` while an indexer or reader holds the
+  file. Retry only errors 5, 32 and 33, with a short bounded backoff, and never fall back to a non-atomic overwrite.
+- In Python on Windows, `os.kill(pid, 0)` is no liveness probe: signal 0 is `CTRL_C_EVENT` there, so it calls
+  `GenerateConsoleCtrlEvent` instead of checking the PID. It returns quietly for a dead PID, raises `WinError 6`
+  without a console (as in scheduled runs), and can send a real Ctrl+C. Use `OpenProcess` plus
+  `GetExitCodeProcess` returning `STILL_ACTIVE` (259), as `pid_alive()` in `tools/sync-skills.py` does.
+- Line endings: the agent's file-create tool writes CRLF on Windows, and Python's text mode translates newlines,
+  which broke an exact string replace, a recorded hash, and an env file parser. Normalize created files to LF
+  before editing or committing them, write byte-exact content as bytes (or with `newline=''`), and split lines on
+  both CRLF and LF.
+- On a Cloud PC, files the user uploads through the Windows 365 client land in the client's redirected drive,
+  under `\\tsclient\Windows365 virtual drive\Uploads`. Look there when the user says they uploaded something.
 - With no Chrome, headless Playwright runs with `channel: 'msedge'`.
 - The drop's bash scripts run in Git Bash (`C:\Program Files\Git\bin\bash.exe`). They avoid `lsof` and fall back
   from `sha256sum` to `shasum`, but so far they have been tested on macOS only.
@@ -192,4 +219,11 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
   `${arr[@]+"${arr[@]}"}`, and test with `/bin/bash`, not whichever bash comes first on PATH.
 - A cleanup glob can match a template: `rm -f brief-v*.md` also deleted `brief-variation.template.md`. Write
   generated files into a folder of their own, and never glob-delete next to sources.
+- PowerShell 7: `ConvertFrom-Json` turns ISO timestamps into DateTime values (a `Z` time stays UTC, one with an
+  offset becomes local time), and converting back trims fractions and rewrites offsets, so the text no longer
+  matches; use `ConvertFrom-Json -DateKind String` (7.5 and later) or handle the JSON in Python. An unquoted
+  numeric-looking argument (a Slack message timestamp) can arrive as a number and lose precision, so quote it.
+  `$Matches` is overwritten by each successful `-match` and stale after a failed one, so never read it without
+  checking the match. Piping a Python script into `Select-Object -First` stops reading early, so the script dies
+  on a broken pipe; let the output drain before selecting from it.
 - Test a sync script with fake bundles in a scratch clone and scratch refs before the real run.

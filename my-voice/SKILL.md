@@ -1,6 +1,6 @@
 ---
 name: my-voice
-description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', or asks for a Slack or Teams message, team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, human not robotic, no marketing tone or AI slop, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
+description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', or asks for an email, a Slack or Teams message, a LinkedIn post or comment reply, an event invite or description, a bio, a team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, human not robotic, no marketing tone or AI slop, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
 ---
 
 # My voice
@@ -15,11 +15,19 @@ it is never published: a private copy keeps it the same on each of the user's ma
 out of this repo. Imitate its rhythm and structure; never copy its facts into something else, and
 never put it in a public repo or a post.
 
+**Then read examples of the same kind** when there are any: the other items in the plan, the docs
+the text will sit next to, or recent announcements that landed well. Match their tone, vocabulary,
+length, and format.
+
 ## Core voice
 
 1. **Say the thing first.** Lead with the news, the change, or the ask. Context comes after, briefly.
+   Skip the filler around it: no warm-up pleasantries ("how are you doing"), no asides explaining
+   what the reader can already see, and no filler closers ("so just let me know"). A simple warm
+   line ("I hope you and your family are well") is fine.
 2. **Short, plain sentences.** One idea per sentence. No run-ons; sentences end cleanly. Use the
-   words a person would say out loud.
+   words a person would say out loud. Short is not choppy: write full sentences that flow, not
+   fragments split by periods, and not comma chains either.
 3. **First person, team voice.** "I" for the user's own work and asks ("send feedback my way"),
    "we" for the team's work and decisions ("we're exploring a few ideas"), "you" to the reader.
    Shared work sounds collaborative, never "I did all this". Replies to collaborators end with an
@@ -29,11 +37,16 @@ never put it in a public repo or a post.
    "unlock", "elevate", "game changer", or superlatives the facts do not support. If it reads like
    a launch blog, it is "too markety"; use straightforward bullets instead. If it reads as AI
    generated (slogan rhythm, frills, decoration, polished filler), it is "AI slop": strip it back to
-   simple sentences that are quick to read.
+   simple sentences that are quick to read. Frame things for the reader as encouragement and
+   opportunity ("a chance to learn a new way to work"), never as pressure to keep up, blame, a sales
+   pitch, or a backhanded compliment; a simple "congrats" beats praise with a catch.
 5. **Honest about status.** Call unfinished work what it is ("still a WIP", "a first pass", "close
    but still a work in progress") and name the open question instead of hiding it.
 6. **Concrete.** Name the feature, the setting, the branch, the link, the date. Show an example
-   instead of describing one ("Instead of X, we could say Y").
+   instead of describing one ("Instead of X, we could say Y"). When pitching or announcing, name the
+   specific things people will see or get (an overnight run that ends in a demo video, many agents
+   working in parallel) instead of abstract or "woo woo" claims, and give each claim or perk the
+   context an outsider needs to feel it.
 7. **No em or en dashes.** Use periods, commas, colons, or parentheses.
 8. **No process narration.** Do not mention how the work was produced ("we recorded a demo", "an
    agent drafted this", "I used X to..."). The only exception is an attribution the user asks for.
@@ -45,7 +58,8 @@ never put it in a public repo or a post.
     order unless they ask for a rewrite.
 11. **Human, not robot.** Write for a person who was not in the room: full sentences in the
     reader's terms, and no robot speak (version numbers, build or capture details, internal step or
-    process labels). Describe what happens for the reader, not what the system is doing.
+    process labels) or jargon: say what a technique does in plain words instead of naming it.
+    Describe what happens for the reader, not what the system is doing.
 
 ## Patterns by channel
 
@@ -67,6 +81,21 @@ sign-off line only when the user asks for one.
 
 **Quick reply.** One or two upbeat sentences ("Let's use the same component!"), then the link or
 code location on its own line.
+
+**Email to outside partners, senior leaders, or academics.** Warm but more formal than team chat,
+never super casual. Address people by name (or by title where that is the custom), thank or
+congratulate them simply, lead with the update and the key details, answer their questions in short
+bullets, and sign off with a first name. With senior leaders, be grateful and succinct; with partner
+teams, sound confident rather than deferential.
+
+**Event invite or announcement (email, Slack or Teams post, LinkedIn).** The news first (who is
+hosting what, and with whom), then a framing sentence or a question hook, about three short bullets
+that start with a verb and name what people will see or learn, a friendly invitation with any perk
+stated precisely, and the sign-up link last. A social post that links to the event page leaves the
+date, place, and headcount to that page; an invite email still gives the date and place. LinkedIn
+posts stay short and credit the co-hosts, so they never read as all about the user. For an
+independent event, never imply the employer's partnership or sponsorship: the user speaks for their
+team, and company names and logos stay understated.
 
 **Design rationale or status write-up.** A one-line framing sentence, then bullets that start with
 "Users can ..." (one or two sentences each), each followed by why it is better, in first person ("I
@@ -94,11 +123,15 @@ first person, contractions, short spoken sentences ("So here's what we changed."
 
 ## How to deliver
 
-- Give the text ready to copy: a plain block in chat, or a `.txt` on the Desktop when asked. Open
-  the file only when the user is at the Mac and asked for it; during unattended or overnight runs,
-  leave it closed (or use `open -g`) and mention it in the final report.
+- Put the full text in the chat as a ready-to-paste code block, one block per channel (email,
+  Slack, Teams), every time, even when you also saved it as a draft or sent it; the user should
+  never have to ask "what is the draft?". Write a `.txt` on the Desktop only when asked, and open it
+  only when the user is at the Mac and asked for it; during unattended or overnight runs, leave it
+  closed (or use `open -g`) and mention it in the final report.
 - Offer at most one alternative, and only when the choice is real (for example shorter versus with
   examples).
+- "Start over" means a new draft with a different structure and format, not a reword of the
+  rejected one.
 - Never send or post as the user unless they explicitly asked you to in this conversation; when you
   do, follow `autonomous-computer-use` for exactly-once sends.
 

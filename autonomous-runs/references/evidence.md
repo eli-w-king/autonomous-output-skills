@@ -1,6 +1,6 @@
 # Evidence, run ledgers, and stimuli
 
-Read before research or demo work that others will rely on: what counts as the real surface, the ledger that survives a lost chat, the evidence chain, and media that must be checked before it is shared.
+Read before research or demo work that others will rely on: what counts as the real surface, the ledger that survives a lost chat, the evidence chain, who said what in meeting transcripts, and media that must be checked before it is shared.
 
 ---
 
@@ -50,6 +50,17 @@ unable to test a finding; all three outcomes are useful if stated honestly.
 
 Keep product-specific conclusions in the project report. Only promote the reusable method or gotcha
 to these references.
+
+---
+
+## Meeting transcripts are weak on who said what
+
+Feedback often arrives as a meeting transcript (a crit, a standup, a planning call). Its speaker
+labels are unreliable: VTT files carry empty or bare voice tags and timed text with no tag at all, a
+whole two-person call can sit under one name, and a room label can cover several people. A parser
+that required a named speaker once dropped dozens of cues without a word. Keep unlabeled speech as
+unlabeled, check that every timed cue is accounted for, and never attribute a quote or a preference
+to a person from a label alone; say who said it only when the context establishes it.
 
 ---
 

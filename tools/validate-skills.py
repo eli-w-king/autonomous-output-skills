@@ -18,7 +18,10 @@ Errors (exit 1):
     personal path (/Users/<name>/), an email address, or a term from a private terms file
     (--private-terms, repeatable; private/private-terms.txt is always read when it exists; one
     literal or /regex/ per line, # for comments). Private terms are reported by number only, so this
-    output is safe to paste anywhere. --private-terms-warn reports them as warnings instead.
+    output is safe to paste anywhere. --private-terms-warn reports them as warnings instead. A literal
+    term that a public names list also has (a name that went public, like a GA model) is not checked:
+    private/public-terms.txt in the tree, next to each --private-terms file and next to this script,
+    and --public-terms FILE.
   - a file whose name suggests secrets or raw session data (.env, *.pem, *.key, research.env,
     messages.jsonl, voice-samples.md, state.json, ...), a symlink, or a missing --private-terms file.
     In the private repo, private/private-terms.txt and the weekly miner's state in private/skill-miner/
@@ -75,6 +78,7 @@ SENSITIVE_NAME = re.compile(
     r'|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|\.netrc|\.npmrc|credentials(\.json)?|research\.env'
     r'|messages\.jsonl|events\.jsonl|digest-part-\d+\.md|voice-samples\.md|private-terms\.txt|state\.json)$')
 REPO_TERMS = 'private/private-terms.txt'
+REPO_PUBLIC = 'private/public-terms.txt'
 # Files with sensitive names that belong in the private repo, never in a published one.
 PRIVATE_ALLOWED = {REPO_TERMS} | {f'private/skill-miner/{name}' for name in
                                   ('voice-samples.md', 'notes.md', 'state.json', 'ledger.json', 'runner.json')}
@@ -83,6 +87,8 @@ parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.R
 parser.add_argument('--private-terms', action='append', default=[], metavar='FILE',
                     help='file of terms that must never be published (repeatable)')
 parser.add_argument('--private-terms-warn', action='store_true', help='report private terms as warnings, not errors')
+parser.add_argument('--public-terms', action='append', default=[], metavar='FILE',
+                    help='names that are public, one per line: never treated as private terms (repeatable)')
 parser.add_argument('--base', help='git ref the changes will be published on top of (for example origin/main)')
 parser.add_argument('--commits', help='also scan commit messages and added lines in REF..HEAD')
 parser.add_argument('--secrets-only', action='store_true',
@@ -360,6 +366,18 @@ private = []
 terms_files = [Path(t).expanduser() for t in args.private_terms]
 if (REPO / REPO_TERMS).is_file() and all(t.resolve() != (REPO / REPO_TERMS).resolve() for t in terms_files):
     terms_files.append(REPO / REPO_TERMS)
+# A name that went public (a GA model, say) must never block a publish, even while some machine's list still has it.
+public_names = set()
+explicit_public = [Path(p).expanduser() for p in args.public_terms]
+for pf in explicit_public + [REPO / REPO_PUBLIC, Path(__file__).resolve().parents[1] / REPO_PUBLIC] + [
+        t.with_name('public-terms.txt') for t in terms_files]:
+    try:
+        text = pf.read_text(encoding='utf-8-sig')
+    except OSError:
+        if pf in explicit_public:
+            errors.append(f'public terms file not found: {pf}')
+        continue
+    public_names |= {n.split('#', 1)[0].strip().lower() for n in text.splitlines() if n.split('#', 1)[0].strip()}
 for index, pt in enumerate(terms_files, 1):
     label = REPO_TERMS if pt.resolve() == (REPO / REPO_TERMS).resolve() else f'private terms file {index}'
     if not pt.is_file():
@@ -372,7 +390,7 @@ for index, pt in enumerate(terms_files, 1):
         try:
             if len(line) > 2 and line.startswith('/') and line.endswith('/'):
                 private.append((re.compile(line[1:-1], re.I), f'line {number} of {label}'))
-            else:
+            elif line.lower() not in public_names:
                 private.append((re.compile(r'(?<![A-Za-z0-9])' + re.escape(line) + r'(?![A-Za-z0-9])', re.I),
                                 f'line {number} of {label}'))
         except re.error:

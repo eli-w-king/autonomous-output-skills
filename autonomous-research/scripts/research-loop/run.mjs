@@ -2,13 +2,15 @@
 // One pass of the research loop over every active study. The scheduled automation's agent runs this first, then does
 // the judgment work it reports (synthesis, redesign, steering) per references/research-loop.md.
 //
-//   node run.mjs [--study <slug>] [--no-launch] [--no-publish] [--no-ui] [--run-token <token from runlock.mjs acquire>]
+//   node run.mjs [--study <slug>] [--no-launch] [--no-publish] [--no-issue] [--no-ui] [--run-token <token from runlock.mjs acquire>]
 //
 // Per study: read steering comments on its issue (only the configured steering accounts; the loop's own comments are
 // skipped);
 // launch any round arm that is ready once the platforms allow it (through launch.mjs, which owns the budget check);
 // harvest completed real interviews; read recruiting state; close a round at 5 completes or its time cap; write the
-// report; update the issue; publish state to the private repo. Prints a JSON summary of what needs an agent.
+// report; update the issue; publish state to the private repo. Prints a JSON summary of what needs an agent. A study
+// that has ended gets only the report, the issue and publishing while its email confirmations or its contribution to
+// the research wiki are open (and once after its pull request opens). --no-issue leaves the issue alone (for proofs).
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, existsSync, readdirSync, cpSync, rmSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -24,8 +26,8 @@ import { hostname } from 'node:os';
 import { runLockStatus, heartbeatRunLock } from './lib/runlock.mjs';
 import { checkGates } from './lib/gate.mjs';
 import { recordStalls } from './lib/stalls.mjs';
-import { activity } from './lib/idle.mjs';
-import { due as confirmationsDue } from './lib/confirm.mjs';
+import { activity, contributionOpen } from './lib/idle.mjs';
+import { due as confirmationsDue, pending as confirmationsOpen, platformDue as confirmationsOnPlatform } from './lib/confirm.mjs';
 import { deadlineOf, recruitingStopOf, studyPhase, roundClosesAt } from './lib/deadline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +36,7 @@ const opt = n => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1]
 const only = opt('study');
 const noLaunch = argv.includes('--no-launch');
 const noPublish = argv.includes('--no-publish');
+const noIssue = argv.includes('--no-issue');
 const noUi = argv.includes('--no-ui');
 const runToken = opt('run-token');
 const log = (...a) => console.error(new Date().toISOString().slice(11, 19), ...a);
@@ -61,12 +64,13 @@ const summary = { at: new Date().toISOString(), studies: [] };
 
 const DONE = new Set(['done', 'stopped', 'handed-to-owner']);
 
-// Nothing to research: no study running, and no ended study still waiting for an email confirmation. Exit now, before
-// any browser or platform call (the run's agent then asks once for the schedule to be turned off; see idle.mjs).
+// Nothing to research: no study running, no ended study still waiting for an email confirmation, and none still to be
+// contributed back to the research wiki. Exit now, before any browser or platform call (the run's agent then asks once
+// for the schedule to be turned off; see idle.mjs).
 {
 	const act = activity(listStudies().filter(x => !only || x === only).map(slug => ({ slug, study: loadStudy(slug), ledger: loadLedger(slug) })));
 	if (act.idle) {
-		const out = { ...summary, idle: true, reason: 'nothing is being researched: no active study and no confirmation still open' };
+		const out = { ...summary, idle: true, reason: 'nothing is being researched: no active study, no confirmation still open, nothing left to contribute' };
 		console.log(JSON.stringify(out, null, 1));
 		mkdirSync(STATE_DIR, { recursive: true });
 		writeFileSync(join(STATE_DIR, 'last-run.json'), JSON.stringify(out, null, 1));
@@ -289,6 +293,7 @@ async function issue(slug) {
 		...(s.reminders ?? []).map(r => `> **Reminder:** ${r}`),
 		'',
 		`**Status:** ${s.status_line ?? s.status}`,
+		...(s.wiki_pr?.url ? ['', `**Research wiki:** pull request [#${s.wiki_pr.number}](${s.wiki_pr.url}) (${s.wiki_pr.state ?? 'open'})`] : []),
 		...(s.needs_you?.length ? ['', '**Needs you**', ...s.needs_you.map(n => `- ${n}`)] : []),
 		'',
 		`**Round ${s.rounds.at(-1).n}:** ${s.rounds.at(-1).arms.map(a => `${armLabel(s, a)}: ${a.launched_at ? `${a.counts?.completed ?? 0} of ${s.criteria?.finish_line?.participants_per_round ?? 5} completed` : 'not launched'}`).join('; ')}`,
@@ -316,6 +321,43 @@ await withLock(join(STATE_DIR, 'locks', 'run.lock'), async () => {
 	for (const slug of listStudies().filter(x => !only || x === only)) {
 		const study = loadStudy(slug);
 		if (DONE.has(study.status)) {
+			// An ended study gets a light pass (the report, the issue and publishing; no platform calls) while its email
+			// confirmations or its contribution to the research wiki are open, and once more after its pull request opens,
+			// so the final report and the issue show the link.
+			const unreported = !!study.wiki_pr?.url && study.wiki_pr.reported_url !== study.wiki_pr.url;
+			if (!(contributionOpen(study) || confirmationsOpen(loadLedger(slug)).length || unreported)) {
+				continue;
+			}
+			const item = { slug, status: study.status, ended: true };
+			try {
+				writeReport(slug);
+				item.issue = noIssue ? { skipped: true } : await issue(slug);
+				if (!noPublish) {
+					try {
+						item.publish = publishStudy(slug, studyDir(slug), { message: `Research loop: ${slug} (ended) run ${new Date().toISOString().slice(0, 16)}` });
+					} catch (e) {
+						item.publish = { pushed: false, error: e.message };
+						log(`${slug}: publish failed: ${e.message}`);
+					}
+					if (unreported && !item.publish.error) {
+						await updateStudy(slug, s => {
+							s.wiki_pr.reported_url = s.wiki_pr.url;
+						});
+					}
+				}
+				const confirms = confirmationsDue(loadLedger(slug));
+				const onPlatform = confirmationsOnPlatform(loadLedger(slug));
+				item.agent_work = [
+					...(contributionOpen(loadStudy(slug)) ? ['contribute the study back to the research wiki with one pull request (procedure step 5b: wiki-pr.mjs)'] : []),
+					...(confirms.length ? [`check ${confirms.length} email confirmation${confirms.length === 1 ? '' : 's'} of close-outs or payouts (procedure step 2c)`] : []),
+					...(onPlatform.length ? [`check ${onPlatform.length} close-out${onPlatform.length === 1 ? '' : 's'} or payout${onPlatform.length === 1 ? '' : 's'} on the platform itself, read only: no email came (procedure step 2c: confirm.mjs platform)`] : []),
+				];
+				item.needs_you = loadStudy(slug).needs_you ?? [];
+			} catch (e) {
+				item.error = e.message;
+				log(`${slug}: ${e.message}`);
+			}
+			summary.studies.push(item);
 			continue;
 		}
 		const item = { slug, status: study.status };
@@ -326,7 +368,7 @@ await withLock(join(STATE_DIR, 'locks', 'run.lock'), async () => {
 			item.recruiting = await recruiting(slug, loadStudy(slug));
 			item.round = await roundState(slug);
 			writeReport(slug);
-			item.issue = await issue(slug);
+			item.issue = noIssue ? { skipped: true } : await issue(slug);
 			if (!noPublish) {
 				// A failed publish only leaves the private repository's copy behind; the rest of the run (and its
 				// agent_work list, which tells the agent what to do next) must not depend on it.
@@ -349,10 +391,12 @@ await withLock(join(STATE_DIR, 'locks', 'run.lock'), async () => {
 			const stopped = phase === 'response-window' || phase === 'past-deadline';
 			const toClose = s.rounds.filter(r => r.status === 'complete' || stopped).flatMap(r => r.arms.filter(a => a.launched_at && !closedOut(a)).map(a => `round ${r.n} arm ${a.arm}`));
 			const confirms = confirmationsDue(ledgerNow);
+			const onPlatform = confirmationsOnPlatform(ledgerNow);
 			item.agent_work = [
 				...(s.instructions ?? []).filter(i => i.status === 'new').map(i => `steering instruction ${i.id} from ${i.author}: act, then reply on the issue`),
 				...(dm.status === 'due' || dm.status === 'check' ? [`send the one DM about round ${dm.round}'s Outset approval (procedure step 6b: gatedm.mjs ${dm.status === 'check' ? 'says an earlier claim was never recorded as sent: look in the channel first' : 'claim, send once, record it'})`] : []),
 				...(confirms.length ? [`check ${confirms.length} email confirmation${confirms.length === 1 ? '' : 's'} of close-outs or payouts (procedure step 2c)`] : []),
+				...(onPlatform.length ? [`check ${onPlatform.length} close-out${onPlatform.length === 1 ? '' : 's'} or payout${onPlatform.length === 1 ? '' : 's'} on the platform itself, read only: no email came (procedure step 2c: confirm.mjs platform)`] : []),
 				...(toClose.length ? [`close out ${toClose.join(', ')}: pay or reject everyone Submitted, then close.mjs (procedure step 4c)`] : []),
 				...(phase === 'past-deadline' && !DONE.has(s.status) ? [`the study reached its deadline (${deadlineOf(s)}): final close-out, final report and status (procedure step 4c, then step 5)`] : []),
 				...(cur.status === 'recruiting' && cur.arms.some(a => (a.counts?.completed ?? 0) > 0) ? [`score newly completed interviews of round ${cur.n} (procedure step 4a)`] : []),

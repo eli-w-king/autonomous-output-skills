@@ -85,12 +85,14 @@ always wins over a default here; record the override in the demo's brief.
 
 ## Delivery and QA
 
-20. **Masters.** H.264 MP4, about 1920 x 1200 (or the requested size, such as square), 30 fps, plus
-    full-resolution stills. GIFs only for PR previews and short loops.
+20. **Masters.** Sharp and high resolution, never pixelated or visibly compressed: H.264 MP4, about
+    1920 x 1200 (or the requested size, such as square), 30 fps, plus full-resolution stills. GIFs
+    only for PR previews and short loops.
 21. **Watch it before you ship it.** Review the entire export, a contact sheet, and the frames around
     every hover and menu; `ffprobe` it and decode it fully. Redo anything that breaks a rule.
 22. **Screenshots.** Full window plus a tight crop (whitespace trimmed) for details. Before/after
-    pairs cover every relevant layout and setting, and no menu covers what is being compared.
+    pairs show enough of the surrounding UI that a newcomer sees what changed, cover every relevant
+    layout and setting, and no menu covers what is being compared.
 23. **Iterations.** For revision rounds, share screenshots for approval first, then record videos.
     Label variants and phases clearly (title cards or file names, for example per plan or Design A/B).
 24. **Desktop delivery.** One folder per project with `Round N - <what changed>` subfolders, the

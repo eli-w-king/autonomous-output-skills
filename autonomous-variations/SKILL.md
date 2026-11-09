@@ -44,8 +44,10 @@ with many labs also follow [`autonomous-runs`](../autonomous-runs/SKILL.md). Web
    accent, case, punctuation, real content only) and the hard rules (worktree, branch, port, never
    push, never touch other agents' work or processes, headless only) into each lab brief, and save
    the brief to a file before starting the lab.
-8. **Rounds build on named winners.** A new round carries the user's notes; earlier rounds stay
-   reachable.
+8. **Rounds build on named winners.** A new round carries the user's notes, keeps what they liked in
+   earlier rounds, and drops what they rejected for good (a rejected motif never comes back). When
+   they reject a whole round ("start over"), the next one starts from fresh directions, not tweaks of
+   the rejected ones. Earlier rounds stay reachable.
 9. **The pick ports verbatim.** The lab documents the port; the integration copies files from the
    named commit with a sync script and never edits the copies.
 10. **Ambiguity gets a decision, not a question.** When the framing is ambiguous (the order of the
@@ -54,7 +56,11 @@ with many labs also follow [`autonomous-runs`](../autonomous-runs/SKILL.md). Web
 11. **The link comes first.** Seeing the UI matters more to the user than tests. Send the review
     link as soon as the lab loads without errors, then run the full checks, fix, and send the
     updated link. Every report lists every lab's link; when some labs are not ready, send the
-    ready ones now instead of waiting for all of them.
+    ready ones now instead of waiting for all of them. Keep one page per exploration and grow it:
+    each new round, and other sessions' explorations of the same problem (merged by the page's
+    owner), land on that same page, newest first with earlier rounds still there, and the demo
+    video, the stills, the notes and any research feedback sit above the live, interactive version.
+    A link the team already has changes only when the user asks (see "Port the pick").
 
 ## 1. Scope the lab
 

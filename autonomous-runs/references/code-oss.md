@@ -221,6 +221,10 @@ command instead of blanking the whole workbench at startup.
   smallest `git diff --shortstat <donorHEAD> <branch> -- package-lock.json build/package-lock.json
   extensions/copilot/package-lock.json`, and clone every nested `node_modules`
   (`find . -type d -name node_modules -prune`) plus `.build/electron`, not just the root.
+- **On Windows, a junctioned `node_modules` is shared, not a copy.** Worktrees whose `node_modules` are
+  junctions into one installed base worktree are quick to make, but `npm install`, `npm ci` or `git clean -x`
+  inside one rewrites or wipes the shared base. Never run them in a junctioned worktree; give a branch that needs
+  its own install a real copy.
 
 ---
 

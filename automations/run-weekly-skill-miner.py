@@ -28,6 +28,7 @@ public repo with tools/publish-public.py. Reports go to ~/.copilot/skill-miner/r
 """
 import argparse
 import datetime as dt
+import html
 import importlib.util
 import json
 import os
@@ -718,13 +719,14 @@ def task_xml():
     python = Path(sys.executable).resolve()
     if python.name.lower() == 'pythonw.exe':
         python = python.with_name('python.exe')
-    today = dt.date.today().isoformat()
+    # With a UTC offset, or Task Scheduler reads the hours in the system's zone (UTC on a Cloud PC).
+    boundaries = [sync.daily_boundary('%02d:00' % hour) for hour in CHECK_HOURS]
     calendar = ''.join(f'''    <CalendarTrigger>
-      <StartBoundary>{today}T{hour:02d}:00:00</StartBoundary>
+      <StartBoundary>{boundary}</StartBoundary>
       <Enabled>true</Enabled>
       <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
     </CalendarTrigger>
-''' for hour in CHECK_HOURS)
+''' for boundary in boundaries)
     return f'''<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -774,6 +776,16 @@ def task_xml():
 '''
 
 
+def register():
+    folder = Path(tempfile.mkdtemp())
+    try:
+        (folder / 'task.xml').write_text(task_xml(), encoding='utf-16')
+        return subprocess.run(['schtasks', '/Create', '/F', '/TN', TASK_NAME, '/XML', str(folder / 'task.xml')],
+                              capture_output=True, text=True)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def install_job():
     if os.name != 'nt':
         print('On macOS, schedule it with run-weekly-skill-miner.sh --install.')
@@ -781,16 +793,44 @@ def install_job():
     if not find_copilot():
         print('Copilot CLI was not found. Install it, then run --install again.')
         return 1
-    folder = Path(tempfile.mkdtemp())
-    (folder / 'task.xml').write_text(task_xml(), encoding='utf-16')
-    r = subprocess.run(['schtasks', '/Create', '/F', '/TN', TASK_NAME, '/XML', str(folder / 'task.xml')], capture_output=True, text=True)
-    shutil.rmtree(folder, ignore_errors=True)
+    r = register()
     if r.returncode:
         print(f'schtasks failed: {(r.stderr or r.stdout).strip()}')
         return 1
     print(f'Scheduled "{TASK_NAME}". It {SCHEDULE_TEXT}.')
     print(f'Reports: {tilde(P.reports)}')
     return 0
+
+
+def job_hours():
+    """(the local hours of the task's daily triggers, whether it runs this script), or None when there is no task.
+    A trigger without a UTC offset counts as hour -1: it runs in the system's zone."""
+    r = subprocess.run(['schtasks', '/Query', '/TN', TASK_NAME, '/XML'], capture_output=True, text=True, errors='replace')
+    if r.returncode:
+        return None
+    hours = []
+    for boundary in re.findall(r'<CalendarTrigger>.*?<StartBoundary>([^<]+)</StartBoundary>', r.stdout, re.S):
+        at = sync.boundary_local_time(boundary)
+        hours.append(int(at[:2]) if at and at.endswith(':00') else -1)
+    m = re.search(r'"[^"]+"\s+"([^"]+)"', html.unescape(''.join(re.findall(r'<Arguments>(.*?)</Arguments>', r.stdout, re.S))))
+    here = bool(m) and os.path.normcase(os.path.realpath(m.group(1))) == os.path.normcase(str(SCRIPT))
+    return sorted(hours), here
+
+
+def fix_schedule():
+    """Windows: move the daily checks back to the local CHECK_HOURS when they drifted (a daylight saving or time
+    zone change, or triggers written without a UTC offset)."""
+    if os.name != 'nt':
+        return
+    found = job_hours()
+    if not found or not found[1] or found[0] == sorted(CHECK_HOURS):
+        return
+    r = register()
+    hours = found[0]
+    ran = ('had no UTC offset' if all(h < 0 for h in hours)
+           else 'ran at ' + ', '.join('a time without a UTC offset' if h < 0 else f'{h:02d}:00' for h in hours))
+    note(f"schedule {'fixed' if r.returncode == 0 else 'not fixed'}: the checks {ran}; "
+         + ('now it ' + SCHEDULE_TEXT if r.returncode == 0 else (r.stderr or r.stdout).strip()[:200]))
 
 
 def uninstall_job():
@@ -914,6 +954,10 @@ def main():
         return run_flow()
     if args.rehearse:
         return rehearse(args.since)
+    try:
+        fix_schedule()
+    except Exception as error:  # noqa: BLE001 - a schedule check never blocks the run
+        note(f'schedule check failed: {type(error).__name__}: {error}')
     is_due, reason = due()
     if is_due is None:
         fail(Run(), f'the schedule check could not run: {reason}')

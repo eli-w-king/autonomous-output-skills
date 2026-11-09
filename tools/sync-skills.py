@@ -63,6 +63,7 @@ Environment: COPILOT_SKILLS_DIR (default ~/.copilot/skills), SKILL_MINER_DIR (de
 Exit codes: 0 ok, 1 error, 2 usage error, 3 conflicts or unharvested edits (nothing overwritten), 4 install rolled back
 """
 import argparse
+import contextlib
 import datetime as dt
 import difflib
 import fnmatch
@@ -102,6 +103,8 @@ QUIET_SECONDS = 120
 # The private-only my-taste skill: the one machine whose settings name my_taste_source (where its daily update
 # writes the skill) copies these files in when they change there. .publishignore keeps my-taste/ out of every publish.
 MY_TASTE_FILES = ('SKILL.md', 'references/vscode-conventions.md')
+TERMS_FILE = 'private/private-terms.txt'
+PUBLIC_TERMS_FILE = 'private/public-terms.txt'
 INBOX_DAYS = 14
 MINER_FILES = (  # private/skill-miner/<name> in the repo <-> ~/.copilot/skill-miner/<path>
     ('voice-samples.md', 'private/voice-samples.md'),
@@ -130,6 +133,22 @@ GIT_ENV.update(GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never', GIT_EDITOR='tru
 
 
 # ---------------------------------------------------------------- files and fingerprints
+
+@contextlib.contextmanager
+def scratch_dir():
+    """A temporary folder, removed afterward. On Windows another process can hold a fresh folder for a moment (a
+    virus scan of the files just written in it), and tempfile.TemporaryDirectory then raises: one daily sync lost
+    its day to that. Removal is retried for up to 10 seconds, then left to the system's temp cleanup."""
+    path = tempfile.mkdtemp(prefix='skills-sync-')
+    try:
+        yield path
+    finally:
+        for _ in range(20):
+            shutil.rmtree(path, ignore_errors=True)
+            if not os.path.exists(path):
+                break
+            time.sleep(0.5)
+
 
 def is_text(data):
     return b'\0' not in data[:8192]
@@ -399,7 +418,7 @@ def merge3(ours, base, theirs):
     """git merge-file: (clean, merged bytes). Binary input never merges."""
     if b'\0' in ours + base + theirs:
         return False, b''
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch_dir() as tmp:
         t = Path(tmp)
         (t / 'ours').write_bytes(ours)
         (t / 'base').write_bytes(base)
@@ -981,7 +1000,7 @@ def collect_human(run, since, until, timeout=900):
     collector = Path(__file__).resolve().parent / 'collect-messages.py'
     name = (git('config', 'user.name') or '').split(' ')[0]
     sent_root = REPO / 'private' / 'inbox-sent'
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch_dir() as tmp:
         command = [sys.executable, str(collector), '--since', since, '--until', until, '--out', tmp]
         if name:
             command += ['--name', name]
@@ -1181,7 +1200,25 @@ MISSING, INVALID = object(), object()
 def miner_pairs():
     """(repo path, local file) for the weekly miner's private state and the private terms."""
     pairs = [(f'private/skill-miner/{name}', STATE / local) for name, local in MINER_FILES]
-    return pairs + [('private/private-terms.txt', STATE / 'private-terms.txt')]
+    return pairs + [(TERMS_FILE, STATE / 'private-terms.txt')]
+
+
+def public_terms():
+    """The names in private/public-terms.txt, lowercased: public (a GA model, say), so never private terms."""
+    try:
+        text = (REPO / PUBLIC_TERMS_FILE).read_text(encoding='utf-8-sig')
+    except OSError:
+        return set()
+    return {n.split('#', 1)[0].strip().lower() for n in text.splitlines() if n.split('#', 1)[0].strip()}
+
+
+def without_public_terms(data, public):
+    """A private terms file's bytes without the lines that name something public, or None when it has none."""
+    if data is None or not public:
+        return None
+    lines = data.decode('utf-8', 'replace').splitlines()
+    kept = [line for line in lines if line.strip().lower() not in public]
+    return None if len(kept) == len(lines) else ('\n'.join(kept) + '\n').encode('utf-8')
 
 
 def read_norm(path):
@@ -1277,7 +1314,7 @@ def merge_state_file(rel, b, l, r):
     if clean:
         return out, 0
     # The notes and voice samples are mostly added to: keep both sides' lines rather than markers.
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch_dir() as tmp:
         t = Path(tmp)
         for name, data in (('ours', l), ('base', b or b''), ('theirs', r)):
             (t / name).write_bytes(data)
@@ -1287,7 +1324,7 @@ def merge_state_file(rel, b, l, r):
 
 
 def looks_secret(data, rel):
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch_dir() as tmp:
         scan = Path(tmp) / Path(rel).name
         scan.write_bytes(data)
         ok, _ = scan_files([scan])
@@ -1295,12 +1332,15 @@ def looks_secret(data, rel):
 
 
 def miner_settled():
-    """Every state file is the same here, in the clone, and in the last agreed base (the sync's fast path)."""
+    """Every state file is the same here, in the clone, and in the last agreed base (the sync's fast path), and
+    no private terms file names something public."""
     for rel, local in miner_pairs():
         r, l = read_norm(REPO / rel), read_norm(local)
         if r != l or (r is not None and read_norm(miner_base(rel)) != r):
             return False
-    return True
+    public = public_terms()
+    return not public or (without_public_terms(read_norm(REPO / TERMS_FILE), public) is None
+                          and without_public_terms(read_norm(STATE / 'private-terms.txt'), public) is None)
 
 
 def sync_miner_state(run):
@@ -1310,12 +1350,30 @@ def sync_miner_state(run):
     JSON by key and by "id", the terms by line, the notes and voice samples with git merge-file (keeping both
     sides' lines where they overlap). Text that looks like a secret never goes to the repo. Deletions never
     spread: a machine without a file gets the repo's, and a file the repo stops carrying stays where it is.
+    A name in private/public-terms.txt is taken out of both terms files first, on every machine, so a name that
+    went public never comes back from one that still lists it.
     A local file is backed up before it is replaced. Returns the repo paths written (to commit)."""
     written, updated = [], []
     stamp = dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+    public = public_terms()
     for rel, local in miner_pairs():
         rp, bp = REPO / rel, miner_base(rel)
         r, l, b = read_norm(rp), read_norm(local), read_norm(bp)
+        if rel == TERMS_FILE and public:
+            clean_r, clean_l = without_public_terms(r, public), without_public_terms(l, public)
+            if clean_r is not None:
+                write_atomic(rp, clean_r)
+                written.append(rel)
+                r = clean_r
+            if clean_l is not None:
+                keep = STATE / 'backups' / stamp / local.relative_to(STATE)
+                keep.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(local, keep)
+                write_atomic(local, clean_l)
+                updated.append(local.name)
+                l = clean_l
+            if clean_r is not None or clean_l is not None:
+                run.note('names in private/public-terms.txt taken out of the private terms')
         if r == l:
             continue
         new_repo = new_local = None
@@ -1355,8 +1413,8 @@ def sync_miner_state(run):
             updated.append(local.name)
     if updated:
         prune_backups(STATE / 'backups')
-        run.note(f"miner state updated here: {', '.join(updated)}")
-    return written
+        run.note(f"miner state updated here: {', '.join(dict.fromkeys(updated))}")
+    return list(dict.fromkeys(written))
 
 
 def settle_miner_bases():
@@ -1556,7 +1614,7 @@ def harvest_conflicts(conflicts, run, state, slug):
     if branch:
         run.note(f'still in conflict: {names} (see {branch})')
         return
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch_dir() as tmp:
         scan = []
         for i, (p, (data, _)) in enumerate(sorted(files.items())):
             if data is not None:
@@ -2010,6 +2068,38 @@ def next_daily(hhmm, now=None):
     return at if at > now + dt.timedelta(minutes=1) else at + dt.timedelta(days=1)
 
 
+def daily_boundary(hhmm, now=None):
+    """StartBoundary of a daily Task Scheduler trigger at local HH:MM, with this session's UTC offset. Without an
+    offset Task Scheduler reads the time in the system's zone, and Cloud PCs keep that at UTC while the session takes
+    the client's zone, so a daily 10:00 ran at 02:00 Pacific. A daylight saving change moves a fixed offset an hour;
+    the next sync moves it back (job_drifted)."""
+    return next_daily(hhmm, now).astimezone().isoformat()
+
+
+def boundary_utc(boundary):
+    """A StartBoundary as a UTC datetime, or None when it has no UTC offset (the system's zone applies)."""
+    try:
+        start = dt.datetime.fromisoformat(boundary.strip().replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return start.astimezone(dt.timezone.utc) if start.tzinfo else None
+
+
+def boundary_local_time(boundary, now=None):
+    """'HH:MM': local time of the next run of a daily trigger with this StartBoundary, or None without a UTC offset."""
+    start = boundary_utc(boundary)
+    if start is None:
+        return None
+    now = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
+    upcoming = now.replace(hour=start.hour, minute=start.minute, second=0, microsecond=0)
+    if start > now:
+        upcoming = start
+    elif upcoming <= now:
+        upcoming += dt.timedelta(days=1)
+    local = upcoming.astimezone()
+    return f'{local.hour:02d}:{local.minute:02d}'
+
+
 def task_xml(schedule, python, script):
     from xml.sax.saxutils import escape
     user = subprocess.run(['whoami'], capture_output=True, text=True).stdout.strip()
@@ -2018,7 +2108,7 @@ def task_xml(schedule, python, script):
     kind, value = schedule.split()
     if kind == 'daily':
         trigger = f'''    <CalendarTrigger>
-      <StartBoundary>{next_daily(value).isoformat()}</StartBoundary>
+      <StartBoundary>{daily_boundary(value)}</StartBoundary>
       <Enabled>true</Enabled>
       <ScheduleByDay>
         <DaysInterval>1</DaysInterval>
@@ -2180,16 +2270,21 @@ def registered_job():
         xml = r.stdout
         m = re.search(r'<Arguments>(.*?)</Arguments>', xml, re.S)
         found = re.search(r'"([^"]+)"\s+"([^"]+)"\s+sync\b', html.unescape(m.group(1))) if m else None
-        schedule = None
+        schedule, boundary, trigger = None, None, None
         if '<ScheduleByDay>' in xml:
-            t = re.search(r'<CalendarTrigger>.*?<StartBoundary>[^<]*?T(\d\d):(\d\d)', xml, re.S)
-            schedule = parse_schedule_value('daily', f'{t.group(1)}:{t.group(2)}') if t else None
+            t = re.search(r'<CalendarTrigger>.*?<StartBoundary>([^<]+)</StartBoundary>', xml, re.S)
+            boundary = t.group(1).strip() if t else None
+            at = boundary_local_time(boundary) if boundary else None
+            schedule = parse_schedule_value('daily', at) if at else None
+            start = boundary_utc(boundary) if boundary else None
+            trigger = f'daily at {start:%H:%M} UTC' if start else None
         else:
             t = re.search(r'<TimeTrigger>.*?<Interval>PT(?:(\d+)H)?(?:(\d+)M)?</Interval>', xml, re.S)
             if t:
                 schedule = parse_schedule_value('every', int(t.group(1) or 0) * 60 + int(t.group(2) or 0))
         return {'schedule': schedule, 'python': found.group(1) if found else None,
-                'here': bool(found) and os.path.normcase(os.path.realpath(found.group(2))) == script}
+                'here': bool(found) and os.path.normcase(os.path.realpath(found.group(2))) == script,
+                'boundary': boundary, 'trigger': trigger}
     if sys.platform == 'darwin':
         plist, _ = launchd_paths()
         try:
@@ -2208,7 +2303,7 @@ def registered_job():
     return None
 
 
-def machine_status_body(schedule, pending=False):
+def machine_status_body(schedule, pending=False, trigger=None):
     if os.name == 'nt':
         job = f'Task Scheduler "{TASK_NAME}", below-normal priority, no window'
     elif sys.platform == 'darwin':
@@ -2216,13 +2311,14 @@ def machine_status_body(schedule, pending=False):
     else:
         job = 'crontab'
     return (f'schedule: {describe(schedule)}'
-            + (' (launchd reloads the job when the run that wrote this ends)' if pending else '') + f'\njob: {job}\n')
+            + (' (launchd reloads the job when the run that wrote this ends)' if pending else '') + f'\njob: {job}\n'
+            + (f'trigger: {trigger}\n' if trigger else ''))
 
 
-def write_machine_status(slug, schedule, pending=False):
+def write_machine_status(slug, schedule, pending=False, trigger=None):
     """private/machines/<host>.txt: this machine's schedule, so the repo shows every machine's. Rewritten only when
     it changes, so it is committed only then."""
-    body = machine_status_body(schedule, pending)
+    body = machine_status_body(schedule, pending, trigger)
     rel = f'private/machines/{slug}.txt'
     try:
         if (REPO / rel).read_text(encoding='utf-8').split('since:')[0] == body:
@@ -2243,14 +2339,43 @@ def status_stale(slug, state):
         current = (REPO / f'private/machines/{slug}.txt').read_text(encoding='utf-8').split('since:')[0]
     except OSError:
         current = ''
-    return current != machine_status_body(shown, bool(pending))
+    return current != machine_status_body(shown, bool(pending), state.get('schedule_trigger'))
+
+
+def check_due(state):
+    """Windows: this machine's daily trigger has not been checked today (job_drifted)."""
+    return (os.name == 'nt' and bool(state.get('schedule_managed'))
+            and str(state.get('schedule') or '').startswith('daily ')
+            and state.get('schedule_checked') != dt.date.today().isoformat())
+
+
+def note_trigger(state, job):
+    """Keep the registered trigger's UTC time for private/machines/<host>.txt."""
+    if job and job.get('trigger'):
+        state['schedule_trigger'] = job['trigger']
+    else:
+        state.pop('schedule_trigger', None)
+
+
+def job_drifted(state, want):
+    """Windows, once a day: the registered daily trigger no longer runs at the wanted local time (a daylight saving
+    or time zone change moved it, or it was written without a UTC offset and runs in the system's zone)."""
+    if not (check_due(state) and want.startswith('daily ')):
+        return False
+    state['schedule_checked'] = dt.date.today().isoformat()
+    job = registered_job()
+    if job and job['here']:
+        note_trigger(state, job)
+    save_state(state)
+    return bool(job and job['here'] and job['schedule'] != want)
 
 
 def schedule_due(settings):
     """The repo's rule for this machine changed since this machine last acted on it, a launchd reload waits to be
-    confirmed, or private/machines/<host>.txt is behind. Cheap: two small file reads."""
+    confirmed, private/machines/<host>.txt is behind, or today's check of a Windows trigger is due. Cheap: small
+    file reads."""
     state = load_state()
-    if state.get('schedule_pending') or status_stale(host_slug(host_name(settings)), state):
+    if state.get('schedule_pending') or status_stale(host_slug(host_name(settings)), state) or check_due(state):
         return True
     want, _ = wanted_schedule(settings)
     return want is not None and want != state.get('schedule_seen')
@@ -2264,13 +2389,14 @@ def apply_schedule(settings, run, slug):
     written = change_schedule(settings, run, slug, state)
     if not written and status_stale(slug, state):
         pending = state.get('schedule_pending')
-        written = write_machine_status(slug, pending['value'] if pending else state['schedule'], bool(pending))
+        written = write_machine_status(slug, pending['value'] if pending else state['schedule'], bool(pending),
+                                       state.get('schedule_trigger'))
     return written
 
 
 def change_schedule(settings, run, slug, state):
     want, _ = wanted_schedule(settings)
-    force = False
+    force = drifted = False
     pending = state.get('schedule_pending')
     if pending:
         try:
@@ -2291,10 +2417,15 @@ def change_schedule(settings, run, slug, state):
             return []
         del state['schedule_pending']
         force = True
-    if want is None or (want == state.get('schedule_seen') and not force):
+    if want is None:
         if force:
             save_state(state)
         return []
+    if want == state.get('schedule_seen') and not force:
+        drifted = job_drifted(state, want)
+        if not drifted:
+            return []
+        force = True
     job = registered_job()
     if not job or not job['here']:
         state['schedule_seen'] = want
@@ -2304,8 +2435,9 @@ def change_schedule(settings, run, slug, state):
     state['schedule_managed'] = True
     if job['schedule'] == want and not force:
         state['schedule'] = state['schedule_seen'] = want
+        note_trigger(state, job)
         save_state(state)
-        return write_machine_status(slug, want)
+        return write_machine_status(slug, want, trigger=state.get('schedule_trigger'))
     ok, what = register_job(want, job['python'] or default_python(), REPO / 'tools' / 'sync-skills.py', defer=True)
     if ok == 'pending':
         state['schedule_seen'] = want
@@ -2315,9 +2447,16 @@ def change_schedule(settings, run, slug, state):
         return write_machine_status(slug, want, pending=True)
     if ok:
         state['schedule'] = state['schedule_seen'] = want
+        if os.name == 'nt':
+            note_trigger(state, registered_job())
+            state['schedule_checked'] = dt.date.today().isoformat()
         save_state(state)
-        run.note(f'schedule now {describe(want)}')
-        return write_machine_status(slug, want)
+        if drifted:
+            ran = f"ran at {job['schedule'].split()[1]}" if job['schedule'] else 'had no UTC offset'
+            run.note(f'schedule fixed: the task {ran}, now {describe(want)}')
+        else:
+            run.note(f'schedule now {describe(want)}')
+        return write_machine_status(slug, want, trigger=state.get('schedule_trigger'))
     save_state(state)
     run.note(f'schedule not changed ({first_error(what)})')
     return []
@@ -2371,6 +2510,9 @@ def cmd_schedule(args):
     state['schedule_seen'] = want
     state['schedule_managed'] = ok is True
     state.pop('schedule_pending', None)
+    if os.name == 'nt':
+        note_trigger(state, registered_job())
+        state['schedule_checked'] = dt.date.today().isoformat()
     save_state(state)
     settings.pop('interval_minutes', None)
     if settings.get('private_url'):
@@ -2414,7 +2556,13 @@ def cmd_sync_status(args):
     print(f"clone {tilde(REPO)}: origin {git('remote', 'get-url', 'origin') or '-'}, public {git('remote', 'get-url', 'public') or '-'}")
     want, why = wanted_schedule(settings)
     job = registered_job()
-    print(f"schedule: {describe(job['schedule']) if job and job['schedule'] else 'unknown'}"
+    if job and job['schedule']:
+        shown = describe(job['schedule']) + (f" ({job['trigger']})" if job.get('trigger') else '')
+    elif job and job.get('boundary'):
+        shown = f"a daily trigger at {job['boundary']} with no UTC offset, in the system's time zone (the next sync fixes it)"
+    else:
+        shown = 'unknown'
+    print(f"schedule: {shown}"
           + ('' if not job or job['here'] else ' (the job runs another clone)')
           + f"; {SCHEDULE_FILE}: {describe(want) if want else why}"
           + ('; a launchd reload is waiting for its first run' if state.get('schedule_pending') else ''))

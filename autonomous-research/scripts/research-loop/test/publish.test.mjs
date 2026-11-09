@@ -60,7 +60,7 @@ writeFileSync(join(study, 'rounds', 'r1', 'design-notes.md'), '# Design notes\n'
 writeFileSync(join(study, 'rounds', 'r1', 'gate-help.local.md'), 'stays local too\n');
 
 process.env.RESEARCH_LOOP_PRIVATE_CLONE = clone;
-const { publishStudy, validatorErrors, PRIVATE_CLONE } = await import('../lib/github.mjs');
+const { publishStudy, publishPrivateFiles, commonDir, validatorErrors, PRIVATE_CLONE } = await import('../lib/github.mjs');
 // Never let this test touch a real clone.
 assert.equal(resolve(PRIVATE_CLONE), resolve(clone));
 
@@ -142,4 +142,24 @@ test('only plain repository paths count as a file an error is tied to', () => {
 		'8 skills, 206 text files checked: 2 error(s), 0 warning(s)',
 	].join('\n'));
 	assert.deepEqual(parsed.map(e => e.path), ['other-skill/SKILL.md', 'private/studies/s1/report.md', null, null, null]);
+});
+
+test('several private files go out in one commit, and nothing outside private/ is accepted', { skip }, () => {
+	const local = join(scratch, 'research-loop');
+	mkdirSync(local, { recursive: true });
+	writeFileSync(join(local, 'prior-findings.md'), '# Prior findings\n');
+	writeFileSync(join(local, 'question-bank.md'), '# Question bank\n');
+	const before = remoteCommits();
+	const r = publishPrivateFiles([
+		{ localPath: join(local, 'prior-findings.md'), relPath: 'private/research-loop/prior-findings.md' },
+		{ localPath: join(local, 'question-bank.md'), relPath: 'private/research-loop/question-bank.md' },
+	], { message: 'test publish files' });
+	assert.equal(r.pushed, true);
+	assert.equal(remoteCommits(), before + 1);
+	assert.ok(remoteFiles().includes('private/research-loop/prior-findings.md'));
+	assert.ok(remoteFiles().includes('private/research-loop/question-bank.md'));
+	assert.throws(() => publishPrivateFiles([{ localPath: join(local, 'question-bank.md'), relPath: 'skills/question-bank.md' }]), /only files under private\//);
+	assert.equal(commonDir(['private/research-loop/a.md', 'private/research-loop/b.md']), 'private/research-loop');
+	assert.equal(commonDir(['private/studies/s1/x.md', 'private/research-loop/a.md']), 'private');
+	assert.equal(commonDir(['private/research-loop/a.md']), 'private/research-loop/a.md');
 });

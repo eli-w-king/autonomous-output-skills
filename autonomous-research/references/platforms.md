@@ -459,7 +459,7 @@ closed"), and it does not cancel a recruitment launched on a panel. A self-recru
 sent by a native recruiting project) has nothing to mark per participant: `get_recruitment_status`
 shows `automated_recruitment: false` and no incentive, and an interview completes on its own. When a
 study completes, Outset's info address sends "Outset - <study name> has completed"; those arrive at
-16:00 UTC.
+16:00 UTC. Unpublishing sends no email; REST `active: false` is the confirmation.
 
 ### 27. User Interviews: closing is a request, and its own check comes first (found 2026-11-03)
 
@@ -473,7 +473,10 @@ required (1 Yes, 2 No, 3 N/A cancelled, 4 N/A test), the rest optional. The moda
 request to close a project, recruiting will not continue." The project then reads status 9, "Pending
 Close Request", until the platform's team finishes it (5 to 8 are the completed states; 1 is Launched,
 2 Currently recruiting, 4 Done recruiting). A GET on `close_requests` returns a 500: it is post only.
-No email arrived for several payouts in a row, so do not count on one for a payout.
+The team finished the closes within a day: `GET /api/projects/<id>` then read `latestStatusTypeId` 6
+and `currentStatus` "Project Complete - Charged". `GET /api/projects/<id>/summary` has
+`paidParticipantCount`, which counts the participants paid through "Confirm & pay". No email arrived
+for payouts or for closes, so confirm them with these two reads (and Outset's `active`), not by email.
 
 ---
 

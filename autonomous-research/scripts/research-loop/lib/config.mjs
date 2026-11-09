@@ -67,9 +67,19 @@ export const CONFIG = {
 	// The research a study's findings are compared with (a team's research wiki or repository): how it is named in
 	// reports, where its pages link, and a local clone to read. Read only; the loop never edits it.
 	priorResearch: {
-		label: raw.prior_research?.label || 'prior research',
+		label: raw.prior_research?.label || 'past research',
 		baseUrl: raw.prior_research?.base_url || null,
 		clone: expand(raw.prior_research?.clone || null),
+		// Contributing a finished study back (wiki-pr.mjs): the wiki's repository, the account whose fork opens the one
+		// pull request, a separate local clone to prepare it in (the reading clone is never touched), and words the
+		// added text must never contain (people's names).
+		contribute: raw.prior_research?.contribute?.upstream ? {
+			upstream: raw.prior_research.contribute.upstream,
+			account: raw.prior_research.contribute.account ?? null,
+			clone: expand(raw.prior_research.contribute.clone ?? null),
+			base: raw.prior_research.contribute.base ?? 'main',
+			denyTerms: raw.prior_research.contribute.deny_terms ?? [],
+		} : null,
 	},
 	// The one DM per round when a round's study stops at an admin's approval to publish (lib/gatedm.mjs). No channel
 	// means no DM; the gate still shows in the morning summary, the report and the issue.

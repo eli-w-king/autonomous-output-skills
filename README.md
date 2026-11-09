@@ -98,7 +98,9 @@ and at logon: Task Scheduler on Windows (below-normal priority, no window), laun
 (background priority, low-priority I/O, Nice 10). The time comes from the private repo:
 `private/sync-schedule.txt` has one rule per machine (daily at 10:30 without that file). Every sync
 reads it, so a change there reaches each machine at its next run with nobody visiting the machine, and
-each machine records what it applied in `private/machines/<host>.txt`. When nothing changed a run
+each machine records what it applied in `private/machines/<host>.txt`. On Windows the trigger carries
+the session's UTC offset, because a Cloud PC's system clock is on UTC, and the first run each day
+checks it, so a daylight saving change is put right by the next day. When nothing changed a run
 exits within a few seconds,
 after one `git ls-remote` and a fingerprint check. Otherwise it:
 
