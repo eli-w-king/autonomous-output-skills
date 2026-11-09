@@ -65,6 +65,14 @@ For Microsoft 365 work (Outlook, Teams, OneDrive, SharePoint, Planner):
 - Without WorkIQ, browser or Computer Use can handle supported UI tasks. They are not workarounds
   for WorkIQ permission/policy denials or missing consent.
 
+For websites and web forms (Playwright MCP):
+- Each machine needs it in its own `~/.copilot/mcp-config.json`, under `mcpServers`:
+  `"microsoft/playwright-mcp": { "type": "stdio", "command": "npx", "args": ["@playwright/mcp@latest"], "tools": ["*"] }`.
+  It uses Google Chrome and Node. A laptop's `mcp-config.json` does not reach a dev box.
+- Start a new session, then check it with one navigate and snapshot of a page you can see.
+- Its Chrome profile (`~/Library/Caches/ms-playwright-mcp/` on macOS) keeps sign-ins per machine.
+  Sign in once in that window if a site asks.
+
 For Code OSS work (demos, prototypes, app studies):
 - A `microsoft/vscode` checkout built with the Node from its `.nvmrc` (`npm install`,
   `npm run compile`), with `.build/electron` present.

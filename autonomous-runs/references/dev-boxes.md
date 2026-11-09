@@ -80,7 +80,12 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   about 45.
 - `get_remote_session` returns one snapshot: the status (`running`, `needsInput`, `completed`), `queuedMessages`
   and the latest turn's text. Use it to confirm that a message arrived, not to poll.
-- A host's sessions see only the skills installed on that host, in its own `~/.copilot/skills`. The skills sync
+- A host's sessions see the skills installed on that host, in its own `~/.copilot/skills`. While a VS Code window
+  is connected to the box, it also forwards the laptop's personal skills (`~/.copilot/skills`, `~/.agents/skills`,
+  `~/.claude/skills`) and its extension and plugin skills as "VS Code Synced Data" (VS Code `includeUserStorage`
+  for remote agent hosts, Insiders 1.140). Sessions started without that window (automations on the box,
+  `create_remote_session`, anything after the laptop closes) cannot count on it, and MCP servers in the laptop's
+  `~/.copilot/mcp-config.json` are not forwarded. So keep each host's own install current: the skills sync
   (`tools/sync-skills.py` from the skills repo, INSTALL.md "Add the machine") installs and updates them once a day
   and at logon, so a skill change made on one host reaches another at that host's next daily run. Run
   `sync-skills.py sync` on the other host to get it sooner.
