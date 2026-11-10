@@ -1,6 +1,6 @@
 ---
 name: my-voice
-description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', or asks for an email, a Slack or Teams message, a LinkedIn post or comment reply, an event invite or description, a bio, a team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, human not robotic, no marketing tone or AI slop, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
+description: "My voice: write anything the user will send, post, or say as themselves so it sounds like them. Use when the user says 'write it like how I would say it', 'in my voice', 'make it sound like me', 'how I'd say it', 'draft a message/reply/post for me', 'rewrite this as me', 'less like AI', or asks for an email, a Slack or Teams message, a LinkedIn post or comment reply, an event invite or description, a bio, a team update, feedback request, announcement, reply, PR or issue description, notes for engineers, a PM summary, a design rationale, UI copy, or a script they will read out loud. Covers the user's core voice (plain, direct, warm, honest about status, concrete, human not robotic, no marketing tone or AI slop, no em or en dashes), channel patterns, copyediting their drafts without changing their wording, and length rules. Reads local private writing samples when present. Kept current by the weekly skill miner from the user's own edits, approvals, and corrections."
 ---
 
 # My voice
@@ -37,9 +37,12 @@ length, and format.
    "unlock", "elevate", "game changer", or superlatives the facts do not support. If it reads like
    a launch blog, it is "too markety"; use straightforward bullets instead. If it reads as AI
    generated (slogan rhythm, frills, decoration, polished filler), it is "AI slop": strip it back to
-   simple sentences that are quick to read. Frame things for the reader as encouragement and
-   opportunity ("a chance to learn a new way to work"), never as pressure to keep up, blame, a sales
-   pitch, or a backhanded compliment; a simple "congrats" beats praise with a catch.
+   simple sentences that are quick to read. The specific tells (puffed-up importance, "serves as",
+   "not just X, it's Y", trailing "-ing" verdicts, chatbot leftovers) and how to fix the vagueness
+   under them are in [AI tells](references/ai-tells.md). Frame things for the reader as
+   encouragement and opportunity ("a chance to learn a new way to work"), never as pressure to keep
+   up, blame, a sales pitch, or a backhanded compliment; a simple "congrats" beats praise with a
+   catch.
 5. **Honest about status.** Call unfinished work what it is ("still a WIP", "a first pass", "close
    but still a work in progress") and name the open question instead of hiding it.
 6. **Concrete.** Name the feature, the setting, the branch, the link, the date. Show an example
@@ -47,7 +50,8 @@ length, and format.
    specific things people will see or get (an overnight run that ends in a demo video, many agents
    working in parallel) instead of abstract or "woo woo" claims, and give each claim or perk the
    context an outsider needs to feel it.
-7. **No em or en dashes.** Use periods, commas, colons, or parentheses.
+7. **No em or en dashes.** Use periods, commas, colons, or parentheses, and mix them: a draft that
+   is only periods and commas, with every sentence about the same length, reads as AI too.
 8. **No process narration.** Do not mention how the work was produced ("we recorded a demo", "an
    agent drafted this", "I used X to..."). The only exception is an attribution the user asks for.
 9. **Respect the requested length.** "Shorter" means cut it roughly in half; "one paragraph" means
@@ -123,6 +127,7 @@ first person, contractions, short spoken sentences ("So here's what we changed."
 
 ## How to deliver
 
+- Before handing it over, run the final pass at the end of [AI tells](references/ai-tells.md).
 - Put the full text in the chat as a ready-to-paste code block, one block per channel (email,
   Slack, Teams), every time, even when you also saved it as a draft or sent it; the user should
   never have to ask "what is the draft?". Write a `.txt` on the Desktop only when asked, and open it
