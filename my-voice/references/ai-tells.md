@@ -3,7 +3,9 @@
 Run this as the last pass on anything written as the user. It boils down Wikipedia's field guide,
 [Signs of AI writing](https://en.wikipedia.org/w/index.php?title=Wikipedia:Signs_of_AI_writing&oldid=1384793302)
 (October 2026 revision, CC BY-SA), to what applies to the user's channels: Slack and Teams posts,
-email, LinkedIn, PR and issue text, commit messages, UI copy, and scripts.
+email, LinkedIn, PR and issue text, commit messages, UI copy, and scripts. It's the same for
+everyone's `my-voice`: the user's own rules in SKILL.md sit on top of it and decide what it leaves
+open.
 
 ## The real problem
 
@@ -32,13 +34,12 @@ One word from these lists isn't a problem. A cluster of them is.
   there is one, or "the docs identify X as" when you could just state X and link the doc. Say who and
   how many ("4 of 6 participants").
 - **Promotional words.** Boasts, vibrant, rich, profound, groundbreaking, renowned, nestled, in the
-  heart of, commitment to, a diverse array of. These sit next to the marketing words core rule 4
-  already bans.
+  heart of, commitment to, a diverse array of. They read as marketing copy, not as a person.
 - **Formula sections.** "Despite these challenges...", "Challenges and future outlook", "Looking
   ahead", "Awards and recognition". If there's a next step, say it plainly.
 - **Hedges about what you know.** "Based on available information", "while details are limited",
   "it's important to note", "should be treated as X rather than Y", "does not by itself establish".
-  State what's known, or name the open question (core rule 5).
+  State what's known, or name the open question.
 
 ## Word patterns
 
@@ -59,11 +60,12 @@ One word from these lists isn't a problem. A cluster of them is.
 
 ## Rhythm and punctuation
 
-The no-dash rule (core rule 7) stays. But models trained to skip dashes fall back on nothing but
-periods and commas, with every sentence between 8 and 20 words. That flat, even beat is now a tell
-of its own.
+Heavy em dash use was the best-known tell for years (Wikipedia now lists it as a historical sign),
+and many readers still take it as one: use dashes no more than the user does, and not at all if
+their rules say so. Models trained to skip dashes fall back on nothing but periods and commas, with
+every sentence between 8 and 20 words. That flat, even beat is now a tell of its own.
 
-Keep sentences short and flowing (core rule 2), but don't make them all the same length. A colon
+Keep the user's own sentence rhythm, but don't make every sentence the same length. A colon
 before an example, parentheses for an aside, a question, or one longer sentence when the idea needs
 room all break the pattern. Read it out loud, and if every sentence lands on the same beat, rewrite
 one.
@@ -73,8 +75,8 @@ one.
 - Sentence case headings, not Title Case.
 - Bold the one thing the reader must not miss (the question, the date), not every other phrase.
 - No "**Label:** sentence" bullets unless the channel pattern asks for them.
-- No emoji at the start of every heading or bullet. One emoji on an announcement title is the user's
-  pattern; more than that is a tell.
+- No emoji at the start of every heading or bullet. Use emoji only the way the user does (their
+  channel patterns say how); more than that is a tell.
 - Straight quotes and apostrophes, not curly ones carried over from a chat window.
 - No Markdown where it won't render (a plain text box, some forms, a `.txt`).
 
@@ -89,15 +91,15 @@ Before handing text over, take out anything that talks to the user instead of th
 - Tracking junk in links: `utm_source=chatgpt.com`, `utm_source=copilot.com`, `referrer=grok.com`,
   `contentReference[oaicite`. Strip the query string back to the real link.
 
-The user's own closers ("Any questions for me?", "Send any feedback my way") are fine. They're asks
-to teammates, not offers from an assistant.
+The user's own closers (the ones in their channel patterns and samples) are fine. They're asks to
+teammates, not offers from an assistant.
 
 ## Customer-service tone
 
 A reply to a person should read like a person wrote it. Leave out "I hope this message finds you
 well", "Dear team, I am writing to...", "I apologize for any inconvenience", "I understand your
-concerns", and "I have carefully reviewed". A warm line that's actually about the reader (core rule
-1) is different and fine. And don't split a short reply into titled sections.
+concerns", and "I have carefully reviewed". A warm line that's actually about the reader is
+different and fine. And don't split a short reply into titled sections.
 
 ## Commit messages, PR text, and changelogs
 
@@ -130,8 +132,8 @@ None of these are tells on their own: clean grammar, a mix of casual and formal,
 like "however", or a formal register when the channel calls for one. Don't add typos or slang to
 sound human.
 
-When copyediting the user's own draft, core rule 10 wins and their wording stays. If something in
-it matches this list, mention it rather than rewriting it.
+When copyediting the user's own draft, their wording stays ("Keep their wording" in SKILL.md). If
+something in it matches this list, mention it rather than rewriting it.
 
 ## Final pass
 

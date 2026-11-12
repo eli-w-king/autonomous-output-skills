@@ -1,0 +1,57 @@
+$schema: "1.0"
+name: always-on-agent-box
+description: 'A Windows dev box for coding agents that stays on: VS Code Insiders, Git, GitHub CLI, Node.js, Python, FFmpeg, Chrome and the Azure CLIs.'
+# Visual Studio 2022 on Windows 11. A plain Windows 11 Enterprise image works too; list what your dev
+# center offers with: az devcenter admin image list --dev-center-name <name> --resource-group <group>
+image: microsoftvisualstudio_visualstudioplustools_vs-2022-ent-general-win11-m365-gen2
+tasks:
+  - name: ~/winget
+    displayName: 'PowerShell 7'
+    parameters:
+      package: Microsoft.PowerShell
+  - name: ~/winget
+    displayName: 'Git'
+    parameters:
+      package: Git.Git
+  - name: ~/winget
+    displayName: 'GitHub CLI'
+    parameters:
+      package: GitHub.cli
+  - name: ~/winget
+    displayName: 'Node.js LTS'
+    parameters:
+      package: OpenJS.NodeJS.LTS
+  - name: ~/winget
+    displayName: 'Chrome'
+    parameters:
+      package: Google.Chrome
+  - name: ~/winget
+    displayName: 'Azure CLI'
+    parameters:
+      package: Microsoft.AzureCLI
+  - name: ~/winget
+    displayName: 'Azure Developer CLI'
+    parameters:
+      package: Microsoft.Azd
+# These run as the person when they first sign in to the box.
+userTasks:
+  - name: ~/winget
+    displayName: 'VS Code Insiders'
+    parameters:
+      package: Microsoft.VisualStudioCode.Insiders
+  - name: ~/winget
+    displayName: 'Python 3.13'
+    parameters:
+      package: Python.Python.3.13
+  - name: ~/winget
+    displayName: 'FFmpeg'
+    parameters:
+      package: Gyan.FFmpeg
+  - name: ~/winget
+    displayName: 'jq'
+    parameters:
+      package: jqlang.jq
+  - name: ~/powershell
+    displayName: 'Account setup (npm feed, Yarn, Pillow, git)'
+    parameters:
+      command: '$env:Path = [Environment]::GetEnvironmentVariable(''Path'',''Machine'') + '';'' + [Environment]::GetEnvironmentVariable(''Path'',''User''); Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force; git config --global core.longpaths true; npm.cmd config set registry https://packagefeedproxy.microsoft.io/npm/; npm.cmd install -g yarn; $py = Join-Path $env:LOCALAPPDATA ''Programs\Python\Python313\python.exe''; if (-not (Test-Path $py)) { $py = (Get-Command python -ErrorAction SilentlyContinue).Source }; & $py -m pip install --user --disable-pip-version-check Pillow'

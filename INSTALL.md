@@ -1,6 +1,6 @@
 # Install the autonomous output skills
 
-This repository holds seven user-global skills:
+This repository holds eight user-global skills:
 
 | Skill | Role |
 |-------|------|
@@ -11,10 +11,29 @@ This repository holds seven user-global skills:
 | `autonomous-runs` | operating rules for overnight and unattended work, and the shared gotchas by topic |
 | `autonomous-research` | studies, synthesis, and the Outset, Marvin, and User Interviews plumbing |
 | `my-voice` | writes what I send or post as me; kept current by the weekly skill miner |
+| `autonomous-setup` | the setup interview: one prompt gets a Mac or Windows machine ready for these skills and the workshop, and proves each step |
+
+**The quick way: the setup interview.** On a new machine, start a plain Chat in the Agents window of VS Code
+Insiders (or use Copilot CLI). No project or folder is needed.
+
+### Before you paste: set up this chat
+
+In the session receiving the prompt, choose **Claude Opus 5.5**, **Max** reasoning, **1M** context,
+**Autopilot** and **Allow all**, with the workspace on **Chat** and terminal sandboxing **Off**.
+Check those choices again whenever the setup asks you to start a new session. Then paste:
+
+```text
+Set me up for the workshop. Keep this chat's workspace as it is (don't set or change it). Clone https://github.com/eli-w-king/autonomous-output-skills to $HOME/.copilot/autonomous-output-skills (or pull it if it's already there), then read autonomous-setup/SKILL.md in that folder and follow it from the top.
+```
+
+It checks your VS Code settings first, then opens a setup checklist, explains and installs what's missing (the tools, your private copy of the skills with the weekly update, Work IQ, the Playwright MCP server, Computer Use, cloud dictation), and gives you a Try-it prompt to test each item yourself. Sign-ins, secret entry and optional paid resources still need you. Paste the same prompt again any time to pick up where you stopped. The rest of this file is the manual route and the two-repo setup I use on my own machines.
 
 Copilot CLI and VS Code (Insiders and the Agents window) both read `~/.copilot/skills/`, so one install
 covers both. On each machine, `tools/sync-skills.py` keeps that folder and the repos in sync in both
 directions, once a day and at logon (README.md, "How the skills stay current").
+
+Setting it up on your own account (at a workshop, say)? Follow [automations/ATTENDEES.md](automations/ATTENDEES.md)
+instead of sections 1, 3, 6, and 7: one account, a private copy, and skill changes you review as pull requests.
 
 ## 1. Authenticate GitHub CLI
 
@@ -159,7 +178,7 @@ python3 ~/.copilot/autonomous-output-skills/tools/sync-skills.py sync-status    
 python3 ~/.copilot/autonomous-output-skills/tools/sync-skills.py status | tail -1
 python3 ~/.copilot/autonomous-output-skills/tools/validate-skills.py --quiet && echo "ok repo validates"
 for s in autonomous-computer-use autonomous-demos autonomous-prototypes autonomous-variations autonomous-runs \
-  autonomous-research my-voice; do test -f "$HOME/.copilot/skills/$s/SKILL.md" && echo "ok $s"; done
+  autonomous-research my-voice autonomous-setup; do test -f "$HOME/.copilot/skills/$s/SKILL.md" && echo "ok $s"; done
 for s in $(grep -v '^#' ~/.copilot/autonomous-output-skills/retired.txt); do
   test -e "$HOME/.copilot/skills/$s" && echo "still installed: $s"; done
 
@@ -173,7 +192,7 @@ node "$R/probe.mjs"                # research keys and connections, on a machine
 ```
 
 On Windows, run the `.sh` checks in Git Bash (`C:\Program Files\Git\bin\bash.exe`), not the WSL `bash`
-that comes first on PATH. Then start a new agent session and confirm the seven skills appear in the
+that comes first on PATH. Then start a new agent session and confirm the eight skills appear in the
 available-skills list and the retired names do not.
 
 ## 5. Optional chat modes

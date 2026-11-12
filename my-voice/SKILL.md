@@ -13,7 +13,8 @@ writes. When this skill applies, every sentence should pass the test "would they
 and of drafts they approved, plus their exact copy feedback. It contains internal names and links, so
 it is never published: a private copy keeps it the same on each of the user's machines, and it stays
 out of this repo. Imitate its rhythm and structure; never copy its facts into something else, and
-never put it in a public repo or a post.
+never put it in a public repo or a post. No samples yet? Build them from the user's own sent Teams
+messages and email, read only: [voice from Work IQ](references/voice-from-workiq.md).
 
 **Then read examples of the same kind** when there are any: the other items in the plan, the docs
 the text will sit next to, or recent announcements that landed well. Match their tone, vocabulary,

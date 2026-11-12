@@ -15,6 +15,18 @@ run-weekly-skill-miner.sh, which does this with launchd on macOS).
                                           private state that publishes nothing (to test changes)
   run-weekly-skill-miner.py               what the schedule runs: start a run only when one is due
 
+Attendee mode (automations/ATTENDEES.md; the settings in ~/.copilot/skills-sync.json say "mode": "attendee"):
+  run-weekly-skill-miner.py --automation  the start of an Agents window automation run: prepares the run and prints
+                                          the prompt and paths for the automation's own session
+  run-weekly-skill-miner.py --finish DIR  the end of that run: checks it, pushes the review branch, and opens or
+                                          updates the review pull request and the one for the shared skills' updates
+  run-weekly-skill-miner.py --dry-run     every step except the model: pushes the review branch and opens or
+                                          updates the pull requests with what is already on it
+  run-weekly-skill-miner.py --check-run [SESSION] [--json]
+                                          the proof for a weekly run: model, effort, context, and approvals
+In attendee mode a run never publishes: it pushes the review branch of the private copy and opens pull requests there,
+and --install uses launchd on macOS too.
+
 The runner does the deterministic parts and the agent does the judgment. Before the agent starts, the
 runner takes the lock, waits for a running skills sync, waits if anything in the repo or the installed
 skills changed in the last hour, fetches origin (the private repo), merges origin/main when that is
@@ -46,7 +58,12 @@ sync = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sync)
 
 SESSIONS = Path(os.environ.get('COPILOT_SESSION_STATE', '~/.copilot/session-state')).expanduser()
-TASK_NAME = 'Autonomous weekly skill miner'
+TASK_NAME = os.environ.get('SKILL_MINER_TASK', 'Autonomous weekly skill miner')
+# Attendee mode (automations/ATTENDEES.md): a private copy with a review branch. Runs push that branch and open pull
+# requests in the private copy instead of publishing, and an Agents window automation can do the agent's part.
+SETTINGS = sync.load_settings()
+ATTENDEE = SETTINGS.get('mode') == 'attendee'
+LABEL = os.environ.get('SKILL_MINER_LABEL', 'com.autonomous-output-skills.weekly-skill-update')
 
 
 def approved_models():
@@ -58,7 +75,8 @@ def approved_models():
     return [name for name in (line.split('#', 1)[0].strip() for line in lines) if name]
 
 
-MODEL = os.environ.get('SKILL_MINER_MODEL') or (approved_models() or ['claude-opus-5.5'])[0]
+MODEL = (os.environ.get('SKILL_MINER_MODEL') or sync.load_settings().get('miner_model')
+         or (approved_models() or ['claude-opus-5.5'])[0])  # miner_model: attendee mode, from setup-attendee --model
 FALLBACK_MODEL = next((m for m in approved_models() if m != MODEL), None)  # never a smaller one or "auto"
 EFFORT, CONTEXT = 'max', 'long_context'
 TIME_LIMIT = int(os.environ.get('SKILL_MINER_TIME_LIMIT', '14400'))
@@ -90,6 +108,7 @@ P = Paths(SCRIPT.parents[1], sync.SKILLS, sync.STATE)
 REAL_MINER = P.miner
 REHEARSAL = False
 FORCE = False
+AUTOMATION = False
 
 
 def note(message):
@@ -138,7 +157,9 @@ def git_out(*args):
 
 # ---------------------------------------------------------------- lock
 
-def acquire_lock():
+def acquire_lock(automation=False):
+    """Take the run lock. An automation run's agent is a separate process, so its lock carries no pid: the sync and
+    other runs treat it as held until --finish releases it, or for up to six hours."""
     try:
         P.lock.mkdir()
     except FileExistsError:
@@ -152,7 +173,10 @@ def acquire_lock():
             P.lock.mkdir()
         except FileExistsError:
             return False
-    (P.lock / 'pid').write_text(f'{os.getpid()}\n', encoding='utf-8')
+    if automation:
+        (P.lock / 'owner').write_text(f'automation {utc_now()}\n', encoding='utf-8')
+    else:
+        (P.lock / 'pid').write_text(f'{os.getpid()}\n', encoding='utf-8')
     waited = 0
     sync_lock = P.skills.parent / 'skills-sync.lock'
     while sync_lock.is_dir() and waited < 600:
@@ -291,6 +315,8 @@ def run_agent(copilot, prompt, model, usage_file, out_file, seconds):
         args += ['--max-ai-credits', os.environ['SKILL_MINER_MAX_AI_CREDITS']]
     for name in servers:
         args += ['--disable-mcp-server', name]
+    if ATTENDEE and sys.platform == 'darwin' and shutil.which('caffeinate'):
+        args = ['caffeinate', '-i'] + args  # keep the Mac awake for the run (the macOS runner does the same)
     P.skills.mkdir(parents=True, exist_ok=True)
     P.backups.mkdir(parents=True, exist_ok=True)
     return bounded(args, seconds, out_file, agent_env(), str(P.repo))
@@ -377,9 +403,14 @@ def prepare(run):
             return 1, f'tools/{tool} is missing from the repo'
     if not prompt_text().startswith(MARKER):
         return 1, 'the prompt block in automations/weekly-skill-miner.md is missing'
-    if git_out('symbolic-ref', '--short', '-q', 'HEAD') != 'main':
-        return 1, 'the repo is not on its main branch'
     sync.REPO = P.repo
+    if ATTENDEE:
+        review = sync.review_branch(SETTINGS)
+        switched = sync.Run('runner')
+        if not sync.switch_to_review(SETTINGS, switched):
+            return 1, f"the repo is not on its review branch {review} ({'; '.join(switched.notes)})"
+    elif git_out('symbolic-ref', '--short', '-q', 'HEAD') != 'main':
+        return 1, 'the repo is not on its main branch'
     busy = sync.git_busy()
     if busy:
         return 1, f'a git operation is in progress in the repo ({busy}). Finish or abort it in {tilde(P.repo)}.'
@@ -409,10 +440,14 @@ def prepare(run):
     run.dir.mkdir(parents=True)
     run.report = P.reports / f'{run.dir.name} weekly skill update.txt'
     (run.dir / 'protected-before.json').write_text(json.dumps(protected_listing()), encoding='utf-8')
+    (run.dir / 'run.json').write_text(json.dumps({'window_start': run.window_start, 'window_end': run.window_end,
+                                                  'start_head': git_out('rev-parse', 'HEAD'), 'attendee': ATTENDEE}),
+                                      encoding='utf-8')
     name = (git_out('config', 'user.name') or '').split(' ')[0]
     command = [sys.executable, str(P.repo / 'tools' / 'collect-messages.py'), '--since', run.window_start, '--until',
-               run.window_end, '--out', str(run.dir / 'collect'), '--state-dir', str(SESSIONS),
-               '--from-inbox', str(P.repo / 'private' / 'inbox')]
+               run.window_end, '--out', str(run.dir / 'collect'), '--state-dir', str(SESSIONS)]
+    if not ATTENDEE:  # attendee mode mines this machine's sessions directly; its messages never leave it
+        command += ['--from-inbox', str(P.repo / 'private' / 'inbox')]
     if name:
         command += ['--name', name]
     if bounded(command, 900, run.dir / 'collect.log') != 0:
@@ -421,7 +456,7 @@ def prepare(run):
 
 
 def compose_prompt(run):
-    return prompt_text() + '\n\nThis run (set by the runner):\n' + '\n'.join([
+    lines = [
         f'- Repo: {tilde(P.repo)}',
         f'- Installed skills: {tilde(P.skills)}',
         f'- Private state: {tilde(P.miner)}',
@@ -431,11 +466,21 @@ def compose_prompt(run):
         f'- Report file: {tilde(run.report)}',
         f"- Commit message file: {tilde(run.dir / 'commit-message.txt')}",
         f'- Python: {sys.executable} (use it for every tools/ script; on Windows python3 is only a Store stub)',
-    ]) + '\n'
+    ]
+    if ATTENDEE:
+        lines.append(f'- Mode: attendee. Also follow "The weekly run in attendee mode" in automations/ATTENDEES.md: the repo '
+                     f'is on the review branch {sync.review_branch(SETTINGS)}, not main, and nothing is published.')
+    if AUTOMATION:
+        finish = sync.runnable(sys.executable, SCRIPT, '--finish', f'"{run.dir}"')
+        lines.append(f'- Finish: after step 9, run {finish} in a terminal. It pushes the review branch and opens or '
+                     'updates the pull requests. Add what it prints to the report and to your final message.')
+    return prompt_text() + '\n\nThis run (set by the runner):\n' + '\n'.join(lines) + '\n'
 
 
 def publish(run):
     """Check the agent's work, squash everything since origin/main into one commit, push it, then publish it."""
+    if ATTENDEE:
+        return attendee_publish(run)
     if git_out('symbolic-ref', '--short', '-q', 'HEAD') != 'main':
         return 'Not published: the repo is not on main.', False
     if sync.git_busy():
@@ -514,6 +559,381 @@ def publish(run):
     return result + f" Not published to the public repo yet: {tail[-1] if tail else 'see publish-public.log'}. The next run tries again.", True
 
 
+# ---------------------------------------------------------------- attendee mode
+
+def final_message(run):
+    """The agent's commit message without trailers, plus the Copilot trailer: (file, lines without the trailer)."""
+    try:
+        lines = (run.dir / 'commit-message.txt').read_text(encoding='utf-8').splitlines()
+    except OSError:
+        lines = []
+    lines = [l.rstrip() for l in lines if not re.match(r'(?i)^(co-authored-by|copilot-session|signed-off-by):', l.strip())]
+    while lines and not lines[-1]:
+        lines.pop()
+    while lines and not lines[0]:
+        lines.pop(0)
+    if not lines:
+        lines = [f'Weekly skill update, week of {run.dir.name[:10]}']
+    path = run.dir / 'final-commit-message.txt'
+    path.write_text('\n'.join(lines) + '\n\n' + COAUTHOR + '\n', encoding='utf-8')
+    return path, lines
+
+
+def sync_tool(*args):
+    """tools/sync-skills.py with --json in this run's repo: (exit code, its JSON output, or {'error': ...})."""
+    env = dict(os.environ, COPILOT_SKILLS_DIR=str(P.skills), SKILL_MINER_DIR=str(P.miner), SKILLS_SYNC_SETTINGS=str(sync.SETTINGS))
+    try:
+        r = subprocess.run([sys.executable, str(P.repo / 'tools' / 'sync-skills.py'), *args, '--json', '--repo', str(P.repo)],
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1800, env=env)
+    except subprocess.TimeoutExpired:
+        return 124, {'error': f'sync-skills.py {args[0]} timed out'}
+    try:
+        return r.returncode, json.loads(r.stdout)
+    except ValueError:
+        return r.returncode, {'error': ((r.stderr or r.stdout).strip().splitlines() or ['no output'])[-1][:300]}
+
+
+def pr_words(what, out):
+    if out.get('url'):
+        return f"{what}: {out.get('action')} {out['url']}"
+    return f"{what}: {out.get('action') or 'failed'}" + (f" ({out['error']})" if out.get('error') else '')
+
+
+def attendee_publish(run, dry=False):
+    """Attendee mode: check the run, make it one commit on the review branch, push the branch, and open or update the
+    review pull request and the one for the shared skills' updates. Nothing is published. Returns (result, ok)."""
+    review = sync.review_branch(SETTINGS)
+    slug = sync.repo_slug(SETTINGS.get('private_url')) or 'your private copy'
+    if git_out('symbolic-ref', '--short', '-q', 'HEAD') != review:
+        return f'Not pushed: the repo is not on {review}.', False
+    if sync.git_busy():
+        return 'Not pushed: a git operation is still in progress.', False
+    if git_out('status', '--porcelain'):
+        return ('Not pushed: the repo has uncommitted changes after the run (a session may be editing it). '
+                'The next run pushes them.'), False
+    try:
+        info = json.loads((run.dir / 'run.json').read_text(encoding='utf-8'))
+        before = json.loads((run.dir / 'protected-before.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return f'Not pushed: {tilde(run.dir)} is not a complete run folder.', False
+    changed = protected_changes(before)
+    if changed:
+        return f"Not pushed: the run changed files it must not change ({' '.join(changed)}).", False
+    start, old = info.get('start_head') or '', git_out('rev-parse', 'HEAD')
+    message, lines = final_message(run)
+    squashed = ''
+    # This run's commits become one commit with the agent's summary, unless the run merged something in (then the
+    # commits stay as they are, so the pull request never shows main's changes as the run's).
+    if (not dry and start and old != start and git('merge-base', '--is-ancestor', start, 'HEAD')[0] == 0
+            and not git_out('rev-list', '--merges', f'{start}..HEAD')):
+        rc, new, _ = git('commit-tree', git_out('rev-parse', 'HEAD^{tree}'), '-p', start, '-F', str(message))
+        if rc == 0 and git('update-ref', '-m', 'weekly skill update: one commit for the run', f'refs/heads/{review}', new,
+                           old)[0] == 0:
+            squashed = new
+    command = [sys.executable, str(P.repo / 'tools' / 'validate-skills.py'), '--base', 'origin/main', '--commits',
+               'origin/main', '--quiet']
+    if (P.miner / 'private-terms.txt').is_file():
+        command += ['--private-terms', str(P.miner / 'private-terms.txt')]
+    if bounded(command, 1800, run.dir / 'validate-before-push.txt') != 0:
+        if squashed:
+            git('update-ref', f'refs/heads/{review}', old, squashed)
+        return f"Not pushed: the validator found problems (see {tilde(run.dir / 'validate-before-push.txt')}).", False
+    if REHEARSAL:
+        return f'Rehearsal: would push {review} to {slug} and open or update the pull requests; nothing was pushed.', True
+    rc, _, err = git('fetch', '--quiet', 'origin', timeout=300)
+    if rc:
+        return f'Not pushed: git fetch failed ({sync.first_error(err)}). The next run tries again.', False
+    remote = git_out('rev-parse', '-q', '--verify', f'refs/remotes/origin/{review}')
+    if remote and git('merge-base', '--is-ancestor', remote, 'HEAD')[0]:
+        if git('merge', '--no-edit', '--quiet', f'refs/remotes/origin/{review}')[0]:
+            if sync.git_busy():
+                git('merge', '--abort')
+            return (f'Not pushed: {review} changed on GitHub during the run and does not merge cleanly. '
+                    'The next run merges it.'), False
+    head = git_out('rev-parse', 'HEAD')
+    pushed = f'{review} on {slug} is up to date.'
+    if head != remote and (remote or git_out('rev-list', '--count', 'origin/main..HEAD') not in ('', '0')):
+        rc, _, err = git('push', '--quiet', 'origin', f'HEAD:refs/heads/{review}', timeout=300)
+        if rc:
+            (run.dir / 'push.log').write_text(err, encoding='utf-8')
+            return f"Not pushed: git push failed (see {tilde(run.dir / 'push.log')}). The next run tries again.", False
+        json_set(P.miner / 'runner.json', last_pushed=head)
+        pushed = f'Pushed {review} to {slug}.'
+    args = ['review-pr']
+    if not dry and squashed:
+        summary = run.dir / 'pr-summary.txt'
+        summary.write_text('\n'.join(lines[1:]).strip() + '\n', encoding='utf-8')
+        args += ['--title', lines[0], '--summary-file', str(summary)]
+    code, review_out = sync_tool(*args)
+    up_code, upstream_out = sync_tool('upstream-pr')
+    result = (f'{pushed} ' + pr_words('Your review', review_out) + '. '
+              + pr_words('Updates from the shared skills', upstream_out) + '.')
+    return result, code == 0 and up_code == 0
+
+
+def run_folder(path):
+    """A Run for an existing run folder (the --finish step of an automation run), or None."""
+    run = Run()
+    run.dir = Path(path).expanduser().resolve()
+    try:
+        info = json.loads((run.dir / 'run.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    run.window_start, run.window_end = info.get('window_start'), info.get('window_end')
+    run.report = P.reports / f'{run.dir.name} weekly skill update.txt'
+    return run
+
+
+def attendee_only(flag):
+    if ATTENDEE:
+        return True
+    print(f'{flag} is for attendee mode (automations/ATTENDEES.md); this machine runs the maintainer setup.')
+    return False
+
+
+def dry_run_flow():
+    """Attendee mode: every step except the model. Collects the messages, then pushes the review branch and opens or
+    updates the pull requests with what is already there. The mining window does not move."""
+    global FORCE
+    if not attendee_only('--dry-run'):
+        return 2
+    FORCE = True
+    run = Run()
+    if not acquire_lock():
+        print('Another weekly run is active; try again later.')
+        return 1
+    try:
+        code, reason = prepare(run)
+        if code:
+            print(f'The dry run did not finish: {reason}')
+            return 1
+        report_line(run, 'Dry run: the model step was skipped, so this run changed no skills.')
+        result, ok = attendee_publish(run, dry=True)
+        report_line(run, result)
+        note(f'dry run: {result}')
+        print(result)
+        print(f'Report: {tilde(run.report)}')
+        return 0 if ok else 1
+    finally:
+        release_lock()
+
+
+def automation_flow():
+    """Attendee mode, the start of an Agents window automation run: take the lock, prepare the run, and print the
+    prompt and paths for the automation's session, which does the agent's part and then runs --finish."""
+    global FORCE, AUTOMATION
+    if not attendee_only('--automation'):
+        return 2
+    FORCE = AUTOMATION = True
+    run = Run()
+    if not acquire_lock(automation=True):
+        print('Another weekly run is active. Stop here: there is nothing to do in this run.')
+        return 0
+    code, reason = prepare(run)
+    json_set(P.miner / 'runner.json', last_attempt=utc_now())
+    if code:
+        fail(run, reason)
+        release_lock()
+        print(f'Stop here: the weekly skill update could not start ({reason}). The report is {tilde(run.report)}.')
+        return 1
+    note(f'automation run {run.dir.name} prepared (window {run.window_start} to {run.window_end})')
+    print(compose_prompt(run))
+    return 0
+
+
+def finish_flow(path):
+    """Attendee mode, the end of an automation run: check the agent finished, then push and open the pull requests."""
+    if not attendee_only('--finish'):
+        return 2
+    run = run_folder(path)
+    if run is None:
+        print(f'Not a run folder: {path}')
+        return 2
+    try:
+        if json_get(P.miner / 'state.json', 'last_run') != run.window_end:
+            fail(run, 'the agent did not finish the procedure (state.json last_run is not the end of the window)')
+            print(f'Not pushed: the run did not finish its steps. See {tilde(run.report)}.')
+            return 1
+        models = subagent_check(run, run.dir.stat().st_mtime - 60, any_model=True)
+        result, ok = attendee_publish(run)
+        note(result)
+        report_line(run, result + '\n' + models)
+        if ok:
+            json_set(P.miner / 'runner.json', last_success=utc_now(), failures=0, last_result=result)
+        else:
+            failures = int(json_get(P.miner / 'runner.json', 'failures') or 0)
+            json_set(P.miner / 'runner.json', last_result=f'failed: {result}', failures=failures + 1)
+        prune()
+        print(result)
+        print(models)
+        print(f'Report: {tilde(run.report)}')
+        return 0 if ok else 1
+    finally:
+        release_lock()
+
+
+def find_run_session(target=None):
+    """events.jsonl of a weekly run: the given session id, folder, or file, else the newest session whose first message
+    is the weekly prompt (an automation run or a Copilot CLI run of this runner)."""
+    if target:
+        path = Path(target).expanduser()
+        for candidate in (path, path / 'events.jsonl', SESSIONS / target / 'events.jsonl'):
+            if candidate.is_file():
+                return candidate
+        return None
+    prefix, best = f'{MARKER} Weekly skill update', None
+    for events in SESSIONS.glob('*/events.jsonl'):
+        try:
+            mtime = events.stat().st_mtime
+            if best and mtime <= best[0]:
+                continue
+            with open(events, encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    if '"user.message"' not in line:
+                        continue
+                    event = json.loads(line)
+                    if event.get('type') == 'user.message':
+                        if str((event.get('data') or {}).get('content') or '').lstrip().startswith(prefix):
+                            best = (mtime, events)
+                        break
+        except (OSError, ValueError):
+            continue
+    return best[1] if best else None
+
+
+def check_run(target=None, as_json=False):
+    """The proof that a weekly run used max effort and the long context and never waited for an approval."""
+    out = {'ok': False, 'session': None, 'events': None, 'model': None, 'effort': None, 'context': None,
+           'subagents': [], 'permissions': {'requested': 0, 'completed': 0, 'waiting': 0, 'not_approved': 0,
+                                            'decided_by': {}}, 'problems': []}
+    events = find_run_session(target)
+    if not events:
+        out['problems'].append(f'no weekly run found in {tilde(SESSIONS)}')
+    else:
+        out['session'], out['events'] = events.parent.name, tilde(events)
+        requested, completed, turn = set(), {}, None
+        kinds = ('"session.start"', '"session.resume"', '"session.model_change"', '"user.message"', '"permission.',
+                 '"subagent.configured"')
+        with open(events, encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if not any(k in line for k in kinds):
+                    continue
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                kind, data = event.get('type'), event.get('data') or {}
+                if kind in ('session.start', 'session.resume', 'session.model_change'):
+                    out['model'] = data.get('newModel') or data.get('selectedModel') or out['model']
+                    out['effort'] = data.get('reasoningEffort') or out['effort']
+                    out['context'] = data.get('contextTier') or out['context']
+                elif kind == 'user.message' and isinstance(data.get('responsesReasoning'), dict):
+                    turn = data['responsesReasoning']
+                elif kind == 'subagent.configured':
+                    out['subagents'].append({'model': data.get('model'), 'effort': data.get('reasoningEffort'),
+                                             'context': data.get('contextTier')})
+                elif kind == 'permission.requested':
+                    requested.add(data.get('requestId'))
+                elif kind == 'permission.completed':
+                    completed[data.get('requestId')] = data
+        if turn:  # what the last turn really ran at; session.start can leave the effort out
+            out['model'] = turn.get('model') or out['model']
+            out['effort'] = turn.get('effort') or out['effort']
+        perms = out['permissions']
+        perms['requested'], perms['completed'] = len(requested), len(completed)
+        perms['waiting'] = len(requested - set(completed))
+        perms['not_approved'] = sum(1 for c in completed.values() if (c.get('result') or {}).get('kind') != 'approved')
+        for c in completed.values():
+            source = c.get('decisionSource') or 'unknown'
+            perms['decided_by'][source] = perms['decided_by'].get(source, 0) + 1
+        if out['effort'] != EFFORT:
+            out['problems'].append(f"effort is {out['effort'] or 'not recorded'}, not {EFFORT}")
+        if out['context'] != CONTEXT:
+            out['problems'].append(f"context is {out['context'] or 'not recorded'}, not {CONTEXT}")
+        if perms['waiting']:
+            out['problems'].append(f"{perms['waiting']} approval(s) never answered: set the automation to Autopilot "
+                                   'and Allow all (autoApprove), and stop that run')
+        if perms['not_approved']:
+            out['problems'].append(f"{perms['not_approved']} tool call(s) were not approved")
+        below = [s for s in out['subagents'] if s['effort'] != EFFORT or s['context'] != CONTEXT]
+        if below:
+            out['problems'].append(f'{len(below)} sub-agent(s) ran below max effort or the long context')
+    out['ok'] = not out['problems']
+    if as_json:
+        print(json.dumps(out, indent=1))
+    else:
+        print(f"{'ok  ' if out['ok'] else 'FAIL'}  weekly run {out['session'] or '-'}: {out['model'] or '?'} at "
+              f"{out['effort'] or '?'} effort, {out['context'] or '?'} context; {out['permissions']['completed']} of "
+              f"{out['permissions']['requested']} approval(s) answered {out['permissions']['decided_by'] or ''}")
+        for problem in out['problems']:
+            print(f'      {problem}')
+        if out['events']:
+            print(f"      {out['events']}")
+    return 0 if out['ok'] else 1
+
+
+def launchd_plist_path():
+    return Path.home() / 'Library' / 'LaunchAgents' / f'{LABEL}.plist'
+
+
+def launchd_install():
+    """Attendee mode on macOS: schedule this runner with launchd (the maintainer's Mac uses the .sh runner)."""
+    import plistlib
+    copilot = find_copilot()
+    if not copilot:
+        print('Copilot CLI was not found. Install it (or use the Agents window automation), then run --install again.')
+        return 1
+    path = os.environ.get('PATH', '/usr/bin:/bin:/usr/sbin:/sbin').split(os.pathsep)
+    for tool in (copilot, shutil.which('git'), shutil.which('gh')):
+        if tool and str(Path(tool).parent) not in path:
+            path.insert(0, str(Path(tool).parent))
+    data = {
+        'Label': LABEL,
+        'ProgramArguments': [str(sync.default_python()), str(SCRIPT)],
+        'StartCalendarInterval': [{'Hour': hour, 'Minute': 0} for hour in CHECK_HOURS],
+        'RunAtLoad': True,
+        'ProcessType': 'Background',
+        'LowPriorityIO': True,
+        'Nice': 10,
+        'EnvironmentVariables': {'PATH': os.pathsep.join(path), **sync.job_environment()},
+        'StandardOutPath': str(P.logs / 'launchd.log'),
+        'StandardErrorPath': str(P.logs / 'launchd.log'),
+    }
+    plist, domain = launchd_plist_path(), f'gui/{os.getuid()}'
+    plist.parent.mkdir(parents=True, exist_ok=True)
+    sync.write_atomic(plist, plistlib.dumps(data))
+    subprocess.run(['launchctl', 'bootout', f'{domain}/{LABEL}'], capture_output=True)
+    r = subprocess.run(['launchctl', 'bootstrap', domain, str(plist)], capture_output=True, text=True)
+    if r.returncode:
+        print(f'launchctl could not load {tilde(plist)}: {r.stderr.strip()}')
+        return 1
+    print(f'Scheduled {LABEL}. It {SCHEDULE_TEXT}.')
+    print(f'Reports: {tilde(P.reports)}')
+    return 0
+
+
+def launchd_uninstall():
+    subprocess.run(['launchctl', 'bootout', f'gui/{os.getuid()}/{LABEL}'], capture_output=True)
+    plist = launchd_plist_path()
+    if plist.exists():
+        plist.unlink()
+    print('Removed the schedule. Nothing else was deleted.')
+    return 0
+
+
+def launchd_state():
+    """[state, last run, last exit code, next] like scheduled(), or None when the job is not loaded."""
+    r = subprocess.run(['launchctl', 'print', f'gui/{os.getuid()}/{LABEL}'], capture_output=True, text=True)
+    if r.returncode:
+        return None
+    fields = {}
+    for line in r.stdout.splitlines():
+        key, _, value = line.strip().partition(' = ')
+        if key in ('state', 'last exit code', 'runs'):
+            fields[key] = value
+    return [fields.get('state', 'loaded'), f"{fields.get('runs', '?')} run(s)", fields.get('last exit code', '-'), '-']
+
+
 def report_line(run, text):
     if run.report is None:
         run.report = P.reports / f'{dt.date.today().isoformat()} weekly skill update.txt'
@@ -547,7 +967,7 @@ def prune():
             log.write_text('\n'.join(lines[-2000:]) + '\n', encoding='utf-8')
 
 
-def subagent_check(run, started):
+def subagent_check(run, started, any_model=False):
     """Read the run's own session logs: did every sub-agent start at the top settings? Returns a report line."""
     marker, count, below = f'Run folder: {tilde(run.dir)}', 0, []
     escaped = json.dumps(marker)[1:-1]
@@ -569,7 +989,7 @@ def subagent_check(run, started):
                 continue
             count += 1
             settings = (data.get('model'), data.get('reasoningEffort'), data.get('contextTier'))
-            if settings[0] not in (MODEL, FALLBACK_MODEL) or settings[1] != EFFORT or settings[2] != CONTEXT:
+            if (not any_model and settings[0] not in (MODEL, FALLBACK_MODEL)) or settings[1] != EFFORT or settings[2] != CONTEXT:
                 below.append('/'.join(str(s) for s in settings))
     if not count:
         return 'Sub-agents: none.'
@@ -787,6 +1207,8 @@ def register():
 
 
 def install_job():
+    if ATTENDEE and sys.platform == 'darwin':
+        return launchd_install()
     if os.name != 'nt':
         print('On macOS, schedule it with run-weekly-skill-miner.sh --install.')
         return 1
@@ -834,12 +1256,16 @@ def fix_schedule():
 
 
 def uninstall_job():
+    if ATTENDEE and sys.platform == 'darwin':
+        return launchd_uninstall()
     r = subprocess.run(['schtasks', '/Delete', '/F', '/TN', TASK_NAME], capture_output=True, text=True)
     print('Removed the schedule. Nothing else was deleted.' if r.returncode == 0 else (r.stderr or r.stdout).strip())
     return 0
 
 
 def scheduled():
+    if ATTENDEE and sys.platform == 'darwin':
+        return launchd_state()
     if os.name != 'nt':
         return None
     script = (f"$t = Get-ScheduledTask -TaskName '{TASK_NAME}' -ErrorAction SilentlyContinue; if ($t) {{ $i = Get-ScheduledTaskInfo "
@@ -903,14 +1329,19 @@ def check(llm=False):
             say(True, f'can write {tilde(d)}')
         except OSError:
             say(False, f'cannot write {tilde(d)}')
-    inbox = P.repo / 'private' / 'inbox'
-    hosts = sorted(p.name for p in inbox.iterdir() if p.is_dir()) if inbox.is_dir() else []
-    say(bool(hosts), f"message exports from: {', '.join(hosts) or 'no machine yet (each sync exports daily)'}")
+    if ATTENDEE:
+        print(f'note  attendee mode: the run reads this machine\'s sessions in {tilde(SESSIONS)} directly')
+    else:
+        inbox = P.repo / 'private' / 'inbox'
+        hosts = sorted(p.name for p in inbox.iterdir() if p.is_dir()) if inbox.is_dir() else []
+        say(bool(hosts), f"message exports from: {', '.join(hosts) or 'no machine yet (each sync exports daily)'}")
     say(git('fetch', '--quiet', 'origin', timeout=120)[0] == 0, 'git fetch origin')
-    say(git('push', '--dry-run', '--quiet', 'origin', 'refs/remotes/origin/main:refs/heads/main', timeout=120)[0] == 0,
+    target = f'refs/remotes/origin/main:refs/heads/{sync.review_branch(SETTINGS)}-push-check' if ATTENDEE else \
+        'refs/remotes/origin/main:refs/heads/main'
+    say(git('push', '--dry-run', '--quiet', 'origin', target, timeout=120)[0] == 0,
         'the runner can push (dry run, nothing sent)')
     env = agent_env()
-    r = subprocess.run(['git', '-C', str(P.repo), 'push', '--dry-run', '--quiet', 'origin', 'refs/remotes/origin/main:refs/heads/main'],
+    r = subprocess.run(['git', '-C', str(P.repo), 'push', '--dry-run', '--quiet', 'origin', target],
                        capture_output=True, env=env, timeout=120)
     say(r.returncode != 0, "the agent's git has no push credentials (private repo)")
     r = subprocess.run(['git', '-C', str(P.repo), 'push', '--dry-run', '--quiet', 'public', 'refs/remotes/origin/main:refs/heads/check-only'],
@@ -936,11 +1367,22 @@ def main():
     global FORCE
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     group = parser.add_mutually_exclusive_group()
-    for flag in ('--install', '--uninstall', '--status', '--check', '--now', '--rehearse'):
+    for flag in ('--install', '--uninstall', '--status', '--check', '--now', '--rehearse', '--automation', '--dry-run'):
         group.add_argument(flag, action='store_true')
+    group.add_argument('--finish', metavar='RUN_FOLDER', help='attendee mode: finish an automation run')
+    group.add_argument('--check-run', nargs='?', const='', metavar='SESSION', help='check a weekly run (default: the newest)')
     parser.add_argument('--llm', action='store_true', help='with --check: also ask the model for a one-word reply')
     parser.add_argument('--since', help='with --rehearse: mine from this ISO time')
+    parser.add_argument('--json', action='store_true', help='with --check-run: print JSON')
     args = parser.parse_args()
+    if args.automation:
+        return automation_flow()
+    if args.finish:
+        return finish_flow(args.finish)
+    if args.dry_run:
+        return dry_run_flow()
+    if args.check_run is not None:
+        return check_run(args.check_run or None, args.json)
     if args.install:
         return install_job()
     if args.uninstall:

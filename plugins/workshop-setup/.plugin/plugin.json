@@ -1,0 +1,9 @@
+{
+	"name": "workshop-setup",
+	"version": "1.0.0",
+	"description": "A live setup checklist canvas for workshops that use the autonomous skills. It shows what's already set up, what's tested and what needs you. The skills themselves stay your own copy, so this plugin carries only the canvas.",
+	"author": {
+		"name": "Eli King"
+	},
+	"extensions": "extensions/"
+}

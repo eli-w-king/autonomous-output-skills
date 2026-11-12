@@ -27,6 +27,13 @@
 # because macOS asks for permission before a background job can write to a cloud-synced Desktop.
 set -u
 
+# Attendee mode (automations/ATTENDEES.md) runs everything through run-weekly-skill-miner.py, on macOS too.
+attendee_settings="${SKILLS_SYNC_SETTINGS:-$(dirname "${COPILOT_SKILLS_DIR:-$HOME/.copilot/skills}")/skills-sync.json}"
+if [ -f "$attendee_settings" ] && python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])).get("mode") == "attendee" else 1)' \
+	"$attendee_settings" 2>/dev/null; then
+	exec python3 "$(cd "$(dirname "$0")" && pwd -P)/run-weekly-skill-miner.py" "$@"
+fi
+
 SCRIPT="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
 SESSIONS="${COPILOT_SESSION_STATE:-$HOME/.copilot/session-state}"
 LABEL="com.autonomous-output-skills.weekly-skill-update"

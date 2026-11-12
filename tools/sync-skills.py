@@ -18,6 +18,15 @@ truth.
                     private/sync-schedule.txt sets for this machine (daily at 10:30 without that file)
   sync-status       the settings, the schedule, the last runs, and open conflicts
 
+Attendee mode (one account; automations/ATTENDEES.md):
+  setup-attendee    make or reuse a private copy of the shared repo (origin) with the shared repo as a fetch-only
+                    remote (public), install the skills with backups, and schedule the daily sync
+  review-pr         open or update the pull request that brings the review branch into main
+  upstream-pr       merge the shared repo's main into the upstream branch and open or update its pull request
+  review-reset      drop what waits on the review branch (it is kept on a branch first) and reinstall main
+In attendee mode the clone stays on the review branch (skill-updates): sync harvests edits onto it and pushes it, never
+main, and installs from it, so edits waiting for review stay installed. Nothing is ever published.
+
 Two repos: the private repo (remote origin) has everything, including private/, and the public repo
 (remote public) gets the same tree without private/ through tools/publish-public.py. sync pushes only
 to origin. setup records the private repo's URL and GitHub account in ~/.copilot/skills-sync.json and
@@ -57,6 +66,9 @@ writes the snapshot and manifest last.
 Usage: sync-skills.py status|harvest|resolve|install [PATH...] [--dry-run] [--json] [--include-new] [--force]
        sync-skills.py sync [--repo CLONE]
        sync-skills.py setup --private-url URL --private-user NAME [--public-url URL] [--public-user NAME] [--host NAME]
+       sync-skills.py setup-attendee [--private-repo OWNER/NAME] [--create] [--json] [--dry-run]
+                      [--weekly automation|os|both|none] [--daily HH:MM] [--no-schedule] [--model ID] [--public-url URL]
+       sync-skills.py review-pr|upstream-pr|review-reset [--json] [--dry-run]
        sync-skills.py schedule [--daily HH:MM | --every MINUTES] [--remove]
        sync-skills.py sync-status
 Environment: COPILOT_SKILLS_DIR (default ~/.copilot/skills), SKILL_MINER_DIR (default ~/.copilot/skill-miner)
@@ -69,6 +81,7 @@ import difflib
 import fnmatch
 import hashlib
 import html
+import io
 import json
 import os
 import plistlib
@@ -127,6 +140,9 @@ SCHEDULE_FILE = 'private/sync-schedule.txt'
 DEFAULT_SCHEDULE = 'daily 10:30'
 RELOAD_MARKER = STATE / 'schedule-reloaded.txt'
 COAUTHOR = 'Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>'
+# Attendee mode: where message exports and the miner's sync copies live. None means private/ in the clone (the
+# maintainer setup); attendee mode keeps them in STATE, on the machine (automations/ATTENDEES.md, "Privacy").
+PRIVATE_DATA = None
 
 GIT_ENV = {k: v for k, v in os.environ.items() if k not in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN')}
 GIT_ENV.update(GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never', GIT_EDITOR='true', GIT_MERGE_AUTOEDIT='no')
@@ -570,10 +586,18 @@ def base_bytes(entry):
 def cmd_status(args):
     _, entries, extra = classify()
     if args.json:
-        print(json.dumps({'repo': str(REPO), 'skills_dir': str(SKILLS), 'manifest': MANIFEST.is_file(),
-                          'files': [{k: v for k, v in e.items() if k != 'inferred_base'} for e in entries],
-                          'other_skills': extra}, indent=1))
+        data = {'repo': str(REPO), 'skills_dir': str(SKILLS), 'manifest': MANIFEST.is_file(),
+                'files': [{k: v for k, v in e.items() if k != 'inferred_base'} for e in entries],
+                'other_skills': extra}
+        data.update(setup_summary(entries))
+        print(json.dumps(data, indent=1))
         return 0
+    settings = load_settings()
+    if is_attendee(settings):
+        review = review_branch(settings)
+        ahead = count(f'refs/remotes/origin/main..refs/heads/{review}')
+        print(f"attendee mode: your private copy {settings.get('private_repo') or settings.get('private_url')}; "
+              f"edits wait on {review} ({ahead} commit(s) not in main yet)")
     print(f'repo {REPO}\ninstalled {SKILLS}\nbase {"snapshot from last install" if MANIFEST.is_file() else "none yet (inferred from git history)"}\n')
     if not entries:
         print('installed copies match the repo')
@@ -992,6 +1016,19 @@ def local_date(ts):
         return dt.date.today()
 
 
+def data_root():
+    """Where the message exports live: private/ in the clone, or (attendee mode) the private state on this machine."""
+    return PRIVATE_DATA if PRIVATE_DATA is not None else REPO / 'private'
+
+
+def note_written(written, path):
+    """Add a path to commit, as the repo path; a path outside the clone (attendee mode) has nothing to commit."""
+    try:
+        written.append(Path(path).relative_to(REPO).as_posix())
+    except ValueError:
+        pass
+
+
 def collect_human(run, since, until, timeout=900):
     """My typed messages in this machine's sessions over [since, until), from tools/collect-messages.py:
     (rows, not_mine, sent, flagged, stats), or None after noting why. rows are kind "human" only, minus the
@@ -999,7 +1036,7 @@ def collect_human(run, since, until, timeout=900):
     for every text this machine's agents sent to another session."""
     collector = Path(__file__).resolve().parent / 'collect-messages.py'
     name = (git('config', 'user.name') or '').split(' ')[0]
-    sent_root = REPO / 'private' / 'inbox-sent'
+    sent_root = data_root() / 'inbox-sent'
     with scratch_dir() as tmp:
         command = [sys.executable, str(collector), '--since', since, '--until', until, '--out', tmp]
         if name:
@@ -1042,7 +1079,7 @@ def collect_human(run, since, until, timeout=900):
 
 def known_fingerprints():
     known = set()
-    for path in (REPO / 'private' / 'inbox-sent').glob('*/*.txt'):
+    for path in (data_root() / 'inbox-sent').glob('*/*.txt'):
         known.update(re.findall(r'\b[0-9a-f]{64}\b', path.read_text(encoding='utf-8', errors='ignore')))
     return known
 
@@ -1093,7 +1130,7 @@ def export_inbox(settings, run, slug):
     rows, not_mine, sent_rows, flagged, _ = got
     cutoff = dt.date.today() - dt.timedelta(days=INBOX_DAYS)
     written = []
-    sent_folder = REPO / 'private' / 'inbox-sent' / slug
+    sent_folder = data_root() / 'inbox-sent' / slug
     sent_by_day = {}
     for ts, fp in sent_rows:
         day = local_date(ts)
@@ -1106,9 +1143,9 @@ def export_inbox(settings, run, slug):
             continue
         sent_folder.mkdir(parents=True, exist_ok=True)
         path.write_text(''.join(f'{fp}\n' for fp in sorted(have | fps)), encoding='utf-8', newline='\n')
-        written.append(path.relative_to(REPO).as_posix())
+        note_written(written, path)
     known = known_fingerprints()
-    folder = REPO / 'private' / 'inbox' / slug
+    folder = data_root() / 'inbox' / slug
     by_day = {}
     for row in rows:
         by_day.setdefault(local_date(row['ts']).isoformat(), []).append(row)
@@ -1124,7 +1161,7 @@ def export_inbox(settings, run, slug):
         changed, removed = merge_rows(path, by_day.get(day, []), not_mine, known)
         relayed += removed
         if changed:
-            written.append(path.relative_to(REPO).as_posix())
+            note_written(written, path)
     for old_folder, pattern in ((folder, '*.jsonl'), (sent_folder, '*.txt')):
         if not old_folder.is_dir():
             continue
@@ -1135,7 +1172,7 @@ def export_inbox(settings, run, slug):
                 continue
             if day < cutoff:
                 path.unlink()
-                written.append(path.relative_to(REPO).as_posix())
+                note_written(written, path)
     state = load_state()
     state.update(inbox_until=until, inbox_day=dt.date.today().isoformat())
     save_state(state)
@@ -1158,7 +1195,7 @@ def backfill_inbox(run, slug, request):
         return []
     rows, not_mine, _, flagged, stats = got
     known = known_fingerprints()
-    folder = REPO / 'private' / 'inbox-backfill' / slug
+    folder = data_root() / 'inbox-backfill' / slug
     by_month = {}
     for row in rows:
         by_month.setdefault(local_date(row['ts']).isoformat()[:7], []).append(row)
@@ -1169,7 +1206,7 @@ def backfill_inbox(run, slug, request):
         changed, gone = merge_rows(path, by_month.get(month, []), not_mine, known)
         removed += gone
         if changed:
-            written.append(path.relative_to(REPO).as_posix())
+            note_written(written, path)
     files = []
     for path in (sorted(folder.glob('*.jsonl')) if folder.is_dir() else []):
         data = path.read_bytes()
@@ -1183,7 +1220,7 @@ def backfill_inbox(run, slug, request):
     }
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'manifest.json').write_text(json.dumps(manifest, indent=1) + '\n', encoding='utf-8', newline='\n')
-    written.append((folder / 'manifest.json').relative_to(REPO).as_posix())
+    note_written(written, folder / 'manifest.json')
     state = load_state()
     state.pop('inbox_backfill', None)
     save_state(state)
@@ -1888,6 +1925,8 @@ def cmd_sync(args):
         if miner_running():
             run.result = 'skipped'
             run.note('the weekly skill miner is running')
+        elif is_attendee(settings):
+            code = sync_once_attendee(settings, run)
         else:
             code = sync_once(settings, run)
     except subprocess.TimeoutExpired as error:
@@ -1916,6 +1955,9 @@ def helper_command(gh, user):
 
 def cmd_setup(args):
     settings = load_settings()
+    if is_attendee(settings):
+        print(f'{tilde(SETTINGS)} is set up in attendee mode; run sync-skills.py setup-attendee instead')
+        return 2
     for key in ('private_url', 'private_user', 'public_url', 'public_user', 'host'):
         if getattr(args, key, None):
             settings[key] = getattr(args, key)
@@ -2198,6 +2240,8 @@ def launchd_plist(schedule, python, script):
         'StandardOutPath': '/dev/null',
         'StandardErrorPath': str(logs / 'skills-sync.launchd.log'),
     }
+    if is_attendee():
+        data['EnvironmentVariables'].update(job_environment())
     kind, value = schedule.split()
     if kind == 'daily':
         hour, minute = map(int, value.split(':'))
@@ -2580,13 +2624,1187 @@ def cmd_sync_status(args):
     return 0
 
 
+# ---------------------------------------------------------------- attendee mode: one account and a private copy
+
+ATTENDEE_REPO_NAME = 'autonomous-output-skills'
+REVIEW_BRANCH = 'skill-updates'
+UPSTREAM_BRANCH = 'upstream-updates'
+# Personal files: once you changed one, a merge from the shared repo keeps yours whole (your voice and taste are yours;
+# tools/personal-skills.py makes them).
+KEEP_MINE = ('my-voice/SKILL.md', 'my-taste/SKILL.md')
+NO_PUSH = 'no_push'  # the shared repo's push URL in attendee mode, so git push public always fails
+MINER_MARKER = '[weekly-skill-miner]'
+AUTOMATION_MODEL = 'claude-opus-5.5'
+MINER_TASK_NAME = os.environ.get('SKILL_MINER_TASK', 'Autonomous weekly skill miner')
+MINER_LABEL = os.environ.get('SKILL_MINER_LABEL', 'com.autonomous-output-skills.weekly-skill-update')
+JOB_ENV = ('COPILOT_HOME', 'COPILOT_SKILLS_DIR', 'SKILL_MINER_DIR', 'SKILLS_SYNC_SETTINGS', 'COPILOT_SESSION_STATE',
+           'GH_CONFIG_DIR', 'XDG_CONFIG_HOME', 'SKILLS_SYNC_LABEL', 'SKILL_MINER_LABEL', 'SKILLS_SYNC_TASK', 'SKILL_MINER_TASK')
+PUBLISHIGNORE_ATTENDEE = (
+    '# This repo is a private copy of the autonomous output skills, and it is never published.\n'
+    '# While this file exists, tools/validate-skills.py treats the repo as private: private/ and the paths\n'
+    '# listed below get only the secret and script checks. One gitignore-style pattern per line.\n')
+TERMS_HEADER = (
+    '# Names that must never appear outside private/ in your skills repo: one per line, or a /regex/.\n'
+    '# The weekly skill miner adds internal names it meets. This file stays on this machine.\n')
+_gh_tokens = {}
+
+
+def is_attendee(settings=None):
+    return (settings if settings is not None else load_settings()).get('mode') == 'attendee'
+
+
+def review_branch(settings=None):
+    return (settings if settings is not None else load_settings()).get('review_branch') or REVIEW_BRANCH
+
+
+def upstream_branch(settings=None):
+    return (settings if settings is not None else load_settings()).get('upstream_branch') or UPSTREAM_BRANCH
+
+
+def repo_slug(value):
+    """'owner/name' from owner/name or a GitHub URL, or None."""
+    m = re.fullmatch(r'(?:https://github\.com/|git@github\.com:)?([A-Za-z0-9][A-Za-z0-9_-]*)/([A-Za-z0-9._-]+?)(?:\.git)?/?',
+                     (value or '').strip())
+    return f'{m.group(1)}/{m.group(2)}' if m and m.group(2) not in ('.', '..') else None
+
+
+def tree_of(ref):
+    return rev(f'{ref}^{{tree}}') if ref else ''
+
+
+def blob_of(ref, path):
+    return rev(f'{ref}:{path}') if ref else ''
+
+
+def job_environment():
+    """Attendee mode: the variables that locate this setup (a HOME other than the account's, COPILOT_HOME, ...), so a
+    scheduled job runs against the setup it was scheduled from."""
+    env = {}
+    home = os.environ.get('HOME')
+    if home and os.name != 'nt':
+        try:
+            import pwd
+            account_home = pwd.getpwuid(os.getuid()).pw_dir
+        except (ImportError, KeyError):
+            account_home = home
+        if os.path.realpath(home) != os.path.realpath(account_home):
+            env['HOME'] = home
+    for key in JOB_ENV:
+        if os.environ.get(key):
+            env[key] = os.environ[key]
+    return env
+
+
+def gh_bin():
+    found = shutil.which('gh')
+    return str(Path(found).resolve()) if found else None
+
+
+def gh_env(user=None):
+    """GitHub CLI's environment, never prompting. An injected token is dropped (a stale GH_TOKEN broke a dev box) in
+    favor of the stored token of the account that owns the private copy, whichever account is active."""
+    env = {k: v for k, v in os.environ.items() if k not in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN')}
+    env.update(GH_PROMPT_DISABLED='1', GH_NO_UPDATE_NOTIFIER='1', GH_SPINNER_DISABLED='1', NO_COLOR='1',
+               GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never')
+    path = gh_bin()
+    if user and path:
+        if user not in _gh_tokens:
+            try:
+                r = subprocess.run([path, 'auth', 'token', '--hostname', 'github.com', '--user', user],
+                                   capture_output=True, text=True, env=env, timeout=60)
+                _gh_tokens[user] = r.stdout.strip() if r.returncode == 0 else ''
+            except (OSError, subprocess.TimeoutExpired):
+                _gh_tokens[user] = ''
+        if _gh_tokens[user]:
+            env['GH_TOKEN'] = _gh_tokens[user]
+            return env
+    for key in ('GH_TOKEN', 'GITHUB_TOKEN'):
+        if os.environ.get(key):
+            env['GH_TOKEN'] = os.environ[key]
+            break
+    return env
+
+
+def gh(*args, user=None, timeout=120):
+    """GitHub CLI: (exit code, stdout, stderr) as text."""
+    path = gh_bin()
+    if not path:
+        return 127, '', 'GitHub CLI (gh) is not installed'
+    try:
+        r = subprocess.run([path, *args], capture_output=True, text=True, encoding='utf-8', errors='replace',
+                           env=gh_env(user), timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 124, '', f'gh {args[0]} timed out'
+    return r.returncode, r.stdout.strip(), r.stderr.strip()
+
+
+def ls_remote_heads(*branches):
+    """({branch: sha} on origin, '') or (None, error) when origin cannot be reached."""
+    rc, out, err = g('ls-remote', '--quiet', 'origin', *[f'refs/heads/{b}' for b in branches], timeout=90)
+    if rc:
+        return None, err
+    heads = {}
+    for line in out.splitlines():
+        sha, _, ref = line.partition('\t')
+        if ref.startswith('refs/heads/'):
+            heads[ref[len('refs/heads/'):]] = sha
+    return heads, ''
+
+
+def track_branch(branch):
+    g('config', f'branch.{branch}.remote', 'origin')
+    g('config', f'branch.{branch}.merge', f'refs/heads/{branch}')
+
+
+def switch_to_review(settings, run):
+    """Attendee mode works on the review branch: True when the clone is on it (switching back when it is clean)."""
+    review = review_branch(settings)
+    branch = git('symbolic-ref', '--short', '-q', 'HEAD')
+    if branch == review:
+        return True
+    if dirty_paths():
+        run.note(f"the clone is on {branch or 'a detached HEAD'} with uncommitted changes; commit them, then run "
+                 f'git switch {review}')
+        return False
+    if rev(f'refs/heads/{review}'):
+        rc, _, err = g('checkout', '-q', review)
+    else:
+        start = next((r for r in (f'refs/remotes/origin/{review}', 'refs/remotes/origin/main', 'refs/heads/main') if rev(r)),
+                     None)
+        if not start:
+            run.note('there is no main to start the review branch from; run sync-skills.py setup-attendee')
+            return False
+        rc, _, err = g('checkout', '-q', '--no-track', '-b', review, start)
+    if rc:
+        run.note(f'could not switch the clone to {review} ({first_error(err)})')
+        return False
+    track_branch(review)
+    run.note(f'switched the clone back to {review}')
+    return True
+
+
+def merge_in(ref, message):
+    """Merge ref into the checked-out branch: ('ok', ''), or ('conflict' or 'failed', detail) with the merge aborted."""
+    rc, _, err = g('merge', '-q', '-m', message, ref, timeout=300)
+    if rc == 0:
+        return 'ok', ''
+    paths = (git('diff', '--name-only', '--diff-filter=U') or '').splitlines()
+    if git_busy():
+        g('merge', '--abort')
+    return ('conflict', ', '.join(paths[:5])) if paths else ('failed', first_error(err))
+
+
+def push_review(review, expected, run):
+    """Push the review branch: a fast-forward, or (after its content landed in main) a reset guarded by a lease on what
+    origin had. Returns True when origin has it."""
+    head = rev('HEAD')
+    if head == expected or (not expected and not count('refs/remotes/origin/main..HEAD')):
+        return True
+    command = ['push', '-q', 'origin', f'HEAD:refs/heads/{review}']
+    if expected and not is_ancestor(expected, head):
+        command.append(f'--force-with-lease=refs/heads/{review}:{expected}')
+    rc, _, err = g(*command, timeout=300)
+    if rc:
+        run.note(f'could not push {review} ({first_error(err)}); the next run tries again')
+        return False
+    ahead = count('refs/remotes/origin/main..HEAD')
+    run.note(f'pushed {review}' + (f' ({ahead} commit(s) waiting for your review)' if ahead else ''))
+    return True
+
+
+def review_declined(settings, review, track_review, track_main):
+    """The newest pull request from the review branch was closed without merging, and the branch has not moved since:
+    its number, else None. Any failure counts as not declined."""
+    slug = repo_slug(settings.get('private_url'))
+    if not (slug and track_review and track_main and gh_bin()) or tree_of(track_review) == tree_of(track_main):
+        return None
+    rc, out, _ = gh('pr', 'list', '--repo', slug, '--head', review, '--base', 'main', '--state', 'all', '--limit', '5',
+                    '--json', 'number,state,headRefOid', user=settings.get('private_user'), timeout=60)
+    try:
+        prs = json.loads(out) if rc == 0 and out else []
+    except ValueError:
+        return None
+    if not prs:
+        return None
+    newest = max(prs, key=lambda p: p.get('number') or 0)
+    if newest.get('state') == 'CLOSED' and newest.get('headRefOid') == track_review:
+        return newest.get('number')
+    return None
+
+
+def drop_review(settings, run, reason, keep_newer=True):
+    """Save what waits on the review branch to declined/<branch>/<time> on origin, then put the branch back on main and
+    push it; the install that follows takes the installed skills back to main (backed up first). With keep_newer,
+    commits made here after the declined pull request stay, on top of main. True when done."""
+    review = review_branch(settings)
+    head, main = rev('HEAD'), rev('refs/remotes/origin/main')
+    expected = rev(f'refs/remotes/origin/{review}')
+    if dirty_paths():
+        run.note(f'{reason}; putting {review} back on main waits for the edits in progress')
+        return False
+    newer = keep_newer and expected and head != expected
+    if newer and not is_ancestor(expected, head):
+        run.note(f'{reason}, but {review} also changed elsewhere; left as it is (sync-skills.py review-reset drops it all)')
+        return False
+    stamp = dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+    saved = f'declined/{review}/{stamp}'
+    rc, _, err = g('push', '-q', 'origin', f'{expected if newer else head}:refs/heads/{saved}', timeout=300)
+    if rc:
+        run.note(f'{reason}; could not save it to {saved} ({first_error(err)}), so {review} stays as it is')
+        return False
+    if newer:
+        rc, _, err = g('rebase', '-q', '--onto', main, expected, timeout=300)
+        if rc:
+            if git_busy():
+                g('rebase', '--abort')
+            run.note(f'{reason}; the newer commits on {review} do not apply on main ({first_error(err)}); left as it is')
+            return False
+    else:
+        g('reset', '-q', '--hard', main)
+    if expected and expected != rev('HEAD'):
+        rc, _, err = g('push', '-q', 'origin', f'HEAD:refs/heads/{review}', f'--force-with-lease=refs/heads/{review}:{expected}',
+                       timeout=300)
+        if rc:
+            run.note(f'{review} is back on main here, but the push failed ({first_error(err)}); the next run tries again')
+    run.note(f'{reason}: {review} is back on main, and what it had is saved on {saved}')
+    return True
+
+
+def commit_clone_edits(run, applied, written):
+    """Commit what harvest wrote and other edits in the clone that have been quiet for a while (as sync_once does).
+    Returns False after a failed commit."""
+    harvested = set(written)
+    waiting, too_big, to_commit = [], [], []
+    now = time.time()
+    for xy, path in dirty_paths():
+        if path not in harvested and not any(path.startswith(w.rstrip('/') + '/') for w in harvested):
+            try:
+                st = (REPO / path).stat()
+            except FileNotFoundError:
+                st = None
+            if st and now - st.st_mtime < QUIET_SECONDS:
+                waiting.append(path)
+                continue
+            if st and xy == '??' and st.st_size > MAX_COMMIT_BYTES:
+                too_big.append(path)
+                continue
+        to_commit.append(path)
+    if to_commit:
+        committed, err = commit_paths(to_commit, f'Sync from {run.host}', applied, harvested)
+        if committed is None:
+            run.result = 'error'
+            run.note(f'commit failed ({first_error(err)})')
+            return False
+        if committed:
+            run.note(f'committed {summarize(committed)}')
+    if waiting:
+        run.note(f'{len(waiting)} file(s) in the clone changed in the last {QUIET_SECONDS} s; the next run commits them')
+    if too_big:
+        run.note(f"not committed, over 5 MB: {', '.join(too_big[:3])}")
+    return True
+
+
+def sync_once_attendee(settings, run):
+    """The daily sync in attendee mode: one account, a private copy (origin), and the shared repo (public, fetch only).
+    Edits sessions made to the installed skills are harvested onto the review branch, never main, and the review branch
+    is what gets installed, so edits waiting for review stay installed. main changes only through pull requests the
+    person merges. A closed, unmerged review pull request drops its changes (saved on a branch first). Message
+    exports and the miner's state stay on this machine. Nothing is ever published."""
+    global PRIVATE_DATA
+    PRIVATE_DATA = STATE
+    slug = host_slug(run.host)
+    review = review_branch(settings)
+    busy = git_busy()
+    if busy:
+        run.result = 'error'
+        run.note(f'a git operation is in progress in {tilde(REPO)} ({busy}); finish or abort it')
+        return 1
+    if not same_url(git('config', '--get', 'remote.origin.url'), settings['private_url']):
+        run.result = 'error'
+        run.note('origin is not your private copy; run sync-skills.py setup-attendee')
+        return 1
+    if not switch_to_review(settings, run):
+        run.result = 'error'
+        return 1
+    head = rev('HEAD')
+    run.head = head
+    heads, err = ls_remote_heads('main', review)
+    online = heads is not None
+    if online and 'main' not in heads:
+        run.result = 'error'
+        run.note('your private copy has no main branch; run sync-skills.py setup-attendee')
+        return 1
+    track_main, track_review = rev('refs/remotes/origin/main'), rev(f'refs/remotes/origin/{review}')
+    own = count(f'{track_main}..HEAD') if track_main else 0  # commits waiting for review before this run
+    state = load_state()
+    today = dt.date.today().isoformat()
+    check_due = online and bool(track_review) and state.get('review_checked') != today
+    pushed = head == track_review if track_review else head == track_main
+    if (online and heads['main'] == track_main and heads.get(review, '') == track_review and pushed and not check_due
+            and is_ancestor(track_main, head) and not dirty_paths() and installed_matches(load_manifest(), head)
+            and not inbox_due(settings) and not state.get('inbox_backfill')):
+        return 0
+    if not online:
+        run.note(f'offline ({first_error(err)}): harvested and installed locally')
+    elif heads['main'] != track_main or heads.get(review, '') != track_review:
+        rc, _, err = g('fetch', '-q', '--prune', 'origin', timeout=300)
+        if rc:
+            run.note(f'fetch failed ({first_error(err)})')
+            online = False
+        track_main, track_review = rev('refs/remotes/origin/main'), rev(f'refs/remotes/origin/{review}')
+    if track_main:
+        local_main = rev('refs/heads/main')
+        if local_main != track_main and (not local_main or is_ancestor(local_main, track_main)):
+            g('update-ref', 'refs/heads/main', track_main)
+    dirty = bool(dirty_paths())
+    hold = False  # the review branch could not take in what origin has: it is not pushed this run
+
+    # What changed on GitHub: the review branch (edits in the pull request, or another machine), then main.
+    if online and track_review and track_review != head and not is_ancestor(track_review, head):
+        if dirty:
+            hold = True
+            run.note(f'{review} changed on GitHub; taking it in waits for the edits in progress')
+        elif is_ancestor(head, track_review):
+            g('merge', '--ff-only', '-q', f'refs/remotes/origin/{review}', timeout=300)
+            run.note(f'pulled {review}')
+        else:
+            status, detail = merge_in(f'refs/remotes/origin/{review}', f'Merge {review} from GitHub')
+            if status != 'ok':
+                hold = True
+                run.result = 'conflict'
+                run.note(f'{review} changed here and on GitHub ({detail}); merge origin/{review} into it by hand')
+    if check_due and not hold:
+        state['review_checked'] = today
+        save_state(state)
+        number = review_declined(settings, review, rev(f'refs/remotes/origin/{review}'), track_main)
+        if number and drop_review(settings, run, f'pull request #{number} was closed without merging'):
+            dirty = bool(dirty_paths())
+    head = rev('HEAD')
+    if track_main and not is_ancestor(track_main, head):
+        if dirty:
+            run.note('main has new commits; taking them in waits for the edits in progress')
+        elif is_ancestor(head, track_main):
+            g('merge', '--ff-only', '-q', 'refs/remotes/origin/main', timeout=300)
+            run.note('took in main' + (' (your review was merged)' if own else ''))
+        else:
+            status, detail = merge_in('refs/remotes/origin/main', f'Merge main into {review}')
+            if status != 'ok':
+                hold = True
+                run.result = 'conflict'
+                run.note(f'main and {review} changed the same lines ({detail}); merge origin/main into {review} by hand')
+            elif tree_of('HEAD') == tree_of(track_main):
+                g('reset', '-q', '--hard', 'refs/remotes/origin/main')
+                run.note(f'{review} follows main again (everything on it is in main)')
+            else:
+                run.note('took in what main gained')
+    run.head = rev('HEAD')
+    fixed = fix_line_endings()
+    if fixed:
+        run.note(f'line endings fixed in {fixed} file(s)')
+
+    # Harvest onto the review branch, then commit with other quiet edits in the clone.
+    applied, conflicts, written, _ = do_harvest(host=slug)
+    if inbox_due(settings):
+        export_inbox(settings, run, slug)  # to the private state on this machine, nothing to commit
+    if load_state().get('inbox_backfill'):
+        backfill_inbox(run, slug, load_state()['inbox_backfill'])
+    if not commit_clone_edits(run, applied, written):
+        return 1
+
+    # Secret check, then push the review branch (never main).
+    state = load_state()
+    secrets_ok = True
+    if online and not hold:
+        track_review = rev(f'refs/remotes/origin/{review}')
+        base = f'refs/remotes/origin/{review}' if track_review else 'refs/remotes/origin/main'
+        if count(f'{base}..HEAD'):
+            secrets_ok = secret_check(base, run)
+        if secrets_ok:
+            push_review(review, track_review, run)
+    if not secrets_ok:
+        run.result = 'blocked'
+    if conflicts:
+        if online:
+            harvest_conflicts(conflicts, run, state, slug)
+        else:
+            run.note(f"conflict in {', '.join(c['path'] for c in conflicts[:5])}; saved under {tilde(STATE / 'conflicts')}")
+        if run.result == 'ok':
+            run.result = 'conflict'
+    save_state(state)
+
+    code, changed, going, notes = do_install()
+    run.notes.extend(n for n in notes if not n.startswith('previous copies'))
+    if code == 4:
+        run.result = 'error'
+    if changed:
+        run.note(f"installed {', '.join(changed)}")
+    if going:
+        run.note(f"removed {', '.join(going)} (backed up)")
+    run.head = rev('HEAD')
+    if run.result == 'error':
+        return 1
+    return 3 if conflicts or run.result == 'conflict' else 0
+
+
+def commit_with_file(base, path, data, message):
+    """A commit on top of base that adds or replaces one file, made without touching the working tree."""
+    with scratch_dir() as tmp:
+        env = dict(GIT_ENV, GIT_INDEX_FILE=str(Path(tmp) / 'index'))
+        if g('read-tree', base, env=env)[0]:
+            return ''
+        rc, blob, _ = g('hash-object', '-w', '--stdin', input=data)
+        if rc or g('update-index', '--add', '--cacheinfo', f'100644,{blob},{path}', env=env)[0]:
+            return ''
+        rc, tree_id, _ = g('write-tree', env=env)
+    if rc:
+        return ''
+    rc, sha, _ = g('commit-tree', tree_id, '-p', base, '-F', '-', input=(message + '\n\n' + COAUTHOR + '\n').encode())
+    return sha if rc == 0 else ''
+
+
+def miner_runner():
+    return REPO / 'automations' / 'run-weekly-skill-miner.py'
+
+
+def runnable(python, script, *args):
+    """A command line to paste into a terminal. PowerShell needs & to run a quoted path, and on Windows the
+    interpreter is the full path to python.exe (python3 there is only a Store stub)."""
+    text = f'"{python}" "{script}"' + ''.join(f' {a}' for a in args)
+    return '& ' + text if os.name == 'nt' else text
+
+
+def portable(script, *args):
+    """A command as a person types it, for anything stored or shown: python3 (macOS, Linux) or python (Windows, where
+    python3 is only a Store stub), and the path from the home folder when it is there. No interpreter path is baked
+    in, so a Python update never breaks the weekly automation."""
+    script = Path(script)
+    try:
+        rel = script.resolve().relative_to(Path.home().resolve())
+    except ValueError:
+        rel = None
+    if os.name == 'nt':
+        path = f'"$HOME\\{rel}"' if rel else f'"{script}"'
+        return f'python {path}' + ''.join(f' {a}' for a in args)
+    if rel and ' ' not in rel.as_posix():
+        path = f'~/{rel.as_posix()}'
+    else:
+        path = f'"$HOME/{rel.as_posix()}"' if rel else f'"{script}"'
+    return f'python3 {path}' + ''.join(f' {a}' for a in args)
+
+
+def automation_prompt():
+    """The weekly automation's prompt: it runs the runner, which prints the rest. Same command as the blueprint."""
+    command = portable(miner_runner(), '--automation')
+    return (f'{MINER_MARKER} Weekly skill update. In a terminal, run `{command}` and follow what it prints, start to '
+            'finish. Never ask me anything; if something blocks you, put it in the report and finish.')
+
+
+def automation_input(model=None):
+    """The configureAutomation input for the weekly run on this machine (automations/ATTENDEES.md). thinkingLevel is
+    the agent host's effort key (reasoningEffort is accepted as an alias), and contextTier long_context picks the
+    model's largest context."""
+    return {
+        'name': 'Weekly skill update',
+        'prompt': automation_prompt(),
+        'schedule': {'interval': 'weekly', 'scheduleDay': 1, 'scheduleHour': 11, 'scheduleMinute': 0},
+        'target': {'kind': 'workspace', 'folderUri': REPO.resolve().as_uri(), 'providerId': 'local-agent-host',
+                   'sessionTypeId': 'copilotcli', 'isolation': 'folder'},
+        'sessionTemplate': {
+            'modelId': f'agent-host-copilotcli:{model or AUTOMATION_MODEL}',
+            'modelConfiguration': {'thinkingLevel': 'max', 'contextTier': 'long_context'},
+            'config': {'mode': 'autopilot', 'autoApprove': 'autoApprove'},
+        },
+        'enabled': True,
+    }
+
+
+def automation_steps():
+    runner = miner_runner()
+    blueprint = REPO / 'automations' / 'weekly-skill-update.automation.md'
+    return [
+        'In the Agents window, open Automations and choose Import Automation (or drag the file onto the list): '
+        f'{tilde(blueprint)}. The New automation dialog opens with the name, prompt, and schedule (Monday at 11:00).',
+        f'Set the folder to {tilde(REPO)}. Leave Worktree isolation and Run in the Cloud off.',
+        'Leave the harness on Copilot. In Models, pick your best model (Claude Opus 5.5 if you have it) at the highest '
+        'thinking effort and the largest context size.',
+        'In the mode and permissions picker (it starts on Interactive and Manual permissions), choose Autopilot and '
+        'Allow all, so the run never waits for a click. Create it, and turn it on if it shows as off (imported '
+        'automations start off).',
+        f'Prove it: Run now, then check the run with {portable(runner, "--check-run")}.',
+        'An agent can do all of this instead: configureAutomation with schedule.weekly.automation.configureAutomation '
+        'from setup-attendee --json, then listAutomations, runAutomation, and the same check.',
+    ]
+
+
+def miner_job_registered():
+    """Whether the weekly runner's backup job (launchd or Task Scheduler) is registered on this machine."""
+    if os.name == 'nt':
+        return subprocess.run(['schtasks', '/Query', '/TN', MINER_TASK_NAME], capture_output=True).returncode == 0
+    if sys.platform == 'darwin':
+        return subprocess.run(['launchctl', 'print', f'gui/{os.getuid()}/{MINER_LABEL}'], capture_output=True).returncode == 0
+    return False
+
+
+def setup_summary(entries=None):
+    """Mode, remotes, the last sync, and the schedule: the extra keys of status --json."""
+    settings = load_settings()
+    mode = 'attendee' if is_attendee(settings) else ('maintainer' if settings.get('private_url') else 'not set up')
+    remotes = {}
+    for name in (git('remote') or '').split():
+        remotes[name] = {'fetch': git('config', '--get', f'remote.{name}.url') or '',
+                         'push': git('config', '--get', f'remote.{name}.pushurl') or git('config', '--get', f'remote.{name}.url') or ''}
+    last = None
+    try:
+        lines = [line for line in SYNC_LOG.read_text(encoding='utf-8', errors='replace').splitlines() if line.strip()]
+    except OSError:
+        lines = []
+    if lines:
+        parts = lines[-1].split(' ')
+        last = {'time': parts[0], 'host': parts[1] if len(parts) > 1 else '', 'result': parts[2] if len(parts) > 2 else '',
+                'line': lines[-1]}
+    try:
+        job = registered_job()
+    except Exception:  # noqa: BLE001 - status never fails on a schedule query
+        job = None
+    state = load_state()
+    try:
+        runner = json.loads((STATE / 'runner.json').read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        runner = {}
+    try:
+        backup = miner_job_registered()
+    except OSError:
+        backup = False
+    summary = {
+        'mode': mode,
+        'branch': git('symbolic-ref', '--short', '-q', 'HEAD') or '',
+        'remotes': remotes,
+        'last_sync': last,
+        'schedule': {
+            'daily_sync': {'registered': bool(job), 'schedule': (job or {}).get('schedule') or state.get('schedule'),
+                           'runs_this_clone': bool(job and job.get('here')),
+                           'job': TASK_NAME if os.name == 'nt' else (LAUNCHD_LABEL if sys.platform == 'darwin' else 'crontab')},
+            'weekly': {'backup_job_registered': backup,
+                       'last_attempt': runner.get('last_attempt'), 'last_success': runner.get('last_success'),
+                       'last_result': runner.get('last_result')},
+        },
+    }
+    if mode == 'attendee':
+        review = review_branch(settings)
+        summary['private_repo'] = settings.get('private_repo') or repo_slug(settings.get('private_url'))
+        summary['review'] = {
+            'branch': review, 'upstream_branch': upstream_branch(settings),
+            'ahead_of_main': count(f'refs/remotes/origin/main..refs/heads/{review}'),
+            'pushed': bool(rev(f'refs/heads/{review}')) and rev(f'refs/heads/{review}') == rev(f'refs/remotes/origin/{review}'),
+        }
+    if entries is not None:
+        summary['pending'] = {
+            'installed_edits': sum(1 for e in entries if e['state'] in PENDING),
+            'repo_changes': sum(1 for e in entries if e['state'] in ('repo-newer', 'repo-deleted', 'mode-changed', 'line-endings')),
+        }
+    return summary
+
+
+BACKGROUND_NOTICE = ('macOS shows a "Background Items Added" notice for python3 when the job is added: that is this '
+                     'job, and it is safe to allow.')
+
+
+def setup_plan(args, slug, user, login, creating, review):
+    """Every change setup-attendee makes, in order and in plain words: --dry-run shows this list before anything
+    changes (the setup interview shows it before asking for a yes), and a real run reports it. [(step name, text)]."""
+    plan = []
+    if creating:
+        plan.append(('create-repo', f'Create {slug} on GitHub, private.'))
+    plan.append(('remotes', f'In {tilde(REPO)}, point origin at {slug} and add the shared repo as public, fetch only '
+                            f'(pushes to it always fail). Git asks GitHub CLI for {slug} through a setting in this clone '
+                            'only.'))
+    helpers = git('config', '--global', '--get-all', 'credential.https://github.com.helper') or ''
+    plan.append(('git-credentials', 'Run gh auth setup-git, so git uses your GitHub CLI sign-in for github.com. This adds '
+                                    'a credential helper to your global git config (~/.gitconfig)'
+                 + ('; it is already there, so nothing changes.' if 'auth git-credential' in helpers else '.')))
+    if not git('config', 'user.email') or not git('config', 'user.name'):
+        plan.append(('identity', f"Set this clone's commit name and email to your GitHub noreply address ({login})."))
+    if creating or gh('api', f'repos/{slug}/git/ref/heads/main', user=user)[0] != 0:
+        plan.append(('seed', f"Start {slug}'s main from the shared skills, with one commit that adds .publishignore "
+                             '("Keep this copy private").'))
+    plan.append(('review-branch', f'Switch the clone to {review}: your edits wait there for review, and main changes '
+                                  'only through pull requests you merge.'))
+    plan.append(('settings', f'Save the settings in {tilde(SETTINGS)}, and keep your messages, notes, and voice samples '
+                             f'in {tilde(STATE)}, which only you can read.'))
+    _, entries, _ = classify()
+    _, changed, going, _ = do_install(dry_run=True)
+    pending = sorted({e['skill'] for e in entries if e['state'] in PENDING})
+    text = (f"Install {len(changed)} skill{'' if len(changed) == 1 else 's'} into {tilde(SKILLS)}: "
+            f"{', '.join(changed) or 'none'}. Any copies already there are backed up to {tilde(BACKUPS)} first")
+    if pending:
+        text += f", and edits you made to {', '.join(pending)} are saved to {review} first"
+    if going:
+        text += f". Retired skills are removed (backed up): {', '.join(going)}"
+    plan.append(('install', text + '. Other skills in that folder are left alone.'))
+    when = parse_schedule_value('daily', args.daily) if args.daily else DEFAULT_SCHEDULE
+    if not args.no_schedule and when:
+        at = when.split()[1] if when.startswith('daily') else when
+        if os.name == 'nt':
+            plan.append(('daily-sync-schedule', f'Schedule the daily sync at {at} and at logon with Task Scheduler '
+                                                f'("{TASK_NAME}", below-normal priority, no window).'))
+        elif sys.platform == 'darwin':
+            plan.append(('daily-sync-schedule', f'Schedule the daily sync at {at} and at login with launchd '
+                                                f'({LAUNCHD_LABEL}). It also runs once right away. {BACKGROUND_NOTICE}'))
+        else:
+            plan.append(('daily-sync-schedule', 'Print two crontab lines for the daily sync, for you to add (nothing is '
+                                                'scheduled).'))
+    if args.weekly in ('os', 'both'):
+        if os.name == 'nt':
+            plan.append(('weekly-backup-schedule', f'Schedule the weekly backup run with Task Scheduler ("{MINER_TASK_NAME}": '
+                                                   'Mondays at 11:00, and checks at 14:00, 17:00, 20:00 and at logon).'))
+        elif sys.platform == 'darwin':
+            plan.append(('weekly-backup-schedule', f'Schedule the weekly backup run with launchd ({MINER_LABEL}: Mondays at '
+                                                   f'11:00, and checks at 14:00, 17:00, 20:00 and at login). {BACKGROUND_NOTICE}'))
+    return plan
+
+
+def cmd_setup_attendee(args):
+    """One account: a private copy of the shared repo as origin, the shared repo as public (fetch only), the skills
+    installed from the review branch with backups, and the daily sync scheduled. --json prints one JSON object."""
+    report = {'ok': False, 'dry_run': bool(args.dry_run), 'mode': 'attendee', 'account': None, 'private_repo': None,
+              'private_url': None, 'private_repo_created': False, 'public_url': None, 'clone': tilde(REPO),
+              'branches': {}, 'installed': [], 'backup': None, 'plan': [], 'steps': [], 'problems': [], 'schedule': {},
+              'next': []}
+    dry = bool(args.dry_run)
+
+    def step(name, ok, detail='', fix='', show=True):
+        report['steps'].append({'step': name, 'ok': bool(ok), 'detail': detail})
+        if not ok:
+            report['problems'].append({'step': name, 'detail': detail, 'fix': fix})
+        if show and not args.json:
+            print(f"{'ok  ' if ok else 'FAIL'} {name}: {detail}" + (f'\n     fix: {fix}' if not ok and fix else ''))
+        return bool(ok)
+
+    def done(code):
+        report['ok'] = code == 0 and not report['problems']
+        if args.json:
+            print(json.dumps(report, indent=1))
+        else:
+            if dry and report['plan']:
+                print('\nThis will:\n' + '\n'.join(f'{n}. {text}' for n, text in enumerate(report['plan'], 1)))
+            if report['next']:
+                print('\nNext:\n' + '\n'.join(f'- {n}' for n in report['next']))
+        return code
+
+    settings = load_settings()
+    if settings.get('private_url') and not is_attendee(settings):
+        step('mode', False, f"{tilde(SETTINGS)} already syncs these skills in the maintainer setup ({settings['private_url']})",
+             'attendee mode would replace that setup; try it under another user account or with a scratch HOME')
+        return done(2)
+    public_url = args.public_url or settings.get('public_url') or DEFAULT_PUBLIC_URL
+    report['public_url'] = public_url
+    version = ''
+    if shutil.which('git'):
+        version = subprocess.run(['git', '--version'], capture_output=True, text=True).stdout.strip()
+    if not step('git', bool(version), version or 'git is not installed',
+                'install git (macOS: xcode-select --install or brew install git; Windows: winget install Git.Git)'):
+        return done(1)
+    step('python', sys.version_info >= (3, 8), f'Python {sys.version.split()[0]} ({tilde(sys.executable)})',
+         'install Python 3.8 or newer')
+    if not step('github-cli', bool(gh_bin()), tilde(gh_bin() or 'GitHub CLI (gh) is not installed'),
+                'install GitHub CLI (macOS: brew install gh; Windows: winget install GitHub.cli)'):
+        return done(1)
+    rc, login, err = gh('api', 'user', '--jq', '.login')
+    if not step('github-sign-in', rc == 0 and bool(login), f'signed in as {login}' if rc == 0 else first_error(err),
+                'run gh auth login --hostname github.com --git-protocol https --web in your own terminal (it opens the '
+                'browser; an agent never handles your password), then run this again'):
+        return done(1)
+    report['account'] = login
+    slug = repo_slug(args.private_repo) if args.private_repo else f'{login}/{ATTENDEE_REPO_NAME}'
+    if not slug:
+        step('private-repo', False, f'not OWNER/NAME: {args.private_repo}', 'pass --private-repo <owner>/<name>')
+        return done(2)
+    private_url = f'https://github.com/{slug}.git'
+    report['private_repo'], report['private_url'] = slug, private_url
+    if same_url(private_url, public_url):
+        step('private-repo', False, f'{slug} is the shared repo itself', 'pick your own name with --private-repo <owner>/<name>')
+        return done(2)
+    owner = slug.split('/')[0]
+    user = login
+    if owner.lower() != login.lower() and gh('auth', 'token', '--hostname', 'github.com', '--user', owner)[0] == 0:
+        user = owner  # signed in to GitHub CLI as the owner too: use that account for this repo
+    rc, out, err = gh('repo', 'view', slug, '--json', 'isPrivate,visibility,url,isFork', user=user)
+    creating = False
+    if rc == 0:
+        try:
+            info = json.loads(out)
+        except ValueError:
+            info = {}
+        if not info.get('isPrivate'):
+            fork = info.get('isFork')
+            step('private-repo', False, f"{slug} exists and is {str(info.get('visibility') or 'public').lower()}"
+                 + (' (a fork, which GitHub keeps public)' if fork else ''),
+                 f'pick another name with --private-repo {owner}/<new name>'
+                 + ('' if fork else ', or make this one private on GitHub (Settings, General, Danger Zone)')
+                 + '. Your copy holds your own skill edits, so it has to be private.')
+            return done(2)
+        step('private-repo', True, f'{slug} exists and is private')
+    elif re.search(r'(?i)could not resolve|not found|404', err):
+        creating = True
+        if not args.create:
+            step('private-repo', False, f'{slug} does not exist yet', 'run this again with --create to make it (private)')
+            return done(1)
+        if dry:
+            step('private-repo', True, f'would create {slug} (private)')
+        else:
+            rc, out, err = gh('repo', 'create', slug, '--private', '--description',
+                              'My copy of the autonomous output skills (private)', user=user, timeout=180)
+            if not step('private-repo', rc == 0, f'created {slug} (private)' if rc == 0 else first_error(err),
+                        'check that your account can create private repos there (a Microsoft-managed account can in its '
+                        'own namespace), or pick another --private-repo'):
+                return done(1)
+            report['private_repo_created'] = True
+    else:
+        step('private-repo', False, f'could not check {slug}: {first_error(err)}', 'check gh auth status and the network')
+        return done(1)
+
+    if not (REPO / '.git').exists():
+        if dry:
+            step('clone', True, f'would clone {public_url} into {tilde(REPO)}')
+            return done(0)
+        r = subprocess.run(['git', 'clone', '-q', public_url, str(REPO)], capture_output=True, text=True, env=GIT_ENV)
+        if not step('clone', r.returncode == 0, f'cloned the shared repo into {tilde(REPO)}', first_error(r.stderr)):
+            return done(1)
+    busy = git_busy()
+    if busy:
+        step('clone', False, f'a git operation is in progress in {tilde(REPO)} ({busy})', 'finish or abort it, then run this again')
+        return done(1)
+    dirty = [p for _, p in dirty_paths()]
+    if dirty:
+        step('clone', False, f'{len(dirty)} uncommitted change(s) in {tilde(REPO)}, for example {dirty[0]}',
+             'commit or remove them, then run this again')
+        return done(1)
+    step('clone', True, tilde(REPO))
+
+    review, upstream = review_branch(settings), upstream_branch(settings)
+    report['branches'] = {'main': 'main', 'review': review, 'upstream': upstream}
+    for name, text in setup_plan(args, slug, user, login, creating, review):
+        report['plan'].append(text)
+        if dry:
+            step(name, True, text, show=False)  # printed once, as "This will:"
+    if dry:
+        report['next'].append('Run it again without --dry-run to make these changes.')
+        return done(0)
+    remotes = (git('remote') or '').split()
+    origin_url = git('config', '--get', 'remote.origin.url') if 'origin' in remotes else ''
+    if 'origin' in remotes and not same_url(origin_url, private_url):
+        if same_url(origin_url, public_url) and 'public' not in remotes:
+            g('remote', 'rename', 'origin', 'public')
+        else:
+            g('remote', 'remove', 'origin')
+        remotes = (git('remote') or '').split()
+    g('remote', 'set-url' if 'origin' in remotes else 'add', 'origin', private_url)
+    g('remote', 'set-url' if 'public' in remotes else 'add', 'public', public_url)
+    g('remote', 'set-url', '--push', 'public', NO_PUSH)
+    key = f'credential.{private_url}.helper'
+    g('config', '--local', '--unset-all', key)
+    g('config', '--local', '--add', key, '')
+    g('config', '--local', '--add', key, helper_command(gh_bin(), user))
+    r = subprocess.run([gh_bin(), 'auth', 'setup-git', '--hostname', 'github.com'], capture_output=True, env=gh_env())
+    step('git-credentials', r.returncode == 0, 'gh auth setup-git: git uses your GitHub CLI sign-in for github.com '
+         '(your global git config)', 'run gh auth setup-git yourself, then run this again')
+    if not git('config', 'user.email') or not git('config', 'user.name'):
+        rc, out, _ = gh('api', 'user', '--jq', '[.id, .name] | @tsv', user=user)
+        uid, _, name = out.partition('\t')
+        g('config', 'user.name', name or login)
+        g('config', 'user.email', f'{uid}+{login}@users.noreply.github.com' if uid.isdigit() else f'{login}@users.noreply.github.com')
+    step('remotes', True, f'origin is {slug} (as {user}); public is the shared repo, fetch only (pushes to it fail)')
+
+    rc, _, err = g('fetch', '-q', '--prune', 'origin', timeout=300)
+    if not step('fetch-origin', rc == 0, f'git fetch origin ({slug})', f'check your access to {slug}: {first_error(err)}'):
+        return done(1)
+    rc, _, err = g('fetch', '-q', 'public', timeout=300)
+    step('fetch-public', rc == 0, 'git fetch public (the shared repo)', f'check the network: {first_error(err)}')
+    if rev('refs/remotes/origin/main') and rev('refs/remotes/public/main') and not git(
+            'merge-base', 'refs/remotes/origin/main', 'refs/remotes/public/main'):
+        step('private-repo', False, f"{slug} already has a main that isn't a copy of the shared skills",
+             f'pick another name with --private-repo {owner}/<new name>')
+        return done(2)
+    if not rev('refs/remotes/origin/main'):
+        base = rev('refs/heads/main') or rev('refs/remotes/public/main')
+        commit = commit_with_file(base, '.publishignore', PUBLISHIGNORE_ATTENDEE.encode(), 'Keep this copy private') if base else ''
+        rc, _, err = g('push', '-q', 'origin', f'{commit}:refs/heads/main', timeout=300) if commit else (1, '', 'nothing to start from')
+        if not step('seed', rc == 0, f'main of {slug} starts from the shared skills', first_error(err)):
+            return done(1)
+        g('fetch', '-q', 'origin', timeout=300)
+    run = Run(host_name(settings))
+    if not switch_to_review({'review_branch': review}, run):
+        step('review-branch', False, '; '.join(run.notes), 'switch the clone to it by hand, then run this again')
+        return done(1)
+    track_branch('main')
+    local_main, origin_main = rev('refs/heads/main'), rev('refs/remotes/origin/main')
+    if local_main != origin_main and (not local_main or is_ancestor(local_main, origin_main)):
+        g('update-ref', 'refs/heads/main', origin_main)
+    if not (REPO / '.publishignore').is_file():
+        (REPO / '.publishignore').write_bytes(PUBLISHIGNORE_ATTENDEE.encode())
+        g('add', '--', '.publishignore')
+        g('commit', '-q', '-m', 'Keep this copy private', '-m', COAUTHOR)
+    step('review-branch', True, f'the clone is on {review}; your edits wait there for review, and main changes only '
+                                f'through pull requests you merge')
+
+    settings.update(mode='attendee', private_url=private_url, private_user=user, private_repo=slug, public_url=public_url,
+                    review_branch=review, upstream_branch=upstream,
+                    keep_mine=settings.get('keep_mine') or list(KEEP_MINE), inbox=settings.get('inbox', False),
+                    cli_defaults=False)
+    settings.pop('public_user', None)
+    settings.pop('interval_minutes', None)
+    if args.host:
+        settings['host'] = args.host
+    if args.model:
+        settings['miner_model'] = args.model  # the weekly runner's model when it runs without the automation
+    save_settings(settings)
+    for folder in (STATE, STATE / 'private'):
+        folder.mkdir(parents=True, exist_ok=True)
+        if os.name != 'nt':
+            os.chmod(folder, 0o700)
+    terms = STATE / 'private-terms.txt'
+    if not terms.exists():
+        terms.write_text(TERMS_HEADER, encoding='utf-8')
+        if os.name != 'nt':
+            os.chmod(terms, 0o600)
+    step('settings', True, f'{tilde(SETTINGS)}; your messages, notes, and voice samples stay in {tilde(STATE)}')
+
+    before = set(BACKUPS.iterdir()) if BACKUPS.is_dir() else set()
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = cmd_sync(args)
+    line = (buffer.getvalue().strip().splitlines() or [''])[-1]
+    report['installed'] = sorted(load_manifest().get('skills', {}))
+    new_backups = sorted(set(BACKUPS.iterdir()) - before) if BACKUPS.is_dir() else []
+    report['backup'] = tilde(new_backups[-1]) if new_backups else None
+    step('first-sync', code in (0, 3), line or 'no output', f'see {tilde(SYNC_LOG)}, then run sync-skills.py sync')
+
+    if args.no_schedule:
+        report['schedule']['daily_sync'] = {'registered': False, 'how': 'none', 'detail': 'not scheduled (--no-schedule)'}
+    else:
+        chosen = parse_schedule_value('daily', args.daily) if args.daily else DEFAULT_SCHEDULE
+        if not chosen:
+            step('daily-sync-schedule', False, f'--daily {args.daily} is not HH:MM', 'pass --daily HH:MM')
+        else:
+            ok, what = register_job(chosen, default_python(), REPO / 'tools' / 'sync-skills.py')
+            state = load_state()
+            state.update(schedule=chosen, schedule_seen=None, schedule_managed=ok is True)
+            state.pop('schedule_pending', None)
+            if os.name == 'nt':
+                note_trigger(state, registered_job())
+                state['schedule_checked'] = dt.date.today().isoformat()
+            save_state(state)
+            how = 'task-scheduler' if os.name == 'nt' else ('launchd' if sys.platform == 'darwin' else 'crontab')
+            step('daily-sync-schedule', ok is True or how == 'crontab', what.splitlines()[0]
+                 + (f' {BACKGROUND_NOTICE}' if ok is True and how == 'launchd' else ''),
+                 'run sync-skills.py schedule again, or add the crontab lines it prints')
+            report['schedule']['daily_sync'] = {'registered': ok is True, 'how': how, 'when': describe(chosen),
+                                                'job': TASK_NAME if how == 'task-scheduler' else LAUNCHD_LABEL, 'detail': what}
+    weekly = {'how': args.weekly}
+    if args.weekly in ('automation', 'both'):
+        weekly['automation'] = {'configureAutomation': automation_input(args.model),
+                                'blueprint': tilde(REPO / 'automations' / 'weekly-skill-update.automation.md'),
+                                'steps': automation_steps(),
+                                'check': portable(miner_runner(), '--check-run')}
+    if args.weekly in ('os', 'both'):
+        r = subprocess.run([sys.executable, str(miner_runner()), '--install'], capture_output=True, text=True,
+                           encoding='utf-8', errors='replace', timeout=300)
+        detail = (r.stdout.strip() or r.stderr.strip()).splitlines()
+        weekly['os'] = {'registered': r.returncode == 0, 'detail': '\n'.join(detail)}
+        step('weekly-backup-schedule', r.returncode == 0, detail[0] if detail else 'no output',
+             'install Copilot CLI and sign in to it, or use the Automations route (--weekly automation)')
+    report['schedule']['weekly'] = weekly
+    if args.weekly in ('automation', 'both'):
+        report['next'].append('Create the weekly automation: ' + ' '.join(automation_steps()))
+    report['next'].append(f'Your skill edits collect on {review} in {slug}. The weekly run opens one pull request for you '
+                          f'to review, and another when the shared skills have updates ({upstream}).')
+    return done(0 if not report['problems'] else 1)
+
+
+def review_pr_body(settings, base, head, summary=''):
+    review = review_branch(settings)
+    files = [f for f in (git('diff', '--name-only', f'{base}...{head}') or '').splitlines() if f]
+    subjects = [s for s in (git('log', '--no-merges', '--format=%s', f'{base}..{head}') or '').splitlines() if s]
+    by_skill = {}
+    for path in files:
+        top, _, rest = path.partition('/')
+        by_skill.setdefault(top if rest else '(top level)', []).append(rest or top)
+    lines = [summary.strip(), ''] if summary.strip() else []
+    lines += ['Changes waiting for your review, by skill:', '']
+    for skill, paths in sorted(by_skill.items()):
+        lines.append(f"- {skill}: {', '.join(paths[:8])}" + (f' and {len(paths) - 8} more' if len(paths) > 8 else ''))
+    lines += ['', 'Where they came from:', ''] + [f'- {s}' for s in subjects[:20]]
+    if len(subjects) > 20:
+        lines.append(f'- and {len(subjects) - 20} more')
+    lines += ['', 'How to review:', '',
+              '- Read Files changed. To drop part of it, edit or revert it on this branch, or ask an agent to.',
+              '- Merge it to keep the changes. Your next daily sync installs main on each machine.',
+              f'- Close it without merging to drop all of it. Your next daily sync puts {review} and your installed '
+              'skills back on main, and keeps a copy on a declined/ branch.']
+    return '\n'.join(lines) + '\n'
+
+
+def open_or_update_pr(slug, user, head_branch, title, body, dry_run=False):
+    """(action, url, number, error) for the one open pull request from head_branch into main."""
+    rc, out, err = gh('pr', 'list', '--repo', slug, '--head', head_branch, '--base', 'main', '--state', 'open',
+                      '--json', 'number,url', user=user)
+    if rc:
+        return 'failed', None, None, first_error(err)
+    try:
+        prs = json.loads(out or '[]')
+    except ValueError:
+        prs = []
+    if dry_run:
+        return ('would update' if prs else 'would open'), (prs[0]['url'] if prs else None), (prs[0]['number'] if prs else None), ''
+    with scratch_dir() as tmp:
+        body_file = Path(tmp) / 'body.md'
+        body_file.write_text(body, encoding='utf-8')
+        if prs:
+            number, url = prs[0]['number'], prs[0]['url']
+            rc, _, err = gh('pr', 'edit', str(number), '--repo', slug, '--title', title, '--body-file', str(body_file), user=user)
+            return ('updated', url, number, '') if rc == 0 else ('failed', url, number, first_error(err))
+        rc, out, err = gh('pr', 'create', '--repo', slug, '--base', 'main', '--head', head_branch, '--title', title,
+                          '--body-file', str(body_file), user=user, timeout=180)
+    if rc:
+        return 'failed', None, None, first_error(err)
+    url = out.strip().splitlines()[-1] if out.strip() else None
+    number = int(url.rstrip('/').rsplit('/', 1)[-1]) if url and url.rstrip('/').rsplit('/', 1)[-1].isdigit() else None
+    return 'opened', url, number, ''
+
+
+def attendee_only(settings, command):
+    if is_attendee(settings):
+        return True
+    print(f'{command} is for attendee mode; run sync-skills.py setup-attendee first')
+    return False
+
+
+def print_result(args, result, text):
+    print(json.dumps(result, indent=1) if args.json else text)
+
+
+def cmd_review_pr(args):
+    """Open or update the one pull request that brings the review branch into main."""
+    settings = load_settings()
+    if not attendee_only(settings, 'review-pr'):
+        return 2
+    review, slug, user = review_branch(settings), repo_slug(settings['private_url']), settings.get('private_user')
+    result = {'repo': slug, 'branch': review, 'action': None, 'url': None, 'number': None, 'files': 0}
+    rc, _, err = g('fetch', '-q', '--prune', 'origin', timeout=300)
+    if rc:
+        result.update(action='failed', error=first_error(err))
+        print_result(args, result, f'could not fetch origin: {first_error(err)}')
+        return 1
+    base, head = 'refs/remotes/origin/main', f'refs/remotes/origin/{review}'
+    if not rev(head) or tree_of(head) == tree_of(base):
+        result['action'] = 'nothing to review'
+        print_result(args, result, f'nothing waits on {review}: no pull request needed')
+        return 0
+    result['files'] = len([f for f in (git('diff', '--name-only', f'{base}...{head}') or '').splitlines() if f])
+    today = dt.date.today()
+    title = args.title or f'Skill updates to review, {today:%B} {today.day}, {today.year}'
+    summary = ''
+    if args.summary_file:
+        try:
+            summary = Path(args.summary_file).read_text(encoding='utf-8')
+        except OSError:
+            summary = ''
+    action, url, number, error = open_or_update_pr(slug, user, review, title, review_pr_body(settings, base, head, summary),
+                                                   args.dry_run)
+    result.update(action=action, url=url, number=number)
+    if error:
+        result['error'] = error
+    print_result(args, result, f'{action}: {url or slug}' + (f' ({error})' if error else ''))
+    return 1 if action == 'failed' else 0
+
+
+def build_upstream_merge(settings, main, pub):
+    """Merge the shared repo's main into your main in a scratch worktree, keeping your version of each KEEP_MINE file you
+    changed (in main, or on the review branch, waiting for your review). Returns {'commit', 'conflicts', 'kept',
+    'error'}; on conflicts there is no commit."""
+    keep = settings.get('keep_mine') or list(KEEP_MINE)
+    base = git('merge-base', main, pub) or ''
+    pending = rev(f'refs/remotes/origin/{review_branch(settings)}')
+    out = {'commit': '', 'conflicts': [], 'kept': [], 'error': ''}
+    with scratch_dir() as tmp:
+        tree_dir = Path(tmp) / 'upstream'
+        rc, _, err = g('worktree', 'add', '-q', '--detach', str(tree_dir), main, timeout=300)
+        if rc:
+            out['error'] = first_error(err)
+            return out
+        try:
+            def w(*args):
+                r = subprocess.run(['git', '-C', str(tree_dir), *args], capture_output=True, env=GIT_ENV, timeout=300)
+                return r.returncode, r.stdout.decode('utf-8', 'replace').strip(), r.stderr.decode('utf-8', 'replace').strip()
+            rc, _, err = w('merge', '--no-ff', '--no-commit', '-q', pub)
+            for path in keep:
+                mine, was, theirs = blob_of(main, path), blob_of(base, path), blob_of(pub, path)
+                yours = mine != was or (pending and blob_of(pending, path) not in (was, ''))
+                if mine and yours and theirs != was and theirs != mine:
+                    w('checkout', main, '--', path)
+                    w('add', '--', path)
+                    out['kept'].append(path)
+            out['conflicts'] = [p for p in w('diff', '--name-only', '--diff-filter=U')[1].splitlines() if p]
+            gitdir = w('rev-parse', '--absolute-git-dir')[1]
+            if out['conflicts']:
+                w('merge', '--abort')
+            elif not (gitdir and (Path(gitdir) / 'MERGE_HEAD').exists()):
+                out['error'] = first_error(err) if rc else 'the merge did not start'
+            else:
+                today = dt.date.today()
+                message = f'Merge updates from the shared skills, {today:%B} {today.day}, {today.year}'
+                if out['kept']:
+                    message += f"\n\nKept yours: {', '.join(out['kept'])}"
+                rc, _, err = w('commit', '-q', '-m', message, '-m', COAUTHOR)
+                out['commit'] = w('rev-parse', 'HEAD')[1] if rc == 0 else ''
+                if rc:
+                    out['error'] = first_error(err)
+        finally:
+            g('worktree', 'remove', '--force', str(tree_dir), timeout=300)
+            for _ in range(20):  # on Windows, remove --force can exit 0 and leave the folder: delete it, then prune
+                shutil.rmtree(tree_dir, ignore_errors=True)
+                if not tree_dir.exists():
+                    break
+                time.sleep(0.5)
+            g('worktree', 'prune')
+    return out
+
+
+def upstream_pr_body(public_slug, subjects, kept, conflicts, upstream):
+    lines = [f'Updates from the shared skills ({public_slug}) that your copy does not have yet.', '', 'New commits:', '']
+    lines += [f'- {s}' for s in subjects[:30]] + ([f'- and {len(subjects) - 30} more'] if len(subjects) > 30 else [])
+    if kept:
+        lines += ['', f"Kept yours: {', '.join(kept)}. You changed it, so the shared version of that file was not "
+                      'merged in. Compare them on GitHub if you want to take something from it.']
+    if conflicts:
+        lines += ['', f"These files changed in your copy and in the shared skills, so this can't merge on its own: "
+                      f"{', '.join(conflicts)}.",
+                  f'To fix it, ask an agent: "In my skills repo, merge origin/main into {upstream} in a separate '
+                  'worktree, keep my edits where they conflict, push it, and show me the diff."']
+    lines += ['', 'Merge it to take these updates. Close it to skip them for now: next week brings them again, with '
+                  'anything newer.']
+    return '\n'.join(lines) + '\n'
+
+
+def cmd_upstream_pr(args):
+    """Merge the shared repo's main into the upstream branch and open or update its pull request into main. Conflicts
+    stay on the branch: then it holds the shared main as it is, and the pull request says what conflicts."""
+    settings = load_settings()
+    if not attendee_only(settings, 'upstream-pr'):
+        return 2
+    upstream, slug, user = upstream_branch(settings), repo_slug(settings['private_url']), settings.get('private_user')
+    public_slug = repo_slug(settings.get('public_url')) or settings.get('public_url')
+    result = {'repo': slug, 'branch': upstream, 'action': None, 'url': None, 'number': None, 'new_commits': 0,
+              'kept': [], 'conflicts': []}
+    for remote in ('origin', 'public'):
+        rc, _, err = g('fetch', '-q', '--prune', remote, timeout=300)
+        if rc:
+            result.update(action='failed', error=f'git fetch {remote}: {first_error(err)}')
+            print_result(args, result, result['error'])
+            return 1
+    pub, main = rev('refs/remotes/public/main'), rev('refs/remotes/origin/main')
+    if not (pub and main):
+        result.update(action='failed', error='origin/main or public/main is missing')
+        print_result(args, result, result['error'])
+        return 1
+    if is_ancestor(pub, main):
+        result['action'] = 'up to date'
+        print_result(args, result, f'your copy has everything from {public_slug}')
+        return 0
+    subjects = [s for s in (git('log', '--no-merges', '--format=%s', f'{main}..{pub}') or '').splitlines() if s]
+    result['new_commits'] = len(subjects)
+    state = load_state()
+    remote_branch = rev(f'refs/remotes/origin/{upstream}')
+    if remote_branch and remote_branch != state.get('upstream_pushed') and not is_ancestor(remote_branch, main):
+        # Someone committed to the upstream branch (fixing conflicts, say): it is theirs now, so leave it alone.
+        rc, out, _ = gh('pr', 'list', '--repo', slug, '--head', upstream, '--base', 'main', '--state', 'open',
+                        '--json', 'number,url', user=user)
+        try:
+            prs = json.loads(out or '[]') if rc == 0 else []
+        except ValueError:
+            prs = []
+        result.update(action='waiting for you', url=prs[0]['url'] if prs else None, number=prs[0]['number'] if prs else None)
+        print_result(args, result, f'{upstream} has commits of yours; left as it is' + (f": {prs[0]['url']}" if prs else ''))
+        return 0
+    if args.dry_run:
+        result['action'] = 'would merge and open or update the pull request'
+        print_result(args, result, f"{len(subjects)} new commit(s) from {public_slug}; {result['action']}")
+        return 0
+    built = build_upstream_merge(settings, main, pub)
+    if built['error']:
+        result.update(action='failed', error=built['error'])
+        print_result(args, result, f"could not merge the shared skills: {built['error']}")
+        return 1
+    commit = built['commit'] or pub
+    result.update(kept=built['kept'], conflicts=built['conflicts'])
+    lease = f'--force-with-lease=refs/heads/{upstream}:{remote_branch}' if remote_branch else f'--force-with-lease=refs/heads/{upstream}:'
+    rc, _, err = g('push', '-q', 'origin', f'{commit}:refs/heads/{upstream}', lease, timeout=300)
+    if rc:
+        result.update(action='failed', error=f'git push: {first_error(err)}')
+        print_result(args, result, result['error'])
+        return 1
+    state['upstream_pushed'] = commit
+    save_state(state)
+    today = dt.date.today()
+    title = f'Updates from the shared skills, {today:%B} {today.day}, {today.year}'
+    action, url, number, error = open_or_update_pr(slug, user, upstream, title, upstream_pr_body(
+        public_slug, subjects, built['kept'], built['conflicts'], upstream))
+    result.update(action=action, url=url, number=number)
+    if error:
+        result['error'] = error
+    print_result(args, result, f'{action}: {url or slug}' + (f" (conflicts: {', '.join(built['conflicts'])})" if built['conflicts'] else '')
+                 + (f' ({error})' if error else ''))
+    return 1 if action == 'failed' else 0
+
+
+def cmd_review_reset(args):
+    """Drop everything that waits on the review branch (saved to declined/<branch>/<time> first), then reinstall main."""
+    settings = load_settings()
+    if not attendee_only(settings, 'review-reset'):
+        return 2
+    global PRIVATE_DATA
+    PRIVATE_DATA = STATE
+    started = time.monotonic()
+    run = Run(host_name(settings))
+    review = review_branch(settings)
+    if not take_lock(SYNC_LOCK, 1800):
+        print('a sync is running; try again in a minute')
+        return 1
+    try:
+        rc, _, err = g('fetch', '-q', '--prune', 'origin', timeout=300)
+        if rc or not switch_to_review(settings, run):
+            run.result = 'error'
+            run.note(f'could not fetch origin ({first_error(err)})' if rc else 'not on the review branch')
+            return 1
+        if tree_of('HEAD') == tree_of('refs/remotes/origin/main'):
+            run.note(f'nothing waits on {review}')
+            return 0
+        if args.dry_run:
+            run.note(f"would save {review} to declined/{review}/<time> and put it back on main "
+                     f"({count('refs/remotes/origin/main..HEAD')} commit(s))")
+            return 0
+        if not drop_review(settings, run, 'review reset by hand', keep_newer=False):
+            run.result = 'error'
+            return 1
+        code, changed, _, notes = do_install()
+        run.notes.extend(n for n in notes if not n.startswith('previous copies'))
+        if changed:
+            run.note(f"installed {', '.join(changed)}")
+        return 0 if code in (0, 3) else 1
+    finally:
+        shutil.rmtree(SYNC_LOCK, ignore_errors=True)
+        run.head = rev('HEAD')
+        write_log(run, started)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('command', choices=['status', 'harvest', 'resolve', 'install', 'sync', 'setup', 'schedule', 'sync-status',
-                                                'backfill-inbox', 'cli-defaults'])
+                                                'backfill-inbox', 'cli-defaults', 'setup-attendee', 'review-pr',
+                                                'upstream-pr', 'review-reset'])
     parser.add_argument('paths', nargs='*', help='resolve: skill/path entries to mark as merged')
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--json', action='store_true', help='status only')
+    parser.add_argument('--json', action='store_true', help='status, setup-attendee, review-pr, upstream-pr: print JSON')
     parser.add_argument('--include-new', action='store_true', help='harvest: also copy local-only skills into the repo')
     parser.add_argument('--force', action='store_true', help='install even if installed copies have unharvested edits')
     parser.add_argument('--private-url', help='setup: the private repo (origin), for example https://github.com/<owner>/<repo>.git')
@@ -2602,6 +3820,18 @@ def main():
     parser.add_argument('--since', help='backfill-inbox: the start of the window, an ISO time (for example 2026-03-01T00:00:00Z)')
     parser.add_argument('--until', help='backfill-inbox: the end of the window (default: now)')
     parser.add_argument('--undo', action='store_true', help='cli-defaults: put back the values the sync replaced')
+    parser.add_argument('--private-repo', help=f'setup-attendee: your private copy, OWNER/NAME (default: <your GitHub '
+                        f'login>/{ATTENDEE_REPO_NAME})')
+    parser.add_argument('--create', action='store_true', help='setup-attendee: create the private copy when it does not exist')
+    parser.add_argument('--weekly', choices=['automation', 'os', 'both', 'none'], default='automation',
+                        help='setup-attendee: schedule the weekly skill update as an Agents window automation (default; '
+                        'prints its configureAutomation input), with launchd or Task Scheduler (os, needs Copilot CLI), '
+                        'both, or none')
+    parser.add_argument('--no-schedule', action='store_true', help='setup-attendee: do not schedule the daily sync')
+    parser.add_argument('--model', help=f'setup-attendee: the model for the weekly run, in the automation and the backup '
+                        f'runner (default {AUTOMATION_MODEL})')
+    parser.add_argument('--title', help='review-pr: the pull request title')
+    parser.add_argument('--summary-file', help='review-pr: text to put at the top of the pull request description')
     args = parser.parse_args()
     if args.repo:
         global REPO
@@ -2609,7 +3839,8 @@ def main():
     STATE.mkdir(parents=True, exist_ok=True)
     return {'status': cmd_status, 'harvest': cmd_harvest, 'resolve': cmd_resolve, 'install': cmd_install,
             'sync': cmd_sync, 'setup': cmd_setup, 'schedule': cmd_schedule, 'sync-status': cmd_sync_status,
-            'backfill-inbox': cmd_backfill_inbox, 'cli-defaults': cmd_cli_defaults}[args.command](args)
+            'backfill-inbox': cmd_backfill_inbox, 'cli-defaults': cmd_cli_defaults, 'setup-attendee': cmd_setup_attendee,
+            'review-pr': cmd_review_pr, 'upstream-pr': cmd_upstream_pr, 'review-reset': cmd_review_reset}[args.command](args)
 
 
 if __name__ == '__main__':

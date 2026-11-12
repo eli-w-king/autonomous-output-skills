@@ -76,8 +76,20 @@ them into chat or an issue, never commit them. The clients read the file directl
 | `OUTSET_API_KEY` | Outset REST. From the Outset app. |
 | `OUTSET_OAUTH_CLIENT_ID` / `OUTSET_REFRESH_TOKEN` | Written by `outset-auth.mjs`. Do not hand-edit. |
 | `MARVIN_CLIENT_ID` / `MARVIN_CLIENT_SECRET` | Marvin Settings -> MCP. Expires 30-180 days. |
+| `USERINTERVIEWS_API_KEY` | User Interviews API access enabled by an account admin. |
+| `USERINTERVIEWS_ACCOUNT_EMAIL` | The account used for browser tasks; passwords and 2FA stay in the browser. |
 
 If `research.env` is missing, copy `research.env.template` and fill it in.
+
+**User Interviews API setup (checked November 11, 2026).** Its official
+[authentication guide](https://api-docs.userinterviews.com/docs/authentication.md) documents the
+`user-interviews-apikey` header and `Accept: application/vnd.user-interviews.v2+json`.
+`node scripts/probe.mjs userinterviews` uses only
+`GET https://www.userinterviews.com/api/recruits?page[size]=1`, refuses redirects, and reports status
+without displaying keys or recruit records. This verifies read access, not permission to launch.
+The [Recruit API guide](https://api-docs.userinterviews.com/docs/recruit-api-introduction.md) warns
+that creating a Recruit can start recruitment, so never use creation as a connection test. The
+existing browser workflow remains available for study-building tasks.
 
 **Per machine.** Each machine (the Mac, every dev box) has its own `research.env` and its own Outset
 sign-in: run `outset-auth.mjs` on that machine. Never copy `OUTSET_REFRESH_TOKEN` between machines;

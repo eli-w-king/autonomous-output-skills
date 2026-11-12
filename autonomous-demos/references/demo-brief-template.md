@@ -21,6 +21,8 @@ re-recorded. The structure follows the compare-models executive demo instruction
 - Settings beyond the preset (exact ids and values):
 - Theme: Dark 2026 (default) | other: ____ (one theme for every asset)
 - Viewport: 1440x900 at 2x -> 1920x1200 master | square 1000x1000 | other
+- Voiceover: none | included Voice Mode Birch (default) | another voice explicitly requested: ____
+- Voice sample listened to and approved for export: yes | blocked (never fall back to system TTS)
 
 ## Starting state (verify with /preflight and a still before recording)
 - Window layout and proportions (for example chat 1/3, editor 2/3):

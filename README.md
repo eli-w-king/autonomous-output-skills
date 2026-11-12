@@ -24,6 +24,12 @@ time and the output needs no fixing.
 |-------|--------------|----------|
 | [`my-voice`](my-voice/SKILL.md) | Writes anything I send or post as me (Slack and Teams messages, updates, feedback requests, PR text, notes, UI copy), kept current from my own edits and approvals | "write it like how I would say it", "make it sound like me" |
 
+**Getting set up**
+
+| Skill | What it does | Triggers |
+|-------|--------------|----------|
+| [`autonomous-setup`](autonomous-setup/SKILL.md) | A setup interview: one prompt gets a Mac or Windows machine ready for these skills and a workshop (tools, VS Code settings with cloud dictation, a private copy of the skills with the weekly update, Work IQ, Playwright, Computer Use, an optional dev box that stays on), with a checklist canvas and a Try-it test for each item | "set me up for the workshop", "check my setup", "continue my setup" |
+
 **Research, when a decision needs evidence from users**
 
 | Skill | What it does | Triggers |
@@ -84,6 +90,10 @@ compiled from the parallel design labs of October 9 to 12, 2026. The short versi
 Copilot CLI and VS Code (Insiders and the Agents window) load skills from `~/.copilot/skills` on each
 machine, so whatever is installed there is live for every new session on that machine. Sessions also
 improve skills while they work, in the installed copies and in the clone.
+
+**On your own account.** Attendee mode is the same loop with one account and a private copy: edits wait on a
+review branch, the weekly run opens a pull request for you to review, the shared repo's updates come as a second
+pull request, and nothing is published ([automations/ATTENDEES.md](automations/ATTENDEES.md)).
 
 **Two repos.** A private repo has everything: the skills, the tools, and a `private/` folder that is
 never published (machine setup scripts, the private terms the validator blocks, edits rescued from
@@ -176,6 +186,9 @@ The tools:
 
 ## Add a machine
 
+Setting up your own machine (a teammate's, or for the workshop)? The setup interview does it in one prompt:
+[INSTALL.md](INSTALL.md), "The quick way". This section is the two-repo setup I use on my own machines.
+
 It needs git, Python 3.8 or newer, and GitHub CLI signed in to both accounts: the default account,
 which can push here, and the account that owns the private repo (`gh auth login` once for each). One
 command per OS clones this repo if needed, points the clone at both repos, runs the first sync
@@ -228,6 +241,7 @@ The sync backs up and removes every old name from `~/.copilot/skills` on each ma
 ```text
 DEMO-RULES.md              the demo rules, with sources
 my-voice/                  SKILL.md (private writing samples stay in ~/.copilot/skill-miner/)
+autonomous-setup/          SKILL.md, references/ (machine, connections, optional, workshop.json, workshop settings), scripts/
 autonomous-demos/          SKILL.md, references/ (brief template, storyboards), scripts/
 autonomous-computer-use/   SKILL.md, references/ (macos, windows)
 autonomous-prototypes/     SKILL.md, references/ (design taste)

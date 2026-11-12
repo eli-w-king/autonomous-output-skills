@@ -99,6 +99,17 @@ instruction in the current request wins; write the override into the brief.
 19. **One continuous take.** Fast-forward only idle waiting, in place, with speed ramps instead of
     cuts. Never splice different sessions or takes into something that looks continuous.
 
+**Voiceovers**
+
+When a demo has a voiceover, use the included **Voice Mode Birch** voice by default, unless the user
+explicitly requests another voice. Do not substitute operating-system speech, a robotic TTS voice,
+or another voice because it is easier to generate. If Birch is unavailable, report the voiceover
+step as blocked rather than silently falling back.
+
+Record the selected voice in the brief and listen to a sample before exporting. This default applies
+to future demos and newly needed narration; leave completed demos alone unless the user asks to
+change them.
+
 **Delivery and QA**
 
 20. **Masters.** Sharp and high resolution, never pixelated or visibly compressed: H.264 MP4, about

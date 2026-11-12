@@ -107,6 +107,9 @@ def main():
         sync.REPO = Path(args.repo).expanduser().resolve()
     repo = sync.REPO
     settings = sync.load_settings()
+    if settings.get('mode') == 'attendee':
+        return fail('this machine is set up in attendee mode (automations/ATTENDEES.md): your private copy never '
+                    'publishes to the shared repo. To suggest a change there, open a pull request from a fork.')
 
     if sync.git('symbolic-ref', '--short', '-q', 'HEAD') != 'main':
         return fail(f'{repo} is not on main')

@@ -1,0 +1,31 @@
+{
+  "name": "the workshop",
+  "readiness_file": "Workshop readiness.md",
+  "settings_snippet": "workshop-settings.jsonc",
+  "node_min": 18,
+  "practice": {
+    "template": "eli-w-king/excalidraw-workshop",
+    "repo_name": "excalidraw-workshop",
+    "dir": "~/Code/excalidraw-workshop",
+    "yarn": "1.22.22",
+    "install": [
+      "install"
+    ],
+    "start": [
+      "workshop:start",
+      "--detach"
+    ],
+    "stop": [
+      "workshop:stop"
+    ],
+    "server_file": ".workshop/server.json",
+    "ready_marker": "excalidraw",
+    "wait_for": ".excalidraw",
+    "start_timeout": 180
+  },
+  "skills": {
+    "public_repo": "eli-w-king/autonomous-output-skills",
+    "private_name": "autonomous-output-skills"
+  },
+  "npm_feed": "https://packagefeedproxy.microsoft.io/npm/"
+}

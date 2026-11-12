@@ -1,0 +1,17 @@
+{
+	"name": "autonomous-output-skills",
+	"owner": {
+		"name": "Eli King"
+	},
+	"metadata": {
+		"description": "Plugins that go with the autonomous skills. The skills install as your own copy, not as plugins."
+	},
+	"plugins": [
+		{
+			"name": "workshop-setup",
+			"source": "./plugins/workshop-setup",
+			"description": "A live setup checklist canvas: what's already set up, what's tested and what needs you.",
+			"version": "1.0.0"
+		}
+	]
+}

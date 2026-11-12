@@ -25,6 +25,8 @@ always wins over a default here; record the override in the demo's brief.
 10. Deliver to a Desktop folder with a short `Read me.txt`, open it, delete superseded versions.
 11. Never steal focus, never touch other agents' windows, never need the user mid-run.
 12. Never cut corners. If something cannot be shown honestly, say so instead of faking it.
+13. For voiceovers, use the included Voice Mode Birch voice, not robotic system TTS. Keep completed
+    demos unchanged unless asked.
 
 ## Truth
 
@@ -82,6 +84,17 @@ always wins over a default here; record the override in the demo's brief.
     moment, and prompts typed at a human pace.
 19. **One continuous take.** Fast-forward only idle waiting, in place, with speed ramps instead of
     cuts. Never splice different sessions or takes into something that looks continuous.
+
+## Voiceovers
+
+When a demo has a voiceover, use the included **Voice Mode Birch** voice by default, unless the user
+explicitly requests another voice. Do not substitute operating-system speech, a robotic TTS voice,
+or another voice because it is easier to generate. If Birch is unavailable, report the voiceover
+step as blocked rather than silently falling back.
+
+Record the selected voice in the brief and listen to a sample before exporting. This default applies
+to future demos and newly needed narration; leave completed demos alone unless the user asks to
+change them.
 
 ## Delivery and QA
 

@@ -27,8 +27,10 @@ Errors (exit 1):
     In the private repo, private/private-terms.txt and the weekly miner's state in private/skill-miner/
     (voice-samples.md, notes.md, state.json, ledger.json, runner.json) are allowed.
   - in a published tree (--published, or a tree without .publishignore such as the public repo):
-    anything under private/ or my-taste/ (a private-only skill), .publishignore itself, and an HTML
-    comment that starts with "propagation test" (the sync's own test edit, never published)
+    anything under private/ or my-taste/ (a private-only skill, except the two files every copy starts
+    from: my-taste/SKILL.template.md and my-taste/references/taste-from-workiq.md), .publishignore
+    itself, and an HTML comment that starts with "propagation test" (the sync's own test edit, never
+    published)
   - with --base REF: a binary file added since REF (the publish step publishes text only)
   - with --commits REF: the same secret, path, email, and private term checks on every commit
     message and every added line in REF..HEAD, and any binary file in those commits.
@@ -186,8 +188,10 @@ def unpublished_paths():
 
 
 # A published tree (the publish step's, or the public repo, which has no .publishignore) must never contain
-# private/ or the private-only my-taste skill: everything in it gets every check, and anything under them is an error.
+# private/ or the private-only my-taste skill: everything in it gets every check, and anything under them is an error,
+# except the two my-taste files every copy starts from (tools/personal-skills.py makes each person's own from them).
 PRIVATE_ONLY = ('private/', 'my-taste/')
+SHARED_FROM_PRIVATE_ONLY = ('my-taste/SKILL.template.md', 'my-taste/references/taste-from-workiq.md')
 PUBLISHED_TREE = args.published or (not args.secrets_only and not (REPO / '.publishignore').is_file())
 UNPUBLISHED = set() if PUBLISHED_TREE else unpublished_paths()
 
@@ -212,8 +216,10 @@ if args.secrets_only:
 # 0. File names and binaries
 for p in ALL:
     rel = relpath(p)
-    if PUBLISHED_TREE and (rel.startswith(PRIVATE_ONLY) or rel == '.publishignore'):
-        errors.append(f'{rel}: private/, my-taste/ and .publishignore must never be in a published tree')
+    if PUBLISHED_TREE and ((rel.startswith(PRIVATE_ONLY) and rel not in SHARED_FROM_PRIVATE_ONLY)
+                           or rel == '.publishignore'):
+        errors.append(f'{rel}: private/, my-taste/ (other than its template and taste procedure) and .publishignore '
+                      'must never be in a published tree')
         continue
     allowed = rel in PRIVATE_ALLOWED and not PUBLISHED_TREE
     if SENSITIVE_NAME.match(p.name) and not allowed and (TOUCHED is None or rel in TOUCHED):

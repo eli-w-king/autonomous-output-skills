@@ -5,6 +5,7 @@
 //   node probe.mjs            # probe everything that has credentials
 //   node probe.mjs marvin     # probe one platform only
 //   node probe.mjs outset
+//   node probe.mjs userinterviews
 //
 // Secrets are read from disk and never printed. Outset publishes no public
 // API docs, so its section brute-forces auth styles and candidate paths to
@@ -233,8 +234,33 @@ async function probeOutset(env) {
 	}
 }
 
+async function probeUserInterviews(env) {
+	console.log('\n=== User Interviews ===');
+	if (!env.USERINTERVIEWS_API_KEY) {
+		console.log(bad('USERINTERVIEWS_API_KEY is missing; add it to your protected credentials file'));
+		return false;
+	}
+	const res = await tryFetch('https://www.userinterviews.com/api/recruits?page[size]=1', {
+		method: 'GET',
+		redirect: 'error',
+		headers: {
+			'user-interviews-apikey': env.USERINTERVIEWS_API_KEY,
+			accept: 'application/vnd.user-interviews.v2+json',
+			'content-type': 'application/json',
+		},
+	});
+	const accepted = res.status === 200 && Array.isArray(res.json?.data);
+	console.log(accepted
+		? ok('read-only API check passed; no recruit created or launched')
+		: bad(`read-only API check failed (HTTP ${res.status}); confirm the key and Recruit API access with your admin`));
+	return accepted;
+}
+
 const env = loadEnv();
 const which = process.argv[2];
 if (!which || which === 'marvin') { await probeMarvin(env); }
 if (!which || which === 'outset') { await probeOutset(env); }
+if (which === 'userinterviews' || (!which && env.USERINTERVIEWS_API_KEY)) {
+	if (!await probeUserInterviews(env)) { process.exitCode = 1; }
+}
 console.log('');
