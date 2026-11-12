@@ -183,8 +183,10 @@ whole setup on a laptop that already has Homebrew, Node and git, up to 75 on a b
 ### Then, without stopping
 
 Work through the items in this order. After each one: prove it, mark it, and point at its Try-it prompt. Batch the
-items that need a new session (Work IQ, Playwright): install both, then ask them once to start a new session and say
-"continue my setup" there, where they test both.
+items that need a new session (Work IQ, Playwright): install both, then ask them once to start a new session with the
+same choices as before (**Chat**, **Claude Opus 5.5**, **Max**, **1M**, **Autopilot** and **Allow all**) and say
+"continue my setup" there, where they test both. After the weekly update's proof run, New Session can default to the
+skills folder instead of Chat, so tell them to pick **Chat** again.
 
 #### Machine
 
