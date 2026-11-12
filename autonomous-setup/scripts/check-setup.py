@@ -724,13 +724,17 @@ def owner_only(path):
     if code != 0:
         return None
     user = (os.environ.get('USERNAME') or '').lower()
+    # Files in the profile get SYSTEM and Administrators, and icacls /inheritance:r keeps them as explicit entries.
+    # Both can read any file on Windows anyway, so like OpenSSH's key check they don't count as someone else.
+    system = ('nt authority\\system', 'builtin\\administrators')
     principals = []
     for line in out.splitlines():
         line = line.replace(str(path), '', 1).strip()
         m = re.match(r'(.+?):\((.*)\)$', line)
         if m:
             principals.append(m.group(1).strip().lower())
-    return bool(principals) and all(p == user or p.endswith('\\' + user) for p in principals)
+    mine = [p == user or p.endswith('\\' + user) for p in principals]
+    return any(mine) and all(m or p in system for m, p in zip(mine, principals))
 
 
 def check_research(answers):

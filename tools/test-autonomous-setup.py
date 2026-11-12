@@ -118,7 +118,8 @@ def make_env(name, responses=None, signed_out=False):
     az.write_text(FAKE_AZ)
     az.chmod(0o755)
     (root / 'responses.json').write_text(json.dumps(responses or RESPONSES))
-    env = dict(os.environ, HOME=str(root / 'home'), COPILOT_HOME=str(root / 'copilot'),
+    # USERPROFILE too: on Windows, Python's Path.home() and Node's os.homedir() read it, not HOME.
+    env = dict(os.environ, HOME=str(root / 'home'), USERPROFILE=str(root / 'home'), COPILOT_HOME=str(root / 'copilot'),
                PATH='%s%s%s' % (root / 'bin', os.pathsep, os.environ.get('PATH', '')), TZ='America/Los_Angeles',
                FAKE_AZ_LOG=str(root / 'az.log'), FAKE_AZ_RESPONSES=str(root / 'responses.json'),
                WORKSHOP_SETUP_DESKTOP=str(root / 'desktop'))
@@ -281,13 +282,25 @@ class CheckItems(unittest.TestCase):
         self.assertIn('weekly', items)
 
 
+def set_permissions(path, mode):
+    """chmod on macOS and Linux. On Windows chmod only sets read-only, so use the setup's own icacls fix for an
+    owner-only file, and add read access for BUILTIN\\Users when the mode shares it."""
+    if os.name != 'nt':
+        path.chmod(mode)
+        return
+    subprocess.run(['icacls', str(path), '/inheritance:r', '/grant:r', os.environ['USERNAME'] + ':F'], check=True,
+                   capture_output=True)
+    if mode & 0o077:
+        subprocess.run(['icacls', str(path), '/grant', '*S-1-5-32-545:R'], check=True, capture_output=True)
+
+
 class ResearchSetup(unittest.TestCase):
     def research_item(self, name, values, answers, mode=0o600):
         root, env = make_env(name)
         path = root / 'home' / '.copilot' / 'research.env'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(''.join('%s=%s\n' % pair for pair in values.items()))
-        path.chmod(mode)
+        set_permissions(path, mode)
         code = ('import json, runpy, sys; sys.path.insert(0, sys.argv[1]); '
                 'm=runpy.run_path(sys.argv[1]+"/check-setup.py"); '
                 'print(json.dumps(m["check_research"](json.loads(sys.argv[2]))))')
@@ -319,11 +332,29 @@ class ResearchSetup(unittest.TestCase):
         self.assertTrue(item['recruiting_ready'])
         self.assertFalse(item['api_credentials_configured'])
 
-    @unittest.skipIf(os.name == 'nt', 'POSIX permission check')
     def test_shared_credentials_are_not_ready(self):
         item = self.research_item('research-shared', {'OUTSET_API_KEY': 'unit-outset'}, {}, mode=0o644)
         self.assertFalse(item['ok'])
         self.assertFalse(item['owner_only'])
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows ACLs')
+    def test_windows_owner_only_allows_system_and_administrators_only(self):
+        root, env = make_env('research-acl')
+        path = root / 'research.env'
+        path.write_text('OUTSET_API_KEY=unit-outset\n')
+        self.addCleanup(subprocess.run, ['icacls', str(path), '/reset'], capture_output=True)
+        user = os.environ['USERNAME']
+        code = ('import runpy, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); '
+                'print(runpy.run_path(sys.argv[1]+"/check-setup.py")["owner_only"](Path(sys.argv[2])))')
+        for grants, expected in ((['/grant:r', user + ':F', '*S-1-5-18:F', '*S-1-5-32-544:F'], 'True'),
+                                 (['/grant:r', user + ':F', '*S-1-5-32-545:R'], 'False'),
+                                 (['/grant:r', '*S-1-5-18:F', '*S-1-5-32-544:F', '/remove:g', user], 'False')):
+            with self.subTest(grants=grants):
+                subprocess.run(['icacls', str(path), '/reset'], check=True, capture_output=True)
+                subprocess.run(['icacls', str(path), '/inheritance:r'] + grants, check=True, capture_output=True)
+                proc = subprocess.run([sys.executable, '-c', code, str(SCRIPTS), str(path)], env=env,
+                                      capture_output=True, text=True, timeout=30)
+                self.assertEqual(proc.stdout.strip(), expected, proc.stderr)
 
     @unittest.skipUnless(shutil.which('node'), 'Node required for the platform probe')
     def test_userinterviews_probe_is_read_only_and_does_not_print_secrets(self):
