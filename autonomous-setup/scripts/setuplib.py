@@ -325,6 +325,13 @@ def save_state(data):
     write_atomic(STATE_FILE, json.dumps(data, indent=1, sort_keys=True) + '\n')
 
 
+def devbox_mode(answers=None):
+    """Dev box mode: the setup prompt said "on my dev box" (saved as setup_mode=devbox). The machine never decides it."""
+    if answers is None:
+        answers = load_state().get('answers') or {}
+    return str((answers or {}).get('setup_mode', '')).strip().lower() == 'devbox'
+
+
 def set_answers(**answers):
     data = load_state()
     data['answers'].update({k: v for k, v in answers.items() if v is not None})

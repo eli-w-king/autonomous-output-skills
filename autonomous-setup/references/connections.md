@@ -29,7 +29,8 @@ prefix them, for example `workiq-fetch`). When the setup prompt passed in a chec
 prompt asks to post "Work IQ is set up" in that meeting chat. The person typing that prompt is their okay for that one
 message. Find the meeting chat by its name on their calendar or in their chats (if more than one matches, ask which),
 send the one message through the `workiq` skill's Teams reference, then read the chat back and confirm exactly one
-copy is there. A timeout or unclear result is never a reason to send again: read first. Without a check-in chat, the
+copy is there. A timeout or unclear result is never a reason to send again: read first. On a dev box the check-in was
+already posted from the laptop, so the box's Try-it is the read below, never a second post. Without a check-in chat, the
 test is a read instead: their next meeting's subject (the `fetch` tool on `/me/calendarView` for the next seven days,
 `$top=1`, `$select=subject,start`, ordered by start), shown to them and kept out of every file. Then
 `check-setup.py mark workiq ok` and `check-setup.py tested workiq`.

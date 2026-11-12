@@ -1,6 +1,6 @@
 ---
 name: autonomous-setup
-description: "Autonomous: Setup. Gets a Mac or Windows machine ready for the autonomous skills and a hands-on workshop from a one-line prompt that names the event and links here, pasted after the person set up VS Code: the agent clones the skills, checks the settings, opens a setup checklist canvas in the same chat, installs what's missing (running installers and starting sign-ins itself), and has the person test each item with a Try-it prompt. Never handles passwords or keys. Covers the tools (VS Code Insiders, GitHub CLI, git, Node and Yarn 1, Python with Pillow, ffmpeg, Chrome or Edge), the workshop settings with cloud dictation, a private copy of the skills with the daily sync and the weekly update, Work IQ, the Playwright MCP server, Computer Use, and optional Azure, a dev box that stays on, and research. Resumable. Use for 'set me up for <event>', 'set up the autonomous skills', 'check my setup', 'continue my setup', 'am I ready for the workshop', or 'run the setup interview'."
+description: "Autonomous: Setup. Gets a Mac or Windows machine ready for the autonomous skills and a hands-on workshop from a one-line prompt that names the event and links here, pasted after the person set up VS Code: the agent clones the skills, checks the settings, opens a setup checklist canvas in the same chat, installs what's missing (running installers and starting sign-ins itself), and has the person test each item with a Try-it prompt. Never handles passwords or keys. Covers the tools (VS Code Insiders, GitHub CLI, git, Node and Yarn 1, Python, ffmpeg, a browser), the workshop settings, a private copy of the skills with the daily sync and the weekly update, Work IQ, the Playwright MCP server, Computer Use, dictation, and optional Azure, a dev box that stays on, and research. A dev box mode sets up the box itself. Resumable. Use for 'set me up for <event>', 'set me up on my dev box', 'set up the autonomous skills', 'check my setup', 'continue my setup', or 'am I ready for the workshop'."
 ---
 
 # Autonomous: Setup
@@ -42,6 +42,8 @@ this file:
   devbox_requested=yes` in the same command. Turn both on when the canvas opens, and take it as their okay to create
   one dev box in the top pool that stays on, after you've shown the plan. Without it, both stay optional: offer them,
   never push.
+- **"on my dev box"**: this is their dev box. Add `--set setup_mode=devbox` and see "Dev box mode". The prompt decides
+  the mode (`os.devbox_hint` may confirm it, never override it); a request for "a dev box" there is ignored.
 - Never write the event's own names into this skill or its files: they're published, and the publish check refuses
   private names.
 
@@ -169,6 +171,12 @@ The workshop page has people do these first, in this order, so canvases are alre
    - Sandboxing for terminal: **Off**.
 7. **Paste the one-line prompt.**
 
+## Dev box mode
+
+When the prompt says "on my dev box", this machine is their dev box: read
+[`references/devbox-mode.md`](references/devbox-mode.md) before Part 1. The same setup, with Google Chrome required,
+`--weekly none`, a Work IQ Try-it that reads, and four items skipped.
+
 ## Part 1: a quick check, in chat
 
 1. On Windows, if `python` doesn't run (or is the Microsoft Store alias), say so and install Python first
@@ -198,21 +206,20 @@ The workshop page has people do these first, in this order, so canvases are alre
 2. Not listed: `<py> <skill>/scripts/canvas-extension.py install --json`. It copies the canvas from the clone
    (`plugins/workshop-setup/extensions/setup-checklist`) into Copilot's user extensions folder
    (`~/.copilot/extensions/setup-checklist`), and copies nothing when the workshop-setup plugin is installed. Then
-   `extensions_reload` (find it with tool search) and `list_canvas_capabilities` again. Why not the plugin: a plugin
-   installed from a terminal only loads in chats that start after it, and VS Code doesn't load extensions from a
-   session's own folder, while the user extensions folder loads into this chat on reload and into every chat after it.
-   Use one or the other, never both: with both, every chat sees the canvas twice.
+   `extensions_reload` (find it with tool search) and `list_canvas_capabilities` again (a plugin installed now would
+   only load in later chats). Use one or the other, never both: with both, every chat sees the canvas twice.
 3. "Multiple canvases match" (an older machine with the plugin and the copy): open it with `extensionId`
    `plugin:workshop-setup:setup-checklist`, then `canvas-extension.py remove`, so later chats see it once.
    `skipped: "plugin"` from step 2 (the plugin is installed but not in this chat): the canvas comes up in "The next
    chat". Still not listed after the reload (canvases off for this chat): "The next chat" too.
 4. `open_canvas` with canvasId `autonomous-setup-checklist`, instanceId `workshop-setup`, and input
    `{title, subtitle, presenter, checkInChat, skillsDir}` from the remembered values (`skillsDir` is the clone,
-   `~/.copilot/autonomous-output-skills`). Every field is optional; pass `{}` when there's nothing. Reopening the same
-   instanceId keeps its state, so resuming is `open_canvas` again, then `getState`.
+   `~/.copilot/autonomous-output-skills`; on a dev box, `checkInChat` is `""`). Every field is optional; pass `{}`
+   when there's nothing. Reopening the same instanceId keeps its state, so resuming is `open_canvas` again, then
+   `getState`.
 5. When the prompt asked for research and a dev box (`research_requested`, `devbox_requested`): `setItem {id:
    "research", status: "todo", note: "You asked for this in your prompt."}` and the same for `devbox`, which turns
-   both on.
+   both on. In dev box mode, see its reference for the canvas.
 - The canvas runs `check-setup.py` itself. `getState` returns `progress {done, total}`, `step`, the person's
   `choices` for the optional items (`azure`, `devbox`, `research`: true, false or null), and `items` with each status.
 - On each item: `setStep {id}`, then `setItem {id, status: "working"}`. When they have to act:

@@ -247,7 +247,6 @@ class DevboxCli(unittest.TestCase):
         self.assertEqual(run_as, {'System', 'User'})
 
 
-@unittest.skipIf(os.name == 'nt', 'uses the fake az on PATH; macOS and Linux')
 class McpServers(unittest.TestCase):
     def test_add_once_and_remove(self):
         root, env = make_env('mcp')
@@ -264,7 +263,6 @@ class McpServers(unittest.TestCase):
         self.assertTrue(json.loads(out)['removed'])
 
 
-@unittest.skipIf(os.name == 'nt', 'uses the fake az on PATH; macOS and Linux')
 class CheckItems(unittest.TestCase):
     def test_groups_try_it_and_later(self):
         root, env = make_env('check')
@@ -281,6 +279,78 @@ class CheckItems(unittest.TestCase):
         self.assertNotIn('practice', report['summary']['ok'] + report['summary']['missing'])
         self.assertIn('dictation', items)
         self.assertIn('weekly', items)
+
+
+class DevboxMode(unittest.TestCase):
+    """setup_mode=devbox (the prompt said "on my dev box"): Chrome required, the Work IQ Try-it reads instead of posting,
+    and dictation, the weekly update, Azure and creating a dev box drop out. Without it, the laptop check is unchanged."""
+
+    def check(self, name, answers):
+        root, env = make_env(name)
+        pairs = []
+        for key, value in answers.items():
+            pairs += ['--set', '%s=%s' % (key, value)]
+        code, out, err = run('check-setup.py', ['remember'] + pairs, env)
+        self.assertEqual(code, 0, err)
+        code, out, err = run('check-setup.py', ['--quick'], env, timeout=300)
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+    def test_prompt_values_pick_the_items(self):
+        values = {'title': 'Title', 'subtitle': 'Series', 'presenter': 'Host + Host', 'checkInChat': 'Series: Title',
+                  'research_requested': 'yes', 'devbox_requested': 'yes'}
+        laptop = self.check('mode-laptop', values)
+        box = self.check('mode-devbox', dict(values, setup_mode='devbox'))
+        self.assertEqual((laptop['mode'], box['mode']), ('laptop', 'devbox'))
+        self.assertIn('Series: Title', laptop['items']['workiq']['try_it'])
+        self.assertTrue(laptop['items']['dictation']['required'] and laptop['items']['weekly']['required'])
+        self.assertTrue(laptop['items']['devbox']['requested'] and laptop['items']['research']['requested'])
+        self.assertNotIn('chrome_required', laptop['items']['browser'])
+        for key in ('dictation', 'weekly', 'azure', 'devbox'):
+            with self.subTest(skipped=key):
+                self.assertEqual((box['items'][key]['required'], box['items'][key]['ok'], box['items'][key]['try_it']),
+                                 (False, None, None))
+        self.assertNotIn('Series: Title', box['items']['workiq']['try_it'])
+        self.assertNotIn('post', box['items']['workiq']['try_it'])
+        self.assertTrue(box['items']['research']['requested'])
+        self.assertNotIn('requested', box['items']['devbox'])
+        browser = box['items']['browser']
+        self.assertTrue(browser['chrome_required'])
+        self.assertEqual(browser['ok'], 'chrome' in browser['browsers'])
+        self.assertEqual(box['summary']['total'], laptop['summary']['total'] - 2)
+
+
+    def test_playwright_on_a_dev_box_wants_chrome(self):
+        root, env = make_env('devbox-playwright')
+        code = ('import json, runpy, sys; sys.path.insert(0, sys.argv[1]); '
+                'm = runpy.run_path(sys.argv[1] + "/check-setup.py"); '
+                'print(json.dumps([m["check_playwright"]({}, b) for b in json.loads(sys.argv[2])]))')
+        browsers = [{'ok': False, 'browsers': {}}, {'ok': False, 'chrome_required': True, 'browsers': {'edge': '1'}},
+                    {'ok': True, 'browsers': {'chrome': '1', 'edge': '1'}},
+                    {'ok': True, 'chrome_required': True, 'browsers': {'chrome': '1'}}]
+
+        def items():
+            proc = subprocess.run([sys.executable, '-c', code, str(SCRIPTS), json.dumps(browsers)], env=env,
+                                  capture_output=True, text=True, timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            return json.loads(proc.stdout)
+
+        laptop_missing, box_missing = items()[:2]
+        self.assertTrue(laptop_missing['detail'].endswith('needs Chrome or Edge'))
+        self.assertTrue(box_missing['detail'].endswith('needs Google Chrome'))
+        (root / 'copilot' / 'mcp-config.json').write_text(json.dumps({'mcpServers': {'playwright': {
+            'type': 'local', 'command': 'npx', 'args': ['-y', '@playwright/mcp@0.0.84', '--browser', 'msedge']}}}))
+        laptop, box = items()[2:]
+        self.assertTrue(laptop['ok'])
+        self.assertFalse(box['ok'])
+        self.assertIn('needs it on Chrome', box['detail'])
+        self.assertIn('--browser chrome', box['fix'])
+        (root / 'copilot' / 'mcp-config.json').unlink()
+        run('check-setup.py', ['remember', '--set', 'setup_mode=devbox'], env)
+        code_, out, err = run('mcp-servers.py', ['add', 'playwright', '--version', '0.0.84', '--dry-run', '--json'], env)
+        self.assertEqual(code_, 0, err)
+        entry = json.loads(out)['entry']['args']
+        self.assertEqual(entry[entry.index('--browser') + 1], 'chrome')
 
 
 class WorkshopSettings(unittest.TestCase):

@@ -63,6 +63,9 @@ comes first.
      Environments, Dev Tunnels and SSH. Check the laptop is listed under **Dev Tunnels**.
    The laptop already has Dev Tunnels on (the workshop page has them turn it on before the prompt). Then verify on the
    laptop that the box appears as a remote agent host (`list_agent_hosts`), not only as a remote editor.
+   **Then the box's own setup:** settings partly carry over, but nothing installed does, so sessions on the box need
+   their own tools, skills and connections. Tell them to paste the dev box prompt in a chat on the box (the same line
+   with "on my dev box"; SKILL.md, "Dev box mode").
 5. **Try it:** "Start a session on my dev box and have it say hello." Confirm the box with `list_agent_hosts`, then
    `check-setup.py mark devbox ok --note "<box name>"` and `check-setup.py tested devbox`.
 

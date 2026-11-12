@@ -1,7 +1,8 @@
 // node --test plugins/workshop-setup/tests/checklist.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildView, itemDefs } from '../extensions/setup-checklist/lib/checklist.mjs';
+import { buildView, itemDefs, statusText } from '../extensions/setup-checklist/lib/checklist.mjs';
+import { compactCheck } from '../extensions/setup-checklist/lib/runner.mjs';
 
 const record = (reports = {}) => ({
 	reports,
@@ -64,4 +65,25 @@ test('Homebrew\'s steps follow the Mac\'s chip: the installer window on Apple si
 test('the Copilot sign-in reads as a plain result', () => {
 	const rec = withCheck({ copilot_signin: { ok: true, required: true, detail: 'signed in to GitHub with Copilot in VS Code Insiders (they said so)' } });
 	assert.equal(shownItem(rec, 'copilot_signin').detail, 'signed in to GitHub with Copilot in VS Code Insiders');
+});
+
+test('items the check skips on a dev box stay skipped and out of the count, even when the agent says nothing', () => {
+	const compact = compactCheck({ items: {
+		git: { ok: true },
+		dictation: { ok: null, required: false, devbox_skip: true, detail: 'not part of the dev box setup' },
+		weekly: { ok: null, required: false, devbox_skip: true, detail: 'runs from your laptop' },
+		azure: { ok: null, required: false, devbox_skip: true, detail: 'not part of the dev box setup' },
+		devbox: { ok: null, required: false, devbox_skip: true, detail: 'this is the dev box' },
+		research: { ok: null, required: false, detail: 'no research.env yet' },
+	} }, AT);
+	assert.equal(compact.items.dictation.skip, true);
+	assert.equal(compact.items.git.skip, undefined);
+	const rec = withCheck(compact.items, { name: 'Windows 11', arch: 'x64' });
+	for (const id of ['dictation', 'weekly', 'azure', 'devbox']) {
+		const item = shownItem(rec, id, 'win32');
+		assert.equal(item.status, 'skipped', id);
+		assert.equal(item.counted, false, id);
+		assert.equal(statusText(item), 'Skipped', id);
+	}
+	assert.notEqual(shownItem(rec, 'git', 'win32').status, 'skipped');
 });

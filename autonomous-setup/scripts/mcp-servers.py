@@ -156,7 +156,10 @@ def main():
         return 0
     version, why = (args.version, 'as asked') if args.version else newest_release(SERVERS[args.name]['package'],
                                                                                  SERVERS[args.name]['fallback'])
-    browser = args.browser or (default_browser() if args.name == 'playwright' else None)
+    if args.name == 'playwright' and not args.browser and L.devbox_mode():
+        browser = 'chrome'  # a dev box's Playwright uses Chrome, even when Chrome isn't installed yet
+    else:
+        browser = args.browser or (default_browser() if args.name == 'playwright' else None)
     entry = entry_for(args.name, version, browser)
     result = {'ok': True, 'file': L.tilde(CONFIG), 'name': args.name, 'entry': entry, 'version': version,
               'version_source': why}

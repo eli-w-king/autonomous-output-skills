@@ -169,6 +169,9 @@ export function compactCheck(data, receivedAt) {
 		if (item.later === true || item.when === 'workshop' || item.stage === 'workshop') {
 			entry.later = true;
 		}
+		if (item.devbox_skip === true) {
+			entry.skip = true;
+		}
 		if (typeof item.title === 'string' && item.title.trim()) {
 			entry.title = clip(item.title.trim(), 80);
 		}

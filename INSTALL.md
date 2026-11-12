@@ -45,6 +45,17 @@ the sign-ins itself; approving a sign-in in your browser, a password in an insta
 still yours. When new tools need a fresh chat, it starts that chat for you. Paste the same line again any time to
 pick up where you stopped.
 
+**On a dev box,** after the dev box page's steps (Google Chrome, Teams, VS Code Insiders signed in with the same
+account, the same settings, Dev Tunnels on), paste the same line with "on my dev box" in a chat on the box:
+
+```text
+Set me up for "<Series>: <Title>", hosted by <Host> + <Host>, on my dev box, including research. Follow https://github.com/eli-w-king/autonomous-output-skills/blob/main/autonomous-setup/SKILL.md
+```
+
+It sets up the same tools (Chrome required), the skills from your private copy with the daily sync, Work IQ, the
+Playwright MCP server, Computer Use and research on the box, and skips dictation, the weekly update (your laptop runs
+it), Azure and creating a dev box.
+
 The canvas comes from the clone: the setup copies it into `~/.copilot/extensions/setup-checklist`. If you installed
 the `workshop-setup` plugin yourself ([plugins/workshop-setup/README.md](plugins/workshop-setup/README.md)), the setup
 uses that instead. Use one or the other, never both: with both, chats see the canvas twice.

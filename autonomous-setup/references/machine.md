@@ -39,7 +39,7 @@ platform; this file explains those commands and the traps that cost time.
 | Yarn 1 | the practice repo pins `yarn@1.22.22` | `npm install -g yarn` (see below) | `npm.cmd install -g yarn` (see below) |
 | Python 3 with Pillow | the demo encoders and contact sheets | `python3 -m pip install --user Pillow` | `winget install --id Python.Python.3.13 -e`, then `python -m pip install --user Pillow` |
 | ffmpeg and ffprobe | demo videos | `brew install ffmpeg` | `winget install --id Gyan.FFmpeg -e` |
-| Chrome or Edge | headless screenshots | `brew install --cask google-chrome`, or Edge | Edge comes with Windows |
+| Chrome or Edge (Chrome on a dev box) | headless screenshots, Playwright, Computer Use | `brew install --cask google-chrome`, or Edge | Edge comes with Windows; a dev box needs Chrome: `winget install --id Google.Chrome -e` |
 
 Install one tool at a time, then run the check again; a tool counts as installed when its version prints.
 

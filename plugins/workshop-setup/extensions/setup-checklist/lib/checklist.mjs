@@ -113,6 +113,9 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 		detail = checkOk === true ? 'The setting is on.' : checkOk === false ? 'The setting isn\'t on yet.' : '';
 	}
 	const hasCheckData = found.length > 0 || checkOk !== null;
+	// The check skips some items on this machine (a dev box skips dictation, the weekly update, Azure and creating a
+	// dev box), so they're skipped here even when the agent doesn't report them.
+	const skippedByCheck = found.length > 0 && found.every((c) => c.skip === true);
 	const optional = def.group === 'optional';
 	const test = itemTest(def, os, meta);
 	const stepId = def.step || def.id.replace(/_/g, '-');
@@ -129,7 +132,9 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 	let note = null;
 	let commands = [];
 	const settled = (isTested) => (test && !isTested ? 'installed' : 'done');
-	if (optional && !chosen && !installed) {
+	if (skippedByCheck) {
+		status = 'skipped';
+	} else if (optional && !chosen && !installed) {
 		status = 'skipped';
 	} else if (!signal) {
 		// Only the first check can still tell about an item it has no data for; later re-checks leave it as is.
@@ -177,6 +182,7 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 		chosen,
 		choice: choice === undefined ? null : choice,
 		blurb: def.blurb || null,
+		skippedByCheck,
 		counted: status !== 'skipped' && (!optional || chosen),
 	};
 }
@@ -195,7 +201,7 @@ export function statusText(item) {
 		return item.tested ? 'Tested' : item.how === 'already' ? 'Already set up' : 'Set up just now';
 	}
 	if (item.status === 'skipped') {
-		return item.optional && item.choice !== true ? 'Not now' : 'Skipped';
+		return item.optional && item.choice !== true && !item.skippedByCheck ? 'Not now' : 'Skipped';
 	}
 	if (item.status === 'installed' && item.how === 'already') {
 		return 'Already installed';

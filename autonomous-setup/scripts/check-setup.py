@@ -18,7 +18,10 @@ mark records a step the agent verified with a tool, or an answer the person gave
   Steps: settings machine skills weekly workiq playwright computer-use dictation azure devbox research practice. Statuses: ok skipped blocked failed pending.
 tested records that the person's Try-it prompt for an item worked (an item id from the check, like workiq).
 remember saves answers without a step, like the values the setup prompt passes in (title, subtitle, presenter,
-checkInChat).
+checkInChat, research_requested, devbox_requested). setup_mode=devbox (the prompt said "on my dev box") switches the
+check to dev box mode: Google Chrome is required, the Work IQ Try-it reads instead of posting (the laptop posted the
+check-in), and dictation, the weekly update, Azure and creating a dev box are not part of it. The machine never
+changes the mode; os.devbox_hint only says whether this looks like a dev box.
 readiness writes the checklist (Workshop readiness.md on the Desktop by default) from a fresh check plus the
 recorded steps, and prints where it wrote it. state prints the recorded progress.
 
@@ -78,8 +81,16 @@ def check_os():
         version = platform.version()
     else:
         name, version = platform.system(), platform.release()
+    host = platform.node() or ''
     return {'name': name, 'version': version, 'arch': platform.machine(),
-            'python': '%s (%s)' % (platform.python_version(), L.tilde(sys.executable))}
+            'python': '%s (%s)' % (platform.python_version(), L.tilde(sys.executable)),
+            # Dev boxes are Cloud PCs named CPC-<user>-<id>. A hint for the agent only: the prompt decides the mode.
+            'devbox_hint': L.IS_WIN and host.upper().startswith('CPC-')}
+
+
+def devbox_mode(answers):
+    """Dev box mode: the setup prompt said "on my dev box" (saved as setup_mode=devbox)."""
+    return L.devbox_mode(answers or {})
 
 
 def check_package_manager():
@@ -356,7 +367,7 @@ def _windows_version_dir(folder):
     return max(names, key=lambda n: tuple(map(int, n.split('.'))), default=None)
 
 
-def check_browser():
+def check_browser(devbox=False):
     found = {}
     if L.IS_MAC:
         for key, app in (('chrome', 'Google Chrome.app'), ('edge', 'Microsoft Edge.app')):
@@ -387,6 +398,15 @@ def check_browser():
             if path:
                 found[key] = (re.search(r'[\d.]+', tool_version(path)[1] or '') or re.search('', '')).group(0) or 'installed'
     detail = ', '.join('%s %s' % ({'chrome': 'Chrome', 'edge': 'Edge'}[k], v) for k, v in found.items()) or 'no Chrome or Edge'
+    if devbox:
+        # Playwright and Computer Use on the box use Chrome, so Edge alone isn't enough there.
+        if 'chrome' not in found:
+            detail += '; a dev box needs Google Chrome'
+        return item('chrome' in found, detail, browsers=found, chrome_required=True,
+                    fix=hint(mac='brew install --cask google-chrome',
+                             win='winget install --id Google.Chrome -e --accept-source-agreements '
+                                 '--accept-package-agreements --silent',
+                             linux='install Google Chrome'))
     return item(bool(found), detail, browsers=found,
                 fix=hint(mac='brew install --cask google-chrome (or Microsoft Edge from the Company Portal)',
                          win='Microsoft Edge comes with Windows; reinstall it from https://www.microsoft.com/edge',
@@ -627,8 +647,13 @@ def check_playwright(settings, browser):
     args = ' '.join(' '.join(map(str, (e or {}).get('args') or [])) for n, e in (cli_mcp.get('mcpServers') or {}).items()
                     if n in copilot)
     pinned = re.search(r'@playwright/mcp@(\d+\.\d+\.\d+)', args)
+    channel = re.search(r'--browser[ =](\S+)', args)
+    channel = channel.group(1) if channel else None
     has_browser = bool(browser.get('ok'))
-    ok = bool(copilot or vscode) and has_browser
+    chrome_required = bool(browser.get('chrome_required'))
+    # On a dev box Playwright must drive Chrome; an entry added while only Edge was there still says msedge.
+    wrong_channel = chrome_required and bool(copilot) and channel not in (None, 'chrome')
+    ok = bool(copilot or vscode) and has_browser and not wrong_channel
     if copilot or vscode:
         detail = 'Playwright MCP server set up (%s)' % ', '.join(['Copilot: %s' % n for n in copilot] +
                                                                   ['VS Code: %s' % n for n in vscode])
@@ -637,15 +662,22 @@ def check_playwright(settings, browser):
     else:
         detail = 'no Playwright MCP server yet'
     if not has_browser:
-        detail += '; needs Chrome or Edge'
+        detail += '; needs Google Chrome' if chrome_required else '; needs Chrome or Edge'
+    if wrong_channel:
+        detail += '; it runs on %s, and a dev box needs it on Chrome' % channel
     return item(ok, detail, copilot_mcp=copilot, vscode_mcp=vscode, pinned=pinned.group(1) if pinned else None,
-                browser_tools_setting=settings.get('workbench.browser.enableChatTools'),
-                fix='%s scripts/mcp-servers.py add playwright; chats that start after it pick it up' % L.PY)
+                browser=channel, browser_tools_setting=settings.get('workbench.browser.enableChatTools'),
+                fix=('%s scripts/mcp-servers.py remove playwright, then add playwright --browser chrome' % L.PY)
+                if wrong_channel else '%s scripts/mcp-servers.py add playwright; chats that start after it pick it up'
+                % L.PY)
 
 
-def check_dictation(settings):
+def check_dictation(settings, devbox=False):
     model = settings.get('dictation.model')
     enabled = settings.get('dictation.enabled', True) is not False
+    if devbox:
+        return item(None, 'not part of the dev box setup: you talk to its chats from your laptop', required=False,
+                    model=model, enabled=enabled, devbox_skip=True)
     ok = model == 'mai' and enabled
     if not enabled:
         detail = 'dictation is turned off (dictation.enabled)'
@@ -657,7 +689,9 @@ def check_dictation(settings):
                 fix='"dictation.model": "mai" in settings (part of the workshop settings)')
 
 
-def check_weekly(state):
+def check_weekly(state, devbox=False):
+    if devbox:
+        return item(None, 'runs from your laptop: one weekly update per person', required=False, devbox_skip=True)
     test = (state.get('tests') or {}).get('weekly')
     return item(True if test else None, 'the proof run passed' if test else
                 'set up in the Agents window\'s Automations; its proof run (--check-run) shows it works',
@@ -673,7 +707,9 @@ def check_computer_use(settings):
                 fix='"chat.agentHost.computerUse.enabled": true (restart Insiders), then /computer on in a Copilot chat')
 
 
-def check_azure(quick):
+def check_azure(quick, devbox=False):
+    if devbox:
+        return item(None, 'not part of the dev box setup', required=False, devbox_skip=True)
     az = L.which('az')
     if not az:
         return item(None, 'Azure CLI is not installed', required=False,
@@ -690,8 +726,10 @@ def check_azure(quick):
                     '--use-device-code, which Conditional Access often blocks)')
 
 
-def check_devbox(quick):
+def check_devbox(quick, devbox=False):
     """Optional: a dev box that stays on (can't hibernate, no auto-stop schedule) and is running. Read only."""
+    if devbox:
+        return item(None, 'this is the dev box: the setup never creates one from a box', required=False, devbox_skip=True)
     if quick:
         return item(None, 'not checked (--quick)', required=False)
     try:
@@ -811,7 +849,8 @@ GROUPS = {'basics': ('command_line_tools', 'package_manager', 'vscode_insiders',
 def try_its(answers):
     """The prompts the person copies into chat to test an item themselves (the canvas shows the same ones). Sending
     one is their okay for what it does."""
-    chat = str(answers.get('checkInChat') or '').strip()
+    # On a dev box the laptop already posted the check-in, so the box's Try-it reads instead of posting again.
+    chat = '' if devbox_mode(answers) else str(answers.get('checkInChat') or '').strip()
     workiq = ('Use Work IQ to post "Work IQ is set up" in the %s chat.' % chat if chat else
               'Use Work IQ to tell me the subject of my next meeting.')
     computer = ('Use Computer Use to open Notepad and type "Computer Use works". Don\'t save it.' if L.IS_WIN else
@@ -851,17 +890,23 @@ def build(practice_dir=None, quick=False):
     items['python'] = check_python()
     items['ffmpeg'] = check_media('ffmpeg')
     items['ffprobe'] = check_media('ffprobe')
-    items['browser'] = check_browser()
+    devbox = devbox_mode(state['answers'])
+    items['browser'] = check_browser(devbox)
     items['settings'] = check_settings(settings, settings_path, settings_error)
-    items['dictation'] = check_dictation(settings)
+    items['dictation'] = check_dictation(settings, devbox)
     items['skills'] = check_skills(quick, state['answers'])
-    items['weekly'] = check_weekly(state)
+    items['weekly'] = check_weekly(state, devbox)
     items['workiq'] = check_workiq()
     items['playwright'] = check_playwright(settings, items['browser'])
     items['computer_use'] = check_computer_use(settings)
-    items['azure'] = check_azure(quick)
-    items['devbox'] = check_devbox(quick)
+    items['azure'] = check_azure(quick, devbox)
+    items['devbox'] = check_devbox(quick, devbox)
     items['research'] = check_research(state['answers'])
+    for key in ('research', 'devbox'):
+        # The prompt asked for it ("including research and a dev box"); a dev box never creates another one.
+        asked = str(state['answers'].get(key + '_requested', '')).lower() in ('yes', 'true')
+        if asked and not (devbox and key == 'devbox'):
+            items[key]['requested'] = True
     practice = check_practice(practice_dir, True)
     practice.update(required=False, later=True, ok=practice.get('ok') or None,
                     detail='later, at the workshop' + (': ' + practice['detail'] if practice.get('ok') else ''))
@@ -870,7 +915,7 @@ def build(practice_dir=None, quick=False):
     prompts = try_its(state['answers'])
     for key, value in items.items():
         value['group'] = next((g for g, keys in GROUPS.items() if key in keys), 'other')
-        value['try_it'] = prompts.get(key)
+        value['try_it'] = None if value.get('devbox_skip') else prompts.get(key)
         test = state['tests'].get(key)
         value['tested'] = bool(test)
         if test:
@@ -882,6 +927,7 @@ def build(practice_dir=None, quick=False):
     todo += ['step %s: %s' % (sid, steps[sid]['status']) for sid in REQUIRED_STEPS if steps[sid]['status'] != 'ok']
     required = [k for k, v in counted.items() if v.get('required')]
     return {'tool': 'autonomous-setup check-setup.py', 'time': L.now(), 'os': check_os(),
+            'mode': 'devbox' if devbox else 'laptop',
             'copilot_home': L.tilde(L.COPILOT), 'state_file': L.tilde(L.STATE_FILE), 'items': items,
             'steps': steps, 'answers': state['answers'],
             'summary': {'ok': [k for k, v in counted.items() if v.get('ok') is True],
