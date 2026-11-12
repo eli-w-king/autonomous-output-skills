@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline tests for autonomous-setup's scripts: devbox.py (against a fake `az` that replays recorded Dev Center
-responses), mcp-servers.py, and the check's items (groups, Try-it prompts, the practice repo as later).
+responses), mcp-servers.py, canvas-extension.py, workshop-settings.py with any snippet, and the check's items (groups,
+Try-it prompts, the practice repo as later, the settings count and research readiness).
 
   python3 tools/test-autonomous-setup.py [--scratch DIR] [--keep]
 
@@ -282,6 +283,77 @@ class CheckItems(unittest.TestCase):
         self.assertIn('weekly', items)
 
 
+class WorkshopSettings(unittest.TestCase):
+    """The check and workshop-settings.py follow whatever the snippet lists, not a fixed count."""
+
+    def test_check_counts_the_snippets_own_entries(self):
+        root, env = make_env('settings-check')
+        code = ('import json, runpy, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); '
+                'm = runpy.run_path(sys.argv[1] + "/check-setup.py"); L = m["L"]; '
+                'entries = L.snippet_entries((L.REFS / m["WS"]["settings_snippet"]).read_text(encoding="utf-8")); '
+                'full = {k: v for k, v, _ in entries}; less = dict(list(full.items())[1:]); '
+                'print(json.dumps([len(entries), list(full)[0], m["check_settings"](full, Path("s"), None), '
+                'm["check_settings"](less, Path("s"), None)]))')
+        proc = subprocess.run([sys.executable, '-c', code, str(SCRIPTS)], env=env, capture_output=True, text=True,
+                              timeout=30)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        count, first, full, less = json.loads(proc.stdout)
+        self.assertTrue(full['ok'])
+        self.assertEqual(full['detail'], '%d of %d workshop settings are set' % (count, count))
+        self.assertFalse(less['ok'])
+        self.assertEqual([m['key'] for m in less['missing']], [first])
+
+    def test_apply_takes_any_snippet(self):
+        root, env = make_env('settings-apply')
+        snippet = root / 'snippet.jsonc'
+        snippet.write_text('{\n\t"unit.one": true,\n\t"unit.two": "two",\n\t"unit.three": 3\n}\n')
+        settings = root / 'settings.json'
+        settings.write_text('{\n\t"editor.fontSize": 13\n}\n')
+        args = ['--snippet', str(snippet), '--settings', str(settings), '--json']
+        code, out, err = run('workshop-settings.py', ['apply'] + args, env)
+        self.assertEqual(code, 0, err)
+        written = json.loads(settings.read_text())
+        self.assertEqual(written, {'editor.fontSize': 13, 'unit.one': True, 'unit.two': 'two', 'unit.three': 3})
+        code, out, err = run('workshop-settings.py', ['diff'] + args, env)
+        self.assertEqual(code, 0, err)
+        report = json.loads(out)
+        self.assertEqual((report['add'], report['change']), ([], []))
+        self.assertEqual(sorted(report['already_set']), ['unit.one', 'unit.three', 'unit.two'])
+
+
+class CanvasExtension(unittest.TestCase):
+    def test_install_is_idempotent_and_warns_about_the_plugin(self):
+        root, env = make_env('canvas')
+        target = root / 'copilot' / 'extensions' / 'setup-checklist'
+        code, out, err = run('canvas-extension.py', ['status', '--json'], env)
+        self.assertEqual(code, 0, err)
+        self.assertFalse(json.loads(out)['installed'])
+        code, out, err = run('canvas-extension.py', ['install', '--json'], env)
+        report = json.loads(out)
+        self.assertEqual(code, 0, err)
+        self.assertTrue(report['changed'] and report['reload_needed'] and report['current'])
+        self.assertTrue((target / 'extension.mjs').is_file())
+        self.assertFalse(json.loads(run('canvas-extension.py', ['install', '--json'], env)[1])['changed'])
+        (target / 'extension.mjs').write_text('// edited\n')
+        self.assertFalse(json.loads(run('canvas-extension.py', ['status', '--json'], env)[1])['current'])
+        self.assertTrue(json.loads(run('canvas-extension.py', ['install', '--json'], env)[1])['changed'])
+        self.assertNotEqual((target / 'extension.mjs').read_text(), '// edited\n')
+        (root / 'copilot' / 'config.json').write_text(json.dumps(
+            {'installedPlugins': [{'name': 'workshop-setup', 'marketplace': 'autonomous-output-skills'}]}))
+        report = json.loads(run('canvas-extension.py', ['status', '--json'], env)[1])
+        self.assertTrue(report['plugin_installed'])
+        self.assertIn('plugin:workshop-setup:setup-checklist', report['warning'])
+        code, out, err = run('canvas-extension.py', ['remove', '--json'], env)
+        self.assertTrue(json.loads(out)['removed'])
+        self.assertFalse(target.exists())
+        code, out, err = run('canvas-extension.py', ['install', '--json'], env)
+        self.assertEqual((code, json.loads(out)['skipped']), (0, 'plugin'))
+        self.assertFalse(target.exists())
+        code, out, err = run('canvas-extension.py', ['install', '--source', str(root / 'nowhere'), '--json'], env)
+        self.assertEqual(code, 1)
+        self.assertFalse(json.loads(out)['source_found'])
+
+
 def set_permissions(path, mode):
     """chmod on macOS and Linux. On Windows chmod only sets read-only, so use the setup's own icacls fix for an
     owner-only file, and add read access for BUILTIN\\Users when the mode shares it."""
@@ -309,28 +381,31 @@ class ResearchSetup(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout)
 
-    def test_api_setup_requires_both_keys_and_device_sign_in(self):
-        values = {'OUTSET_API_KEY': 'unit-outset', 'USERINTERVIEWS_API_KEY': 'unit-interviews',
-                  'OUTSET_OAUTH_CLIENT_ID': 'unit-client', 'OUTSET_REFRESH_TOKEN': 'unit-refresh',
-                  'USERINTERVIEWS_ACCOUNT_EMAIL': 'unit-account'}
-        answers = {'research_api_setup': 'yes', 'userinterviews_access': 'own'}
-        for i, missing in enumerate((None, 'OUTSET_API_KEY', 'USERINTERVIEWS_API_KEY', 'OUTSET_OAUTH_CLIENT_ID')):
+    def test_ready_needs_outset_key_outset_sign_in_and_userinterviews_sign_in(self):
+        values = {'OUTSET_API_KEY': 'unit-outset', 'OUTSET_OAUTH_CLIENT_ID': 'unit-client',
+                  'OUTSET_REFRESH_TOKEN': 'unit-refresh'}
+        answers = {'userinterviews_signed_in': 'yes'}
+        for i, missing in enumerate((None, 'OUTSET_API_KEY', 'OUTSET_OAUTH_CLIENT_ID', 'userinterviews_signed_in')):
             with self.subTest(missing=missing):
                 current = {k: v for k, v in values.items() if k != missing}
-                item = self.research_item('research-keys-%d' % i, current, answers)
+                given = {k: v for k, v in answers.items() if k != missing}
+                item = self.research_item('research-ready-%d' % i, current, given)
                 self.assertEqual(item['ok'], missing is None)
-                self.assertEqual(item['api_credentials_configured'], missing is None)
+                self.assertEqual(item['ready'], missing is None)
+                self.assertFalse(item['userinterviews_api_key_set'])
+                self.assertNotIn('unit-outset', json.dumps(item))
                 self.assertNotIn('unit-refresh', json.dumps(item))
-                self.assertNotIn('unit-interviews', json.dumps(item))
 
-    def test_browser_only_setup_does_not_require_api_keys(self):
-        values = {'OUTSET_OAUTH_CLIENT_ID': 'unit-client', 'OUTSET_REFRESH_TOKEN': 'unit-refresh',
-                  'USERINTERVIEWS_ACCOUNT_EMAIL': 'unit-account'}
-        item = self.research_item('research-browser', values,
-                                  {'recruit_with_outset': 'yes', 'userinterviews_access': 'team'})
+    def test_userinterviews_api_key_is_optional(self):
+        values = {'OUTSET_API_KEY': 'unit-outset', 'OUTSET_OAUTH_CLIENT_ID': 'unit-client',
+                  'OUTSET_REFRESH_TOKEN': 'unit-refresh', 'USERINTERVIEWS_API_KEY': 'unit-interviews'}
+        item = self.research_item('research-ui-key', values, {'userinterviews_signed_in': 'yes'})
         self.assertTrue(item['ok'])
-        self.assertTrue(item['recruiting_ready'])
-        self.assertFalse(item['api_credentials_configured'])
+        self.assertTrue(item['userinterviews_api_key_set'])
+        self.assertNotIn('unit-interviews', json.dumps(item))
+        item = self.research_item('research-ui-key-only', {'USERINTERVIEWS_API_KEY': 'unit-interviews'}, {})
+        self.assertFalse(item['ok'])
+        self.assertIn('User Interviews sign-in', item['detail'])
 
     def test_shared_credentials_are_not_ready(self):
         item = self.research_item('research-shared', {'OUTSET_API_KEY': 'unit-outset'}, {}, mode=0o644)

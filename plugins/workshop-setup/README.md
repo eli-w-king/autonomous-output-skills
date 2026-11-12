@@ -4,8 +4,8 @@ A live checklist that sits next to the chat while the setup skill (`autonomous-s
 item shows a green check when it's already set up, live progress while the agent works, and a **Try it** prompt the
 person copies into the chat to test it for real. Optional items have a switch, so people choose them on the page.
 
-The plugin carries only the canvas. The skills stay each person's own editable copy (installed by
-`tools/sync-skills.py`), so installing this plugin never adds skills, agents, hooks or MCP servers.
+This folder carries only the canvas. The skills stay each person's own editable copy (installed by
+`tools/sync-skills.py`), so the canvas never adds skills, agents, hooks or MCP servers.
 
 ## What you need
 
@@ -16,12 +16,26 @@ The plugin carries only the canvas. The skills stay each person's own editable c
   ```
 
   New sessions pick the setting up. Canvases open in Copilot sessions, in the Agents window and in the editor's chat.
-- Agent plugins on, which is the default (`"chat.plugins.enabled": true`).
 
-## Install
+## How the setup loads it
 
-The plugin lives in this repo at `plugins/workshop-setup`, and `.plugin/marketplace.json` lists it, so the repo works
-as a plugin marketplace named `autonomous-output-skills`. It's the same on Mac and Windows.
+The setup copies `extensions/setup-checklist` into Copilot's user extensions folder (`~/.copilot/extensions/setup-checklist`,
+`$HOME\.copilot\extensions\setup-checklist` on Windows) with `autonomous-setup/scripts/canvas-extension.py` and reloads
+extensions, so the canvas opens in the chat that's already running. It doesn't install the plugin: a plugin installed
+from a terminal only loads in chats that start later.
+
+**Use one or the other, never both.** With the plugin and the copy both there, every chat sees two providers of
+`autonomous-setup-checklist` and fails with "Multiple canvases match ... Re-run with extensionId". To use the plugin
+instead, run `canvas-extension.py remove` first; to go back to the copy, uninstall the plugin first
+(`copilot plugin uninstall workshop-setup@autonomous-output-skills`). The setup uses the plugin's canvas when a chat
+already has it, and never copies while the plugin is installed.
+
+### Installing it as a plugin by hand
+
+To try the canvas outside the setup, install it as a plugin instead of the copy. The plugin lives in this repo at
+`plugins/workshop-setup`, and `.plugin/marketplace.json` lists it, so the repo works as a plugin marketplace named
+`autonomous-output-skills`, the same on Mac and Windows. Agent plugins need to be on, which is the default
+(`"chat.plugins.enabled": true`).
 
 **In the Agents window**, in a Copilot session, send these two lines in the chat, one at a time:
 
@@ -85,8 +99,9 @@ Without `checkInChat`, the Work IQ test reads the next meeting's subject instead
 attendees will see. Open it with its own `instanceId` (for example `setup-simulation`), never the real one. It runs
 in memory with the same status logic as a real setup: it never runs `check-setup.py`, never changes the saved
 progress, and never installs anything. It borrows `title`, `subtitle`, `presenter` and `checkInChat` from the last
-real open unless the input gives them. The page marks it **Simulation** and has **Pause**, **Play** and **Replay**;
-it starts after the intro and takes about two minutes. Voice and taste aren't part of it, as in v1.
+real open unless the input gives them. The page marks it **Simulation** and has **Pause**, **Play** and **Replay**.
+It opens with the intro and the welcome, like a first open on a new computer, starts when the welcome closes, and
+takes about two and a half minutes. Voice and taste aren't part of it, as in v1.
 
 ### Actions
 
@@ -100,8 +115,12 @@ it starts after the intro and takes about two minutes. Voice and taste aren't pa
 `setItem` statuses:
 
 - `working`: you're on it.
-- `needs-you`: the person has to do something. Put plain steps in `note`, one per line (up to 8), and copyable
-  commands in `commands` (up to 6). Without them, the canvas shows its own steps for that item and OS.
+- `needs-you`: the person has to do something. The agent runs the commands, so the steps say what only they can do
+  (sign in, click through an installer, allow a permission): plain steps in `note`, one per line (up to 8).
+  `commands` (up to 6) is what they copy, exactly as they paste it: a one-time sign-in code (it shows large; the
+  GitHub CLI's device code goes here), a line for the chat (`/computer on`), or a command that works as is in
+  Terminal on a Mac or PowerShell on Windows. Without a `note`, the canvas shows its own steps for that item, OS and
+  Mac chip, with the agent's `commands` if it sent any.
 - `installed`: it's set up. The canvas shows the item's Try it prompt.
 - `tested`: the person's Try it test worked. Green check, "Tested".
 - `failed`: put the exact error line in `note`.
@@ -119,7 +138,8 @@ Item ids are check-setup.py's (`gh`, `node`, `settings`, `skills`, `playwright`,
   an install dialog).
 - A check result of `ok: true` means installed. Items with a test show **Installed** and their Try it prompt; items
   without one (git, Node.js, settings and so on) turn green right away.
-- "Already set up" means it was there at the first check; otherwise it says "Set up just now".
+- "Already set up" and "Already installed" mean it was there at the first check; otherwise it says "Set up just now"
+  or "Installed".
 - `check-setup.py mark <step> ok` counts as tested, so the canvas and the readiness checklist agree. A `blocked` mark
   shows as needs-you with its note, `failed` as failed, `skipped` as skipped.
 - A newer check that finds an item installed clears an older `working`, `needs-you` or `todo`.
@@ -132,7 +152,8 @@ Item ids are check-setup.py's (`gh`, `node`, `settings`, `skills`, `playwright`,
 1. Open the canvas with the event's text from the setup prompt. It runs the check on its own.
 2. Before asking about optional items, call `getState` and read `choices`. People can switch them on the page.
 3. For each item, `setStep {id}`, then `setItem {id, status: "working"}`.
-4. When the person has to act, `setItem` with `needs-you`, the steps and the commands.
+4. When the person has to act, `setItem` with `needs-you`, the steps and what to copy (a sign-in code, a line for the
+   chat).
 5. After an install, `refresh` (or `setItem installed`). The page shows the Try it prompt.
 6. After the person sends the Try it prompt and the test works, `check-setup.py mark <step> ok`, then
    `setItem {id, status: "tested"}`.
@@ -147,8 +168,11 @@ Item ids are check-setup.py's (`gh`, `node`, `settings`, `skills`, `playwright`,
   alone, never overwritten.
 - The page is served on `127.0.0.1` only, on a port picked when it opens, and it only answers requests for that
   address. Nothing leaves the machine.
-- The intro plays once per open, stops on a click or any key, pauses while hidden, and is replaced by a still title
-  when the system asks for reduced motion.
+- The intro plays once per open, skips ahead on a click or any key, and pauses while hidden. The first time the
+  canvas opens on a computer, a two-step welcome follows it over the same field: what the agent does and why it's
+  safe, then the few steps only the person does. **Show my checklist** closes it for good (saved with the progress as
+  `welcomedAt`); a simulation shows it every time. With reduced motion there's no intro, and the welcome is a still
+  page.
 
 ## Trying it without a session
 

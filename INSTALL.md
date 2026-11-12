@@ -13,20 +13,43 @@ This repository holds eight user-global skills:
 | `my-voice` | writes what I send or post as me; kept current by the weekly skill miner |
 | `autonomous-setup` | the setup interview: one prompt gets a Mac or Windows machine ready for these skills and the workshop, and proves each step |
 
-**The quick way: the setup interview.** On a new machine, start a plain Chat in the Agents window of VS Code
-Insiders (or use Copilot CLI). No project or folder is needed.
+**The quick way: the setup interview.** On a new machine, set up VS Code Insiders in the order below, then paste one
+line into a plain Chat in the Agents window (or Copilot CLI). No project or folder is needed.
 
-### Before you paste: set up this chat
+### Before you paste: set up VS Code, then this chat
 
-In the session receiving the prompt, choose **Claude Opus 5.5**, **Max** reasoning, **1M** context,
-**Autopilot** and **Allow all**, with the workspace on **Chat** and terminal sandboxing **Off**.
-Check those choices again whenever the setup asks you to start a new session. Then paste:
+In this order (the workshop page walks through the same steps):
+1. Install or update VS Code Insiders, and sign in to GitHub with the account that has Copilot.
+2. Open the Agents window.
+3. Paste the workshop settings ([`autonomous-setup/references/workshop-settings.jsonc`](autonomous-setup/references/workshop-settings.jsonc))
+   into User settings (JSON) (Command Palette: **Preferences: Open User Settings (JSON)**), and restart when VS Code
+   asks (only Computer Use needs it). In the editor window, the Agents-window-only settings show greyed out; that's
+   expected.
+4. Click the radio tower icon at the top right of the Agents window (tooltip "Remote Connections: Off") and choose
+   **Dev Tunnels**.
+5. Start a new chat: **Chat** (no workspace), **Claude Opus 5.5**, **Max** reasoning, **1M** context, **Autopilot**,
+   **Allow all**, and **Sandboxing for terminal** off.
+
+Then paste one line, with your event's name and its hosts:
 
 ```text
-Set me up for the workshop. Keep this chat's workspace as it is (don't set or change it). Clone https://github.com/eli-w-king/autonomous-output-skills to $HOME/.copilot/autonomous-output-skills (or pull it if it's already there), then read autonomous-setup/SKILL.md in that folder and follow it from the top.
+Set me up for "<Series>: <Title>", hosted by <Host> + <Host>, including research and a dev box. Follow https://github.com/eli-w-king/autonomous-output-skills/blob/main/autonomous-setup/SKILL.md
 ```
 
-It checks your VS Code settings first, then opens a setup checklist, explains and installs what's missing (the tools, your private copy of the skills with the weekly update, Work IQ, the Playwright MCP server, Computer Use, cloud dictation), and gives you a Try-it prompt to test each item yourself. Sign-ins, secret entry and optional paid resources still need you. Paste the same prompt again any time to pick up where you stopped. The rest of this file is the manual route and the two-repo setup I use on my own machines.
+Leave out "including research and a dev box" if you don't want those (they stay optional). The agent clones this
+repo to `~/.copilot/autonomous-output-skills`, checks your settings (and adds any that are missing), opens the setup
+checklist canvas in the same chat, then explains and installs what's missing (the tools, your private copy of the
+skills with the weekly update, Work IQ, the Playwright MCP server, Computer Use, cloud dictation, and the dev box and
+research you asked for), and gives you a Try-it prompt to test each item yourself. It runs the commands and starts
+the sign-ins itself; approving a sign-in in your browser, a password in an installer window and your own keys are
+still yours. When new tools need a fresh chat, it starts that chat for you. Paste the same line again any time to
+pick up where you stopped.
+
+The canvas comes from the clone: the setup copies it into `~/.copilot/extensions/setup-checklist`. If you installed
+the `workshop-setup` plugin yourself ([plugins/workshop-setup/README.md](plugins/workshop-setup/README.md)), the setup
+uses that instead. Use one or the other, never both: with both, chats see the canvas twice.
+
+The rest of this file is the manual route and the two-repo setup I use on my own machines.
 
 Copilot CLI and VS Code (Insiders and the Agents window) both read `~/.copilot/skills/`, so one install
 covers both. On each machine, `tools/sync-skills.py` keeps that folder and the repos in sync in both

@@ -1,8 +1,19 @@
 {
+	"chat.defaultModel": "claude-opus-5.5",
 	"sessions.chat.experimental.workspaceOptOut": true,
 	"chat.agentHost.computerUse.enabled": true,
 	"chat.remoteSessions.tools.enabled": true,
 	"chat.agent.sandbox.enabled": "off",
 	"chat.canvases.enabled": true,
-	"dictation.model": "mai"
+	"dictation.model": "mai",
+	"workbench.experimental.modernUI": true,
+	"sessions.chat.experimental.newSessionComposerOptionsExpanded": true,
+	"sessions.chat.experimental.environmentPicker": true,
+	"sessions.chat.experimental.environmentPickerManageRemotes": true,
+	"chat.agentHost.moveChats.enabled": true,
+	"sessions.chat.compareAgents.enabled": true,
+	"sessions.list.agentTools.enabled": true,
+	"chat.customizations.marketplace.enabled": true,
+	"chat.automations.enabled": true,
+	"chat.artifactTools.enabled": true
 }

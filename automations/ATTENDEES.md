@@ -31,7 +31,9 @@ This is attendee mode: one GitHub account, one private repo. (The maintainer set
 
 ## Set it up
 
-The setup interview does this for you. By hand, after cloning this repo to `~/.copilot/autonomous-output-skills`:
+The setup interview does this for you: set up VS Code in the order in [INSTALL.md](../INSTALL.md), "Before you
+paste", then paste its one-line prompt into a chat on Claude Opus 5.5, Max, 1M, Autopilot and Allow all. By hand,
+after cloning this repo to `~/.copilot/autonomous-output-skills`:
 
 ```bash
 python3 ~/.copilot/autonomous-output-skills/tools/sync-skills.py setup-attendee --create

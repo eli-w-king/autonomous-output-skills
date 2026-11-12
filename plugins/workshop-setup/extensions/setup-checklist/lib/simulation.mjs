@@ -12,7 +12,9 @@ export const SIMULATE_OS = ['mac', 'windows'];
 export const SIMULATION_STATES = ['waiting', 'playing', 'paused', 'done', 'failed'];
 
 const LABELS = { mac: 'A new Mac', windows: 'A new Windows PC' };
-const OS_INFO = { mac: { name: 'macOS', version: '26.1' }, windows: { name: 'Windows', version: '11' } };
+const OS_INFO = { mac: { name: 'macOS', version: '26.1', arch: 'arm64' }, windows: { name: 'Windows 11', version: '10.0.26100', arch: 'AMD64' } };
+// What GitHub's device sign-in shows; the agent sends it to the canvas as the thing to copy.
+const SIGN_IN_CODE = '7F3A-21C9';
 const META_FIELDS = ['title', 'subtitle', 'presenter', 'checkInChat'];
 const FULL_CHECK_MS = 2400;
 const QUICK_CHECK_MS = 700;
@@ -219,13 +221,15 @@ export async function firstTimeSetup(s) {
 
 	// Machine. They're chatting with Copilot, so they're signed in.
 	await s.on('copilot_signin', 900);
-	s.set('copilot_signin', ok('signed in to GitHub with Copilot in VS Code Insiders (they said so)'));
+	s.set('copilot_signin', ok('signed in to GitHub with Copilot in VS Code Insiders'));
 	await s.check();
 	if (mac) {
-		// Homebrew asks for their Mac password, so they install it. The canvas shows its own steps for it.
+		// The agent opens Homebrew's installer, and they type their Mac password in its window (the canvas's steps).
 		await s.on('package_manager');
-		await s.report('package_manager', 'needs-you', 5600);
+		await s.report('package_manager', 'working', 2000, 'Downloading the Homebrew installer');
+		await s.report('package_manager', 'needs-you', 7600);
 		s.set('package_manager', optional(true, 'Homebrew 7.0.13'));
+		await s.report('package_manager', 'working', 1400, 'Finishing the Homebrew setup');
 		await s.check();
 	} else {
 		await s.on('powershell');
@@ -236,7 +240,8 @@ export async function firstTimeSetup(s) {
 	await s.on('gh');
 	await s.report('gh', 'working', 1800, `Installing GitHub CLI ${via}`);
 	s.set('gh', missing('GitHub CLI is not signed in'));
-	await s.report('gh', 'needs-you', 5600);
+	await s.report('gh', 'working', 1400, 'Starting the GitHub sign-in in your browser');
+	await s.report('gh', 'needs-you', 8000, null, [SIGN_IN_CODE]);
 	s.set('gh', ok('signed in as mona-designer (active)'));
 	await s.check();
 	await s.on('git');
@@ -306,9 +311,7 @@ export async function firstTimeSetup(s) {
 	}
 
 	await s.on('computer_use');
-	await s.report('computer_use', 'needs-you', 6000, mac
-		? 'Type /computer on in the chat, then click Turn On.\nIn the Set Up Computer Use dialog, allow Screen Recording and Accessibility.\nWhen it says Computer Use is ready, say done in the chat.'
-		: 'Type /computer on in the chat, then click Turn On.\nSay done in the chat once it\'s on.');
+	await s.report('computer_use', 'needs-you', 7600);
 	s.set('computer_use', ok('setting on; plugin downloaded'));
 	await s.report('computer_use', 'installed', 2800);
 	await s.report('computer_use', 'tested', 700);
@@ -323,7 +326,8 @@ export async function firstTimeSetup(s) {
 	await s.on('azure');
 	await s.report('azure', 'working', 2000, `Installing Azure CLI ${via}`);
 	s.set('azure', optional(false, 'not signed in'));
-	await s.report('azure', 'needs-you', 5600);
+	await s.report('azure', 'working', 1200, 'Opening the Microsoft sign-in page in your browser');
+	await s.report('azure', 'needs-you', 6400);
 	s.set('azure', optional(true, 'signed in, a subscription is selected'));
 	await s.check();
 	await s.wait(2600);

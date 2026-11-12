@@ -183,7 +183,7 @@ export function compactCheck(data, receivedAt) {
 			steps[id] = { status: clip(step.status, 32), note: step.note ? clip(step.note, 300) : null, at: typeof step.at === 'string' ? clip(step.at, 64) : null };
 		}
 	}
-	const osInfo = isObject(data.os) ? { name: clip(data.os.name, 200) || null, version: clip(data.os.version, 100) || null } : null;
+	const osInfo = isObject(data.os) ? { name: clip(data.os.name, 200) || null, version: clip(data.os.version, 100) || null, arch: clip(data.os.arch, 32) || null } : null;
 	return { at: typeof data.time === 'string' ? data.time.slice(0, 64) : null, receivedAt, os: osInfo, items, steps };
 }
 

@@ -25,16 +25,22 @@ for (const os of ['mac', 'windows']) {
 		const sim = new Simulation({ os, speed: FAST, meta: { presenter: 'Your Name + Their Name' } });
 		await sim.ready();
 		const firstChecks = [];
+		const codes = new Set();
 		sim.model.on('change', () => {
 			const view = sim.model.view();
 			if (view.check.at && !firstChecks.length) {
 				firstChecks.push(view.progress);
+			}
+			const gh = view.groups.flatMap((group) => group.items).find((item) => item.id === 'gh');
+			if (gh?.status === 'needs-you') {
+				gh.commands.forEach((command) => codes.add(command));
 			}
 		});
 		assert.equal(sim.start(), true);
 		await sim.finished();
 		assert.equal(sim.state, 'done');
 		assert.ok(firstChecks[0].done < firstChecks[0].total / 2, 'the first check finds most of it missing');
+		assert.deepEqual([...codes], ['7F3A-21C9'], 'the GitHub sign-in shows the code to copy, not a command');
 		const summary = sim.model.summary();
 		assert.equal(summary.allDone, true);
 		assert.equal(summary.progress.done, summary.progress.total);
@@ -119,6 +125,34 @@ test('the simulation stays off unless simulate is set', async () => {
 		assert.equal(replayed.simulation.state, 'waiting');
 		assert.equal(hub.modelFor('sim'), sim.model);
 		assert.equal(real.record.reports && Object.keys(real.record.reports).length, 0);
+	} finally {
+		await hub.closeAll();
+	}
+});
+
+test('the welcome shows until the person closes it once, and a simulation shows it again on replay', async () => {
+	const real = new SetupModel({ store: new MemoryStore(), runner: null, platform: 'darwin', now: monotonicNow() });
+	await real.load();
+	const hub = new CanvasHub({ model: real });
+	const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+	const state = async (url) => (await fetch(`${url}api/state`)).json();
+	try {
+		const page = await hub.open('real');
+		assert.equal((await state(page.url)).welcome.show, true);
+		assert.equal((await post(`${page.url}api/welcome`, { extra: true })).status, 400);
+		assert.equal((await post(`${page.url}api/welcome`, {})).status, 200);
+		assert.equal((await state(page.url)).welcome.show, false);
+		const closedAt = real.record.welcomedAt;
+		assert.match(closedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+		const sim = new Simulation({ os: 'windows', speed: 1 });
+		await sim.ready();
+		const shown = await hub.open('sim', { simulation: sim });
+		await post(`${shown.url}api/welcome`, {});
+		assert.equal((await state(shown.url)).welcome.show, false);
+		await post(`${shown.url}api/sim`, { action: 'replay' });
+		assert.equal((await state(shown.url)).welcome.show, true);
+		assert.equal(real.record.welcomedAt, closedAt, 'the simulation never touches the real progress');
 	} finally {
 		await hub.closeAll();
 	}

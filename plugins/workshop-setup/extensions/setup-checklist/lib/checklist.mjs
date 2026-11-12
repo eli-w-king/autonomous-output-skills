@@ -105,6 +105,9 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 		if (checkOk === null && def.unknownDetail) {
 			detail = def.unknownDetail;
 		}
+		if (checkOk === true && def.okDetail) {
+			detail = def.okDetail;
+		}
 	} else if (def.fromSetting) {
 		checkOk = settingState(checkItems, def.fromSetting);
 		detail = checkOk === true ? 'The setting is on.' : checkOk === false ? 'The setting isn\'t on yet.' : '';
@@ -144,11 +147,14 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 		commands = signal.commands || [];
 	}
 
-	if (status === 'needs-you' && !note && !commands.length) {
-		const help = itemHelp(def, os);
+	if (status === 'needs-you' && !note) {
+		// Without the agent's own steps, the catalog's show, with whatever the agent sent to copy (a sign-in code).
+		const help = itemHelp(def, os, { arch: check?.os?.arch || null });
 		if (help) {
 			note = help.text || null;
-			commands = help.commands || [];
+			if (!commands.length) {
+				commands = help.commands || [];
+			}
 		}
 	}
 	if (status === 'todo' && signal?.status === 'todo' && signal.note) {
@@ -190,6 +196,9 @@ export function statusText(item) {
 	}
 	if (item.status === 'skipped') {
 		return item.optional && item.choice !== true ? 'Not now' : 'Skipped';
+	}
+	if (item.status === 'installed' && item.how === 'already') {
+		return 'Already installed';
 	}
 	return STATUS_TEXT[item.status] || item.status;
 }

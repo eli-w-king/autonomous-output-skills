@@ -50,7 +50,7 @@ async function inProgress() {
 			command_line_tools: ok('Command Line Tools installed'),
 			package_manager: { ok: true, required: false, detail: 'Homebrew 4.6.2' },
 			vscode_insiders: ok('VS Code Insiders 1.147.0-insider'),
-			copilot_signin: ok('signed in to GitHub with Copilot in VS Code Insiders (they said so)'),
+			copilot_signin: ok('signed in to GitHub with Copilot in VS Code Insiders'),
 			gh: ok('signed in as mona-designer (active)'),
 			git: ok('git 2.49.0'),
 			node: ok('Node 22.12.0'),

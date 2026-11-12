@@ -5,18 +5,27 @@ platform; this file explains those commands and the traps that cost time.
 
 ## Package managers
 
-- **macOS: Homebrew.** If it's missing, the person installs it in their own Terminal, because the installer asks for
-  their Mac password, which only they type:
-  `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, then the
-  `eval "$(/opt/homebrew/bin/brew shellenv)"` lines it prints at the end. It installs the Command Line Tools too.
+- **macOS: Homebrew.** If it's missing:
+  - **Apple Silicon** (`uname -m` is `arm64`; the check reports `arch`): you install it from Homebrew's signed
+    installer package. Find the newest release's `Homebrew-<version>.pkg` at
+    https://github.com/Homebrew/brew/releases (or `curl -fsSL https://api.github.com/repos/Homebrew/brew/releases/latest`
+    and its `.pkg` asset), download it to a temp folder, check it with `pkgutil --check-signature <pkg>` (a Developer
+    ID Installer signature) and `spctl --assess --type install <pkg>` (accepted, notarized), then `open <pkg>`. The
+    macOS Installer opens and asks for their password in its own window; tell them to click through it. Wait for
+    `/opt/homebrew/bin/brew` to exist, then add `eval "$(/opt/homebrew/bin/brew shellenv)"` to `~/.zprofile` (once;
+    check first) and run the same line in your shell. It installs the Command Line Tools too if they're missing.
+  - **Intel:** the install script still runs in Terminal, theirs to run because it asks for their password:
+    `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, then the
+    `eval "$(/usr/local/bin/brew shellenv)"` line it prints at the end.
 - **Windows: winget** (App Installer), part of Windows 11. Pass `-e --accept-source-agreements
   --accept-package-agreements --silent` so it never waits for an answer. A managed laptop may block winget or
   prefer the Company Portal; say so and use that instead.
 - **New commands after a winget install.** The agent's shell keeps its old PATH. Refresh it in the same shell:
   `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`.
   On macOS, Homebrew's folder is already on PATH (`hash -r` if a command still isn't found).
-- **Never sudo.** If an install asks for an admin password, stop and give the person the command to run in their own
-  terminal. Never pipe a password anywhere.
+- **Never sudo.** Never run anything that asks for a password in your shell (Autopilot cancels it anyway). A password
+  goes only into a window that asks for it, like the macOS Installer above. If a tool's only route needs sudo, give
+  the person that one command for Terminal and say why. Never pipe a password anywhere.
 
 ## What gets installed
 
@@ -110,9 +119,13 @@ Install one tool at a time, then run the check again; a tool counts as installed
   personal account, or keep a local-only copy: everything works except pull requests and cloud runs.
 - GitHub-hosted runners and the Copilot cloud agent don't run in a managed account's personal repos, so
   "Run in the Cloud" automations need a repo somewhere else.
-- **Signing in.** The person runs `gh auth login --hostname github.com --web --git-protocol https` in their own
-  terminal (Terminal > New Terminal in VS Code) and finishes in the browser. A second account: the same command
-  again, then `gh auth switch --user <login>` back to the one they want active.
+- **Signing in, done by you.** Run `gh auth login --hostname github.com --web --git-protocol https` in an async shell.
+  With no terminal attached it doesn't prompt: it prints "First copy your one-time code: XXXX-XXXX" and "Open this URL
+  to continue in your web browser: https://github.com/login/device", then waits until they approve. Show the code in
+  chat and on the canvas (`setItem` `gh` `needs-you`, the code as the copyable command), open the page (`open` on
+  macOS, `Start-Process` on Windows), and wait for the command to exit (read its output; don't kill it while they're
+  approving). Then `gh auth setup-git`. A second account: the same again, then `gh auth switch --user <login>` back to
+  the one they want active.
 
 ## VS Code Insiders
 

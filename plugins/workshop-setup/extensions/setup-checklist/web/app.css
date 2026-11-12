@@ -9,7 +9,8 @@
 	--line-2: rgba(255, 255, 255, .18);
 	--text: #d8dade;
 	--muted: #9aa3ad;
-	--heading: #ffffff;
+	--heading: #f1f1f1;
+	--brand: #75e2e1;
 	--accent: #4daafc;
 	--accent-bg: rgba(77, 170, 252, .10);
 	--ok: #4fc27b;
@@ -30,6 +31,7 @@
 		--text: #24292f;
 		--muted: #5c6670;
 		--heading: #0d1014;
+		--brand: #0e7c86;
 		--accent: #005fb8;
 		--accent-bg: rgba(0, 95, 184, .07);
 		--ok: #1f8a4c;
@@ -65,6 +67,8 @@ html, body {
 	outline-offset: 2px;
 	border-radius: 4px;
 }
+/* Headings take focus only so screen readers start there; they aren't controls, so they get no ring. */
+h1[tabindex="-1"]:focus-visible, h2[tabindex="-1"]:focus-visible { outline: none; }
 
 .page {
 	max-width: 760px;
@@ -96,11 +100,11 @@ html, body {
 
 .band-text { position: relative; }
 .band-text p { margin: 0; }
-.band-subtitle { color: var(--muted); font-weight: 500; }
+.band-subtitle { color: var(--brand); font-weight: 500; }
 .band-title {
 	color: var(--heading);
-	font: 560 20px/1.2 var(--font-display);
-	letter-spacing: -0.01em;
+	font: 650 22px/1.15 var(--font-display);
+	letter-spacing: -0.02em;
 	margin-top: 2px !important;
 }
 .band-presenter { color: var(--muted); margin-top: 6px !important; }
@@ -319,6 +323,8 @@ h2 {
 }
 
 .copy { flex: none; }
+.copy-row.is-code { align-items: center; }
+.copy-row.is-code .copy-text { padding: 6px 12px; font: 600 20px/1.3 var(--mono); letter-spacing: .14em; }
 
 .toggle {
 	display: inline-flex;
@@ -360,25 +366,40 @@ h2 {
 .later h2 { color: var(--muted); font-weight: 500; }
 .later p { margin: 4px 0 0; }
 
-/* ---------------------------------------------------------------- intro */
+/* ---------------------------------------------------------------- intro and welcome */
 
+/* The poster's tokens: near-black ground, light type, and a teal to ocean to black ordered dither. */
 .intro {
+	--ground: #0d1014;
+	--type: #f1f1f1;
+	--teal: #75e2e1;
+	--ocean: #1e87a8;
+	--body: #c4ccd4;
+	--quiet: #8a96a3;
 	position: fixed;
 	inset: 0;
 	z-index: 10;
-	display: grid;
-	place-items: center;
-	overflow: hidden;
-	background: radial-gradient(60% 50% at 50% 46%, rgba(40, 110, 230, calc(.22 * var(--intro-glow, 0))), transparent 70%), #05080d;
+	display: flex;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	background: radial-gradient(60% 50% at 50% var(--glow-y, 46%), rgba(30, 135, 168, calc(.24 * var(--intro-glow, 0))), transparent 70%), var(--ground);
 	cursor: pointer;
 }
 .intro[hidden] { display: none; }
+.intro.is-welcome { cursor: auto; }
 .intro.is-light {
-	background: radial-gradient(60% 50% at 50% 46%, rgba(0, 110, 220, calc(.10 * var(--intro-glow, 0))), transparent 70%), #f4f7fb;
+	--ground: #f4f7f7;
+	--type: #0d1014;
+	--teal: #0e7c86;
+	--body: #3b4652;
+	--quiet: #5c6670;
+	background: radial-gradient(60% 50% at 50% var(--glow-y, 46%), rgba(14, 124, 134, calc(.10 * var(--intro-glow, 0))), transparent 70%), var(--ground);
 }
 
 .intro-field, .intro-glow {
-	position: absolute;
+	position: fixed;
 	inset: 0;
 	width: 100%;
 	height: 100%;
@@ -386,50 +407,149 @@ h2 {
 .intro-glow { filter: blur(16px); opacity: .55; image-rendering: auto; }
 .intro.is-light .intro-glow { opacity: .22; }
 
+.intro-stage {
+	position: relative;
+	margin: auto;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 32px 24px 80px;
+}
+/* The welcome is one left-aligned column near the top, so a step change never moves the name. */
+.intro.is-welcome .intro-stage {
+	margin: clamp(24px, 9vh, 96px) auto auto;
+	width: min(100%, 508px);
+	align-items: stretch;
+}
+
 .intro-lines {
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 8px;
-	padding: 0 24px;
 	text-align: center;
 	pointer-events: none;
 }
+.intro.is-welcome .intro-lines { align-items: flex-start; gap: 4px; text-align: left; }
 .intro-lines p { margin: 0; }
 
 .intro-name {
-	color: #ffffff;
-	font: 650 clamp(44px, 12vw, 112px)/1 var(--font-display);
+	color: var(--type);
+	font: 650 var(--name-size, clamp(44px, 12vw, 112px))/1 var(--font-display);
 	letter-spacing: -0.03em;
-	text-shadow: 0 0 24px rgba(77, 160, 255, .45);
+	text-shadow: 0 0 24px rgba(117, 226, 225, .32);
 	white-space: nowrap;
 	opacity: 0;
 }
+.intro.is-welcome .intro-name { font-size: min(var(--name-size, 72px), max(28px, calc(var(--name-size, 72px) * .5))); }
 .intro-sub {
-	color: #8fc4ff;
+	color: var(--teal);
 	font: 560 clamp(14px, 2.4vw, 18px)/1.3 var(--font-display);
 	min-height: 1.3em;
 }
 .intro-title {
-	color: #e8f1ff;
+	color: var(--type);
 	font: 560 clamp(18px, 4.2vw, 30px)/1.2 var(--font-display);
 	letter-spacing: -0.01em;
 	min-height: 1.2em;
 }
-.intro.is-light .intro-name { color: #0b1b33; text-shadow: 0 0 18px rgba(0, 110, 220, .18); }
-.intro.is-light .intro-sub { color: #005fb8; }
-.intro.is-light .intro-title { color: #0d1014; }
+.intro.is-welcome .intro-sub { font-size: 14px; }
+.intro.is-welcome .intro-title { font-size: clamp(16px, 3vw, 20px); }
+.intro.is-light .intro-name { text-shadow: 0 0 18px rgba(14, 124, 134, .14); }
 
 .intro-skip {
-	position: absolute;
+	position: fixed;
 	right: 16px;
 	bottom: 16px;
-	color: #c9d6e6;
+	color: var(--body);
 	background: rgba(255, 255, 255, .06);
 	border-color: rgba(255, 255, 255, .14);
 }
-.intro.is-light .intro-skip { color: #24292f; background: rgba(13, 16, 20, .05); border-color: rgba(13, 16, 20, .12); }
+.intro.is-light .intro-skip { background: rgba(13, 16, 20, .05); border-color: rgba(13, 16, 20, .12); }
+.intro-skip[hidden] { display: none; }
+
+/* A quiet card with a thin border keeps the welcome readable over the moving field. */
+.welcome {
+	position: relative;
+	margin-top: 28px;
+	padding: 22px 22px 18px;
+	border: 1px solid rgba(255, 255, 255, .10);
+	border-radius: 8px;
+	background: rgba(13, 16, 20, .9);
+	box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+	color: var(--body);
+	font-size: 14px;
+	line-height: 1.5;
+	text-align: left;
+	cursor: auto;
+	opacity: 0;
+	transform: translateY(10px);
+	transition: opacity .45s ease .15s, transform .6s cubic-bezier(.2, .7, .2, 1) .15s;
+}
+.intro.is-light .welcome { background: rgba(255, 255, 255, .92); border-color: rgba(13, 16, 20, .10); box-shadow: 0 12px 32px rgba(13, 16, 20, .10); }
+.intro.is-welcome-in .welcome { opacity: 1; transform: none; }
+.welcome[hidden], .welcome-step[hidden], .welcome-list[hidden] { display: none; }
+.welcome-step.is-entering { animation: welcome-step-in .35s cubic-bezier(.2, .7, .2, 1) both; }
+
+.welcome-label {
+	margin: 0 0 6px;
+	color: var(--quiet);
+	font: 600 11px/1.4 var(--font);
+	letter-spacing: .08em;
+	text-transform: uppercase;
+}
+.welcome-title {
+	margin: 0 0 16px;
+	color: var(--type);
+	font: 650 24px/1.15 var(--font-display);
+	letter-spacing: -0.02em;
+	outline: none;
+}
+.welcome-lede { margin: 0 0 12px; }
+.welcome-points, .welcome-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.welcome-points li { display: grid; grid-template-columns: 16px 1fr; gap: 12px; align-items: start; }
+.welcome-points .icon { margin-top: 2px; }
+.welcome .icon-done .fill { fill: var(--ok); }
+.welcome .icon-done .mark { stroke: var(--ground); }
+.welcome .icon-needs-you .line { stroke: var(--accent); }
+.welcome .icon-needs-you .fill { fill: var(--accent); }
+.welcome .icon-shield { fill: var(--teal); }
+/* Square bullets, a nod to the dither's cells. */
+.welcome-list li { position: relative; padding-left: 18px; }
+.welcome-list li::before {
+	content: "";
+	position: absolute;
+	left: 3px;
+	top: .6em;
+	width: 6px;
+	height: 6px;
+	border-radius: 1px;
+	background: var(--teal);
+}
+
+.welcome-actions { display: flex; align-items: center; gap: 8px; margin-top: 22px; }
+.welcome-count { margin-right: auto; color: var(--quiet); font-size: 12px; font-variant-numeric: tabular-nums; }
+.intro button.primary { padding: 5px 14px; border-color: var(--teal); background: var(--teal); color: var(--ground); font-weight: 600; }
+.intro button.primary:hover { background: #93ebea; }
+.intro.is-light button.primary { color: #ffffff; }
+.intro.is-light button.primary:hover { background: #0b6a73; }
+.welcome-back { color: var(--body); background: transparent; border-color: rgba(255, 255, 255, .18); }
+.welcome-back:hover { background: rgba(255, 255, 255, .06) !important; }
+.intro.is-light .welcome-back { border-color: rgba(13, 16, 20, .18); }
+.intro.is-light .welcome-back:hover { background: rgba(13, 16, 20, .05) !important; }
+.intro :focus-visible { outline-color: var(--teal); }
+
+@keyframes welcome-step-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes intro-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+	.intro.is-quick { animation: intro-in .3s ease both; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.welcome { transition: none; }
+	.welcome-step.is-entering { animation: none; }
+}
 
 /* ---------------------------------------------------------------- narrow */
 
@@ -438,4 +558,7 @@ h2 {
 	.band { padding: 12px 14px; }
 	.copy-row { flex-direction: column; align-items: stretch; }
 	.copy { align-self: flex-start; }
+	.intro-stage { padding: 24px 16px 72px; }
+	.welcome { padding: 18px 16px 14px; }
+	.welcome-title { font-size: 21px; }
 }

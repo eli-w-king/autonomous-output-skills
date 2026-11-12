@@ -111,13 +111,17 @@
 		}, 1600);
 	}
 
+	// A one-time sign-in code (GitHub's device code looks like 1A2B-3C4D) shows large, so it's easy to read and type.
+	const SIGN_IN_CODE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
 	function copyRow(text, label) {
-		const row = el('div', 'copy-row');
+		const isCode = SIGN_IN_CODE.test(text);
+		const row = el('div', isCode ? 'copy-row is-code' : 'copy-row');
 		const code = el('code', 'copy-text', text);
 		const button = el('button', 'copy', 'Copy');
 		button.type = 'button';
 		button.dataset.focus = `copy:${label}:${text.slice(0, 40)}`;
-		button.setAttribute('aria-label', `Copy ${label}`);
+		button.setAttribute('aria-label', isCode ? `Copy the one-time code ${text.split('').join(' ')}` : `Copy ${label}`);
 		button.addEventListener('click', () => copyText(text, button));
 		row.append(code, button);
 		return row;
@@ -141,7 +145,7 @@
 		const detail = item.status === 'working' && item.note ? item.note : item.detail;
 		const showDetail = detail && !['needs-you', 'failed', 'skipped'].includes(item.status);
 		if (showDetail) {
-			body.append(el('p', 'item-detail', item.status === 'installed' && item.how === 'already' ? `Already set up. ${detail}` : detail));
+			body.append(el('p', 'item-detail', detail));
 		}
 		if (item.status === 'needs-you' || item.status === 'failed') {
 			const box = el('div', `callout callout-${item.status}`);
@@ -362,13 +366,24 @@
 		}
 		view = next;
 		if (stepChanged && next.step && !introRunning) {
-			const target = next.step.kind === 'item' ? document.querySelector(`li[data-id="${CSS.escape(next.step.id)}"]`) : document.querySelector(`section[data-group="${CSS.escape(next.step.id)}"]`);
-			target?.scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
+			revealStep(next.step);
 		}
 	}
 
+	function revealStep(step) {
+		if (!step) {
+			return;
+		}
+		const target = step.kind === 'item' ? document.querySelector(`li[data-id="${CSS.escape(step.id)}"]`) : document.querySelector(`section[data-group="${CSS.escape(step.id)}"]`);
+		target?.scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
+	}
+
+	// The opening (once per open, when motion is on) and the welcome (until the person closes it once). With reduced
+	// motion the welcome is a still page.
 	async function runIntro(next) {
-		if (!next.intro?.play || reduced.matches || !window.SetupIntro) {
+		const welcome = !!next.welcome?.show;
+		const cinematic = !!next.intro?.play && !reduced.matches;
+		if (!window.SetupIntro || (!welcome && !cinematic)) {
 			return;
 		}
 		introRunning = true;
@@ -377,13 +392,19 @@
 		const lines = [meta.subtitle, meta.presenter ? meta.title : null].filter(Boolean);
 		const main = $('#main');
 		main.inert = true;
-		post('/api/intro').catch(() => {});
+		if (next.intro?.play) {
+			post('/api/intro').catch(() => {});
+		}
 		try {
-			await window.SetupIntro.play($('#intro'), { name, lines, dark: darkQuery.matches });
+			await window.SetupIntro.play($('#intro'), { name, lines, dark: darkQuery.matches, cinematic, welcome, motion: !reduced.matches, os: next.os });
+			if (welcome) {
+				await post('/api/welcome').catch(() => {});
+			}
 		} finally {
 			main.inert = false;
 			introRunning = false;
 			$('#page-title').focus({ preventScroll: true });
+			revealStep(view?.step);
 		}
 	}
 

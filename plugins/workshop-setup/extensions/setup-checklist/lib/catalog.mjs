@@ -24,90 +24,106 @@ export const GROUPS = [
 ];
 
 const FEED = 'https://packagefeedproxy.microsoft.io/npm/';
-const SAY_YES = 'Say yes in the chat when the agent offers to install it, or run this yourself:';
+const HOMEBREW_SCRIPT = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
+const steps = (...lines) => lines.join('\n');
+
+// The steps below show when the agent marks an item needs-you without steps of its own. The agent runs the commands,
+// so these say what only the person can do: click through an installer, sign in, allow a permission. Anything they
+// copy works as it is: a sign-in code for the browser, a line for the chat, or (Intel Macs only) Homebrew's command
+// for Terminal.
+const IN_CHAT = 'Check the chat. The agent says what it needs from you here.';
 
 export const ITEMS = [
 	// Basics
 	{
 		id: 'command_line_tools', group: 'basics', label: 'Command Line Tools',
-		help: { mac: { text: 'Run this in Terminal. macOS asks you to confirm, then installs them. It takes a few minutes.', commands: ['xcode-select --install'] } },
+		help: { mac: { text: steps('A macOS window asks to install the Command Line Tools. Click Install, then Agree.', 'It takes a few minutes. The agent takes it from there.') } },
 	},
 	{
 		id: 'package_manager', group: 'basics', label: { mac: 'Homebrew', win: 'winget', other: 'Package manager' },
 		// Only needed when something is missing, so it shows once it's there or once the agent asks for it.
 		quietUntilReady: true,
 		help: {
-			mac: { text: 'Paste this in Terminal. It asks for your Mac password, which only you type.', commands: ['/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'] },
-			win: { text: 'Install or update App Installer from the Microsoft Store, then click Refresh.' },
+			// The agent opens Homebrew's installer package, which supports Apple silicon only. Intel Macs run its script.
+			mac: ({ arch }) => (arch === 'x86_64'
+				? {
+					text: steps(
+						'Open Terminal: press Command (⌘) and Space together, type Terminal and press Return.',
+						'Click Copy below, click in the Terminal window, press ⌘ and V together, then press Return.',
+						'When it asks for your Mac password, type it and press Return. Nothing shows while you type.',
+						'When it says Press RETURN to continue, press Return. It takes a few minutes.',
+						'When it says Installation successful, tell the agent in the chat.',
+					),
+					commands: [HOMEBREW_SCRIPT],
+				}
+				: {
+					text: steps(
+						'In the Homebrew installer window, click Continue until you see Install, then click Install.',
+						'When macOS asks for your password, type it (or use Touch ID) and click Install Software.',
+						'When it says the installation was successful, click Close. The agent takes it from there.',
+						'Don\'t see the installer? Click Installer in the Dock.',
+					),
+				}),
+			win: { text: steps('Open the Microsoft Store, search for App Installer, and click Get or Update.', 'When it\'s done, click Refresh at the top of this page.') },
 		},
 	},
 	{
 		id: 'vscode_insiders', group: 'basics', label: 'VS Code Insiders',
-		help: {
-			mac: { text: SAY_YES, commands: ['brew install --cask visual-studio-code@insiders'] },
-			win: { text: SAY_YES, commands: ['winget install --id Microsoft.VisualStudioCode.Insiders -e'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'copilot_signin', group: 'basics', label: 'GitHub Copilot sign-in', unknownDetail: 'The agent asks you about this in the chat.',
+		// The check knows this from their answer; the page states the result.
+		okDetail: 'signed in to GitHub with Copilot in VS Code Insiders',
 		help: { all: { text: 'In VS Code Insiders, open the Accounts menu at the bottom left and sign in with GitHub. Then tell the agent you\'re signed in.' } },
 	},
 	{
 		id: 'gh', group: 'basics', label: 'GitHub CLI',
-		help: { all: { text: 'In VS Code, open Terminal > New Terminal, run this, and finish signing in in your browser. Then say done in the chat.', commands: ['gh auth login --hostname github.com --web --git-protocol https'] } },
+		// The agent starts the sign-in and sends the one-time code as the command to copy.
+		help: {
+			all: {
+				text: steps(
+					'Your browser opens GitHub\'s device page. If it doesn\'t, go to github.com/login/device.',
+					'If it asks you to sign in, use the GitHub account that has Copilot.',
+					'Copy the one-time code below, paste it on that page and click Continue.',
+					'Click Authorize. The agent takes it from there.',
+				),
+			},
+		},
 	},
 	{
 		id: 'git', group: 'basics', label: 'git',
-		help: {
-			mac: { text: 'Say yes in the chat when the agent offers to set up git, or run this yourself:', commands: ['xcode-select --install'] },
-			win: { text: SAY_YES, commands: ['winget install --id Git.Git -e'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'powershell', group: 'basics', label: 'PowerShell scripts',
-		help: { win: { text: 'Run this in PowerShell, so npm and yarn work there too.', commands: ['Set-ExecutionPolicy -Scope CurrentUser RemoteSigned'] } },
+		help: { win: { text: IN_CHAT } },
 	},
 	{
 		id: 'node', group: 'basics', label: 'Node.js',
-		help: {
-			mac: { text: SAY_YES, commands: ['brew install node'] },
-			win: { text: SAY_YES, commands: ['winget install --id OpenJS.NodeJS.LTS -e'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'npm', group: 'basics', label: 'npm on Microsoft\'s feed',
-		help: {
-			mac: { text: 'Say yes in the chat when the agent asks to use Microsoft\'s package feed, or run this yourself:', commands: [`npm config set registry ${FEED}`] },
-			win: { text: 'Say yes in the chat when the agent asks to use Microsoft\'s package feed, or run this yourself:', commands: [`npm.cmd config set registry ${FEED}`] },
-			all: { text: 'Say yes in the chat when the agent asks to use Microsoft\'s package feed, or run this yourself:', commands: [`npm config set registry ${FEED}`] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'yarn', group: 'basics', label: 'Yarn',
-		help: {
-			win: { text: SAY_YES, commands: ['npm.cmd install -g yarn'] },
-			all: { text: SAY_YES, commands: ['npm install -g yarn'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'python', group: 'basics', label: 'Python',
-		help: {
-			mac: { text: SAY_YES, commands: ['python3 -m pip install --user Pillow'] },
-			win: { text: SAY_YES, commands: ['winget install --id Python.Python.3.13 -e'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'ffmpeg', checks: ['ffmpeg', 'ffprobe'], group: 'basics', label: 'FFmpeg',
-		help: {
-			mac: { text: SAY_YES, commands: ['brew install ffmpeg'] },
-			win: { text: SAY_YES, commands: ['winget install --id Gyan.FFmpeg -e'] },
-		},
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'browser', group: 'basics', label: 'Chrome or Edge',
 		help: {
-			mac: { text: SAY_YES, commands: ['brew install --cask google-chrome'] },
 			win: { text: 'Microsoft Edge comes with Windows. If it\'s missing, reinstall it from microsoft.com/edge.' },
+			all: { text: IN_CHAT },
 		},
 	},
 
@@ -119,17 +135,17 @@ export const ITEMS = [
 	{
 		id: 'skills', group: 'workshop', label: 'Your skills',
 		test: { prompt: 'List the skills you can use from my copy of the skills.' },
-		help: { all: { text: 'Say yes in the chat when the agent shows the plan for your own copy of the skills.' } },
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'weekly', group: 'workshop', label: 'Weekly update', always: true,
 		test: { prompt: 'Run my weekly skill update once now, then check the run.' },
-		help: { all: { text: 'Say yes in the chat when the agent offers to schedule the weekly update.' } },
+		help: { all: { text: IN_CHAT } },
 	},
 	{
 		id: 'playwright', group: 'workshop', label: 'Playwright',
 		test: { prompt: 'Use Playwright to open https://code.visualstudio.com, take a screenshot and show it to me.' },
-		help: { all: { text: 'Say yes in the chat when the agent offers to set up Playwright.' } },
+		help: { all: { text: IN_CHAT } },
 	},
 
 	// Connections
@@ -142,8 +158,11 @@ export const ITEMS = [
 		},
 		help: {
 			all: {
-				text: 'In VS Code, open Terminal > New Terminal and run these, then start a new session. If Work IQ asks for admin approval or a license, your organization sets that: skip it for now and tell your host.',
-				commands: ['copilot plugin marketplace add microsoft/work-iq', 'copilot plugin install workiq@work-iq', 'copilot plugin install workiq-productivity@work-iq'],
+				text: steps(
+					'Start a new session and say "continue my setup" there. Work IQ loads in new sessions.',
+					'If a window asks you to sign in or allow access, sign in with your work account and accept.',
+					'If it asks for admin approval or a license, your organization sets that. Skip it for now and tell your host.',
+				),
 			},
 		},
 	},
@@ -157,8 +176,15 @@ export const ITEMS = [
 			},
 		},
 		help: {
-			mac: { text: 'In the Set Up Computer Use dialog, click Allow in Settings for Screen Recording and for Accessibility. Switch on Copilot Computer Use in System Settings, then click Check Again in the dialog.' },
-			all: { text: 'Type /computer on in the chat, then click Turn On.' },
+			mac: {
+				text: steps(
+					'Copy /computer on, send it in the chat, then click Turn On.',
+					'In the Set Up Computer Use dialog, click Allow in Settings for Screen Recording, then for Accessibility.',
+					'Switch on Copilot Computer Use in each list in System Settings, then click Check Again in the dialog.',
+				),
+				commands: ['/computer on'],
+			},
+			all: { text: 'Copy /computer on, send it in the chat, then click Turn On.', commands: ['/computer on'] },
 		},
 	},
 	{
@@ -184,7 +210,14 @@ export const ITEMS = [
 	{
 		id: 'azure', group: 'optional', label: 'Azure', blurb: 'For sharing pages that need a sign-in, with a subscription you\'re allowed to use.',
 		test: { prompt: 'Run az account show and tell me which subscription I\'m signed in to.' },
-		help: { all: { text: 'Run this in your own terminal, finish in your browser, and pick a subscription you\'re allowed to use.', commands: ['az login'] } },
+		help: {
+			all: {
+				text: steps(
+					'Your browser opens a Microsoft sign-in page. Sign in with your work account.',
+					'If the agent asks which subscription to use, answer in the chat with one you\'re allowed to use.',
+				),
+			},
+		},
 	},
 	{
 		id: 'devbox', group: 'optional', label: 'Dev box', blurb: 'Keeps agents working when your laptop is closed.',
@@ -193,7 +226,10 @@ export const ITEMS = [
 	},
 	{
 		id: 'research', group: 'optional', label: 'Research tools', blurb: 'For planning and running user studies.',
-		help: { all: { text: 'Fill in your keys in ~/.copilot/research.env yourself. Keys never go in the chat.' } },
+		help: {
+			win: { text: steps('Your keys go in a file only you can read: %USERPROFILE%\\.copilot\\research.env. The agent opens it for you in VS Code Insiders.', 'Type each key after its = sign, then save and close the file. Keys never go in the chat.') },
+			all: { text: steps('Your keys go in a file only you can read: ~/.copilot/research.env. The agent opens it for you in VS Code Insiders.', 'Type each key after its = sign, then save and close the file. Keys never go in the chat.') },
+		},
 	},
 
 	// Later: listed in a quiet note, never counted.
@@ -229,9 +265,11 @@ export function itemLabel(def, os) {
 	return pick(def.label, os);
 }
 
-export function itemHelp(def, os) {
+// The steps for an item on this OS. An entry can depend on the machine (env.arch, from the check).
+export function itemHelp(def, os, env = {}) {
 	const help = def.help || {};
-	return help[os] || help.all || null;
+	const entry = help[os] || help.all || null;
+	return typeof entry === 'function' ? entry(env) : entry;
 }
 
 // The Try it text for an item, or null when it has no test.

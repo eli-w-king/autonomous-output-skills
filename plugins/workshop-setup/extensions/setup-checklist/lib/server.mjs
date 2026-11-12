@@ -139,6 +139,7 @@ export class CanvasInstance {
 
 	viewPayload() {
 		const view = this.model.view({ intro: { play: this.introPending } });
+		view.welcome = { show: this.model.welcomePending() };
 		if (this.simulation) {
 			view.simulation = this.simulation.info();
 		}
@@ -224,6 +225,12 @@ export class CanvasInstance {
 			if (url.pathname === '/api/intro') {
 				validateEmptyBody(body, 'The intro');
 				this.introPending = false;
+				sendJson(res, 200, { ok: true });
+				return;
+			}
+			if (url.pathname === '/api/welcome') {
+				validateEmptyBody(body, 'The welcome');
+				await this.model.markWelcomed();
 				sendJson(res, 200, { ok: true });
 				return;
 			}

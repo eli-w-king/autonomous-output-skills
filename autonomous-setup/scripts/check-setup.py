@@ -86,9 +86,14 @@ def check_package_manager():
     if L.IS_MAC:
         brew = L.which('brew') or next((p for p in ('/opt/homebrew/bin/brew', '/usr/local/bin/brew') if Path(p).exists()), None)
         if not brew:
-            return item(False, 'Homebrew is not installed', required=False,
-                        fix='The person installs it in their own Terminal (it asks for their Mac password): '
-                            '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+            arm = platform.machine() == 'arm64'
+            return item(False, 'Homebrew is not installed', required=False, arch=platform.machine(),
+                        fix='The agent downloads the signed Homebrew-<version>.pkg from the latest release at '
+                            'https://github.com/Homebrew/brew/releases and opens it; the macOS Installer asks for '
+                            'their password in its own window. Then the brew shellenv line goes in ~/.zprofile.'
+                        if arm else
+                        'Intel Mac: they run the install script in Terminal (it asks for their Mac password): '
+                        '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
         code, line = tool_version(brew)
         return item(code == 0, line or 'Homebrew', required=False, tool='brew', path=L.tilde(brew))
     if L.IS_WIN:
@@ -125,7 +130,7 @@ def check_insiders():
 def check_copilot_signin(state):
     answer = str(state['answers'].get('copilot_signed_in', '')).lower()
     if answer in ('yes', 'true', 'ok'):
-        return item(True, 'signed in to GitHub with Copilot in VS Code Insiders (they said so)')
+        return item(True, 'signed in to GitHub with Copilot in VS Code Insiders')
     if answer in ('no', 'false'):
         return item(False, 'not signed in to GitHub with Copilot in VS Code Insiders',
                     fix='Accounts menu (bottom left of VS Code Insiders) > Sign in with GitHub to use GitHub Copilot')
@@ -171,7 +176,9 @@ def check_gh():
                                              for a in accounts)
     return item(bool(good), detail, version='.'.join(map(str, version)) if version else line, accounts=accounts,
                 active=active, path=L.tilde(gh),
-                fix='In their own terminal: gh auth login --hostname github.com --web --git-protocol https')
+                fix='The agent runs gh auth login --hostname github.com --web --git-protocol https in the background, '
+                    'shows the one-time code it prints and opens https://github.com/login/device; they enter the code '
+                    'and approve there. Then gh auth setup-git')
 
 
 def check_git():
@@ -411,7 +418,9 @@ def check_settings(current, path, error):
     detail = 'settings.json has a syntax problem: %s' % error if error else \
         '%d of %d workshop settings are set' % (len(matching), len(entries))
     return item(ok, detail, file=L.tilde(path), exists=path.is_file(), matching=matching, different=different,
-                missing=missing, fix='%s scripts/workshop-settings.py diff, then apply once the person agrees' % L.PY)
+                missing=missing, total=len(entries),
+                fix='%s scripts/workshop-settings.py diff, list what is missing, then apply --json (the setup prompt is '
+                    'the okay)' % L.PY)
 
 
 # ---------------------------------------------------------------- practice repo
@@ -589,11 +598,14 @@ def check_workiq():
     names = {f['name'] for f in found if f.get('enabled') is not False}
     ok = 'workiq' in names
     detail = 'plugins: %s' % ', '.join(sorted(n for n in names if n)) if names else 'no Work IQ plugin installed'
-    return item(ok, detail, plugins=found,
-                fix='In a terminal (yours to run when copilot is on your PATH; otherwise theirs, in Terminal > New Terminal '
-                    'of the VS Code editor window): copilot plugin marketplace add microsoft/work-iq, copilot plugin '
-                    'install workiq@work-iq, copilot plugin install workiq-productivity@work-iq; then a new session for '
-                    'the tools to load')
+    cli = L.which('copilot')
+    # VS Code puts a copilot shim on PATH that can only install Copilot CLI from an interactive terminal.
+    shim = bool(cli) and 'copilot-shim' in os.path.realpath(cli)
+    return item(ok, detail, plugins=found, copilot_cli=L.tilde(cli) if cli else None, copilot_cli_is_vscode_shim=shim,
+                fix='The agent runs copilot plugin marketplace add microsoft/work-iq, copilot plugin install '
+                    'workiq@work-iq and copilot plugin install workiq-productivity@work-iq (when copilot is missing or '
+                    'only VS Code\'s shim, npm install -g @github/copilot first); the tools load in the next chat, '
+                    'which the agent starts with create_session')
 
 
 def mentions_playwright(data):
@@ -628,7 +640,7 @@ def check_playwright(settings, browser):
         detail += '; needs Chrome or Edge'
     return item(ok, detail, copilot_mcp=copilot, vscode_mcp=vscode, pinned=pinned.group(1) if pinned else None,
                 browser_tools_setting=settings.get('workbench.browser.enableChatTools'),
-                fix='%s scripts/mcp-servers.py add playwright (with their okay); new sessions pick it up' % L.PY)
+                fix='%s scripts/mcp-servers.py add playwright; chats that start after it pick it up' % L.PY)
 
 
 def check_dictation(settings):
@@ -674,7 +686,8 @@ def check_azure(quick):
     except ValueError:
         account = None
     return item(bool(account), 'signed in, a subscription is selected' if account else 'not signed in', required=False,
-                fix='az login, in their own terminal (an agent cannot finish it)')
+                fix='the agent runs az login: it opens their browser and returns once they sign in (never '
+                    '--use-device-code, which Conditional Access often blocks)')
 
 
 def check_devbox(quick):
@@ -691,7 +704,8 @@ def check_devbox(quick):
             'boxes': report.get('boxes') or [], 'stays_on_box': report.get('stays_on_box'), 'portal': report.get('portal')}
     if not report.get('signed_in'):
         return item(None, "can't check: %s" % report.get('detail'), required=False,
-                    fix='az login in their own terminal (see references/optional.md, "Azure")', **base)
+                    fix='az login, which the agent starts and they finish in the browser (references/optional.md, '
+                        '"Azure")', **base)
     if report.get('ok') is False:
         return item(None, "couldn't check: %s" % report.get('detail'), required=False, **base)
     box = next((b for b in base['boxes'] if b['name'] == base['stays_on_box']), None)
@@ -725,8 +739,9 @@ def owner_only(path):
         return None
     user = (os.environ.get('USERNAME') or '').lower()
     # Files in the profile get SYSTEM and Administrators, and icacls /inheritance:r keeps them as explicit entries.
-    # Both can read any file on Windows anyway, so like OpenSSH's key check they don't count as someone else.
-    system = ('nt authority\\system', 'builtin\\administrators')
+    # Both can read any file on Windows anyway, so like OpenSSH's key check they don't count as someone else. OWNER
+    # RIGHTS (some folders, such as Python's temp folders, pass it down) is the file's owner, the person themselves.
+    system = ('nt authority\\system', 'builtin\\administrators', 'owner rights')
     principals = []
     for line in out.splitlines():
         line = line.replace(str(path), '', 1).strip()
@@ -737,13 +752,22 @@ def owner_only(path):
     return any(mine) and all(m or p in system for m, p in zip(mine, principals))
 
 
+RESEARCH_FIX = ('the person pastes OUTSET_API_KEY into research.env themselves; the agent runs outset-auth.mjs (they '
+                'approve in the browser), then opens https://www.userinterviews.com with Playwright, they sign in once '
+                'there, and the agent confirms it read only and remembers userinterviews_signed_in=yes; drafting a '
+                'study needs none of this')
+
+
 def check_research(answers):
+    """Optional: what running studies needs. research.env (owner only) with OUTSET_API_KEY and the Outset sign-in
+    (OUTSET_OAUTH_CLIENT_ID and OUTSET_REFRESH_TOKEN, written by outset-auth.mjs), and User Interviews signed in once in
+    the browser Playwright uses, which the agent saw read only and saved as userinterviews_signed_in. A User Interviews
+    API key is optional: probe.mjs checks it when it's there."""
     env = L.HOME / '.copilot' / 'research.env'
-    plans = str(answers.get('recruit_with_outset', '')).lower() in ('yes', 'true')
-    api_setup = str(answers.get('research_api_setup', '')).lower() in ('yes', 'true')
+    ui_signed_in = str(answers.get('userinterviews_signed_in', '')).lower() in ('yes', 'true')
     if not env.is_file():
-        return item(None, 'no research.env', required=False, file=L.tilde(env), recruit_with_outset=plans,
-                    research_api_setup=api_setup)
+        return item(None, 'no research.env yet', required=False, file=L.tilde(env), userinterviews_signed_in=ui_signed_in,
+                    fix=RESEARCH_FIX)
     keys = []
     try:
         for line in env.read_text(encoding='utf-8', errors='replace').splitlines():
@@ -753,39 +777,24 @@ def check_research(answers):
     except OSError:
         return item(False, 'cannot read research.env; check its permissions', required=False, file=L.tilde(env))
     private = owner_only(env)
-    outset = 'OUTSET_REFRESH_TOKEN' in keys and 'OUTSET_OAUTH_CLIENT_ID' in keys
-    # Recruiting through Outset needs both: an Outset sign-in and User Interviews access (their own account or their
-    # team's, which only they can confirm, plus the account email the research.env template asks for).
-    ui_access = str(answers.get('userinterviews_access', '')).lower() in ('own', 'team', 'yes')
-    ui_email = 'USERINTERVIEWS_ACCOUNT_EMAIL' in keys
     outset_key = 'OUTSET_API_KEY' in keys
+    outset_signed_in = 'OUTSET_REFRESH_TOKEN' in keys and 'OUTSET_OAUTH_CLIENT_ID' in keys
     ui_key = 'USERINTERVIEWS_API_KEY' in keys
-    recruiting = outset and ui_access and ui_email
-    api_configured = recruiting and outset_key and ui_key
+    ready = outset_key and outset_signed_in and ui_signed_in
+    missing = [name for name, ok in (('OUTSET_API_KEY', outset_key), ('the Outset sign-in', outset_signed_in),
+                                     ('a User Interviews sign-in in the Playwright browser', ui_signed_in)) if not ok]
     permission_note = ('; readable by others' if private is False else
                        '; could not verify owner-only permissions' if private is None else '')
-    detail = 'research.env has %d keys set%s' % (len(keys), permission_note)
-    if plans:
-        detail += '; recruiting through Outset %s' % ('ready' if recruiting else 'needs %s' % ' and '.join(
-            [n for n, ok in (('an Outset sign-in', outset), ('User Interviews access', ui_access),
-                             ('USERINTERVIEWS_ACCOUNT_EMAIL', ui_email)) if not ok]))
-    if api_setup and not api_configured:
-        missing = [n for n, ok in (('OUTSET_API_KEY', outset_key), ('USERINTERVIEWS_API_KEY', ui_key),
-                                   ('Outset device-code sign-in', outset), ('User Interviews access', ui_access),
-                                   ('USERINTERVIEWS_ACCOUNT_EMAIL', ui_email)) if not ok]
-        detail += '; API setup needs ' + ' and '.join(missing)
-    return item(private is True and (recruiting or not plans) and (api_configured or not api_setup), detail,
-                required=False, file=L.tilde(env), keys_set=keys, owner_only=private,
-                outset_signed_in=outset, recruit_with_outset=plans, userinterviews_access=ui_access,
-                userinterviews_email_set=ui_email, recruiting_ready=recruiting,
-                research_api_setup=api_setup, outset_api_key_set=outset_key, userinterviews_api_key_set=ui_key,
-                api_credentials_configured=api_configured,
+    detail = 'research.env has %d keys set%s; %s' % (len(keys), permission_note,
+                                                     'ready to run studies' if ready else 'needs ' + ' and '.join(missing))
+    if ui_key:
+        detail += '; User Interviews API key set (optional)'
+    return item(private is True and ready, detail, required=False, file=L.tilde(env), keys_set=keys, owner_only=private,
+                outset_api_key_set=outset_key, outset_signed_in=outset_signed_in, userinterviews_signed_in=ui_signed_in,
+                userinterviews_api_key_set=ui_key, ready=ready,
                 fix=hint(mac='chmod 600 ~/.copilot/research.env', linux='chmod 600 ~/.copilot/research.env',
                          win='icacls $HOME\\.copilot\\research.env /inheritance:r /grant:r "${env:USERNAME}:F"')
-                if private is False else 'to recruit through Outset: sign in with outset-auth.mjs, confirm User '
-                'Interviews access (their own account or their team\'s), and add USERINTERVIEWS_ACCOUNT_EMAIL to '
-                'research.env. For API setup, add OUTSET_API_KEY and USERINTERVIEWS_API_KEY and run the read-only '
-                'platform probes; drafting a study needs none of this')
+                if private is False else RESEARCH_FIX)
 
 
 # ---------------------------------------------------------------- report
@@ -817,8 +826,8 @@ def try_its(answers):
             'taste': 'Give me three rules from my taste and their sources.',
             'devbox': 'Start a session on my dev box and have it say hello.',
             'azure': 'Run az account show and tell me which subscription is selected.',
-            'research': 'Check my Outset and User Interviews connections with read-only requests. Do not show '
-                        'credentials, create a study or recruit anyone.'}
+            'research': 'Check my Outset connection with a read-only request, and open User Interviews with Playwright '
+                        'to confirm I\'m signed in. Do not show credentials, create a study or recruit anyone.'}
 
 
 def build(practice_dir=None, quick=False):

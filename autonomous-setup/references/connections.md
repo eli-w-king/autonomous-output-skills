@@ -10,22 +10,19 @@ Work IQ lets agents read the person's Microsoft 365 mail, calendar, Teams and fi
 and send things they approve. It's a hosted connection, so nothing runs locally.
 
 **Install.** Two official plugins from `microsoft/work-iq`: `workiq` (the connection and its skill) and
-`workiq-productivity` (read-only report recipes). Use one route, not several:
-1. If the `copilot` command is on your PATH, run them yourself once they agree:
-   `copilot plugin marketplace add microsoft/work-iq`, `copilot plugin install workiq@work-iq`,
-   `copilot plugin install workiq-productivity@work-iq`.
-2. Otherwise they run the same three commands in a VS Code terminal (Terminal > New Terminal in the editor window).
-   VS Code adds a `copilot` command to its terminals and offers to install Copilot CLI the first time; they answer
-   that prompt themselves.
-3. Or they type the slash commands in a Copilot chat: `/plugin marketplace add microsoft/work-iq`, then
-   `/plugin install workiq@work-iq` and `/plugin install workiq-productivity@work-iq`.
+`workiq-productivity` (read-only report recipes). You install them from your own shell, never through the person's
+terminal: `copilot plugin marketplace add microsoft/work-iq`, `copilot plugin install workiq@work-iq`,
+`copilot plugin install workiq-productivity@work-iq`. When `copilot` isn't there, or it's only VS Code's shim (the
+check's `copilot_cli` and `copilot_cli_is_vscode_shim`; the shim can only install Copilot CLI from an interactive
+terminal), install Copilot CLI first with `npm install -g @github/copilot` (`npm.cmd` on Windows).
 
 An existing install: `copilot plugin update workiq`. The check finds Copilot plugins in `~/.copilot/config.json` and
 VS Code's agent plugins in `~/.vscode-insiders/agent-plugins/installed.json`.
 
-**New tools need a new session.** A session's tools are fixed when it starts. After installing, record the step as
-pending ("installed; test it in a new session"), install the Playwright MCP server too, then ask the person once to
-start a new session and say "continue my setup". That session runs both tests.
+**New tools need a new chat.** A chat's tools are fixed when it starts. After installing, record the step as pending
+("installed; test it in the next chat"), install the Playwright MCP server too, then start the next chat yourself
+with `create_session` (SKILL.md, "The next chat": no `model`, so it keeps Claude Opus 5.5, Max, 1M, Autopilot and
+Allow all). That chat runs both tests.
 
 **The test (Try it): the check-in.** Load the `workiq` skill first and follow its routing and tool names (the host may
 prefix them, for example `workiq-fetch`). When the setup prompt passed in a check-in chat (`checkInChat`), the Try-it
@@ -38,14 +35,15 @@ test is a read instead: their next meeting's subject (the `fetch` tool on `/me/c
 `check-setup.py mark workiq ok` and `check-setup.py tested workiq`.
 
 **When it fails.**
-- A sign-in window or browser page: Work IQ signs in through the host with their Microsoft 365 account. They finish
-  it; never type for them.
+- "MCP authentication required" for workiq, with **Authenticate**: it shows as soon as a chat with the plugins starts
+  (the server asks for sign-in when it connects). They click Authenticate and finish the Microsoft 365 sign-in in the
+  browser; never click or type for them. Until they do, Work IQ's tools aren't there, and the rest of the chat works.
 - Consent ("admin consent", "AADSTS65001", "Need admin approval"): their tenant has to consent once. Mark the step
   `blocked` with "needs tenant admin consent" and point to the admin guide in the plugin repo
   (https://github.com/microsoft/work-iq, `ADMIN-INSTRUCTIONS.md`).
 - License: Work IQ needs a Microsoft 365 Copilot license. Mark `blocked` with "needs a Microsoft 365 Copilot
   license" and who to ask (their manager or IT).
-- No tools in a new session: check `/plugin list`; missing tools alone don't prove a sign-in problem.
+- No tools in the next chat: check `copilot plugin list`; missing tools alone don't prove a sign-in problem.
 - A `null` reply with no error: retry once with the URL checked, then report it as unexplained. Never guess a cause,
   never switch to another connection to get around a denial.
 
@@ -68,9 +66,9 @@ feed works. Projects that need the Playwright library for scripts (the workshop'
 It picks `chrome` when Chrome is installed, `msedge` otherwise, keeps a backup of the file, and never adds a second
 Playwright server (an existing one counts). It pins the newest release: Microsoft's npm feed points `latest` for
 `@playwright/mcp` at a March 2025 alpha that has no `--browser` option, so `@latest` would get an old build there. On
-Windows the entry runs `cmd /c npx ...`. New sessions pick it up.
+Windows the entry runs `cmd /c npx ...`. Chats that start after it pick it up.
 
-**The test (Try it, in a new session):** "Use Playwright to open https://code.visualstudio.com, take a screenshot and show it to
+**The test (Try it, in the next chat):** "Use Playwright to open https://code.visualstudio.com, take a screenshot and show it to
 me." A browser window opens (the server runs headed by default), and the screenshot shows up in chat.
 Then `check-setup.py mark playwright ok` and `check-setup.py tested playwright`.
 

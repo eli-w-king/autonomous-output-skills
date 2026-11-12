@@ -35,7 +35,7 @@ export function tilde(file, home = os.homedir()) {
 }
 
 export function emptyRecord(now) {
-	return { format: FORMAT, version: VERSION, createdAt: now, updatedAt: now, meta: {}, baseline: null, choices: {}, reports: {}, step: null, lastCheck: null };
+	return { format: FORMAT, version: VERSION, createdAt: now, updatedAt: now, meta: {}, baseline: null, choices: {}, reports: {}, step: null, lastCheck: null, welcomedAt: null };
 }
 
 class ShapeError extends Error {}
@@ -77,11 +77,13 @@ export function checkShape(data) {
 		expect(isString(entry.at, 64), `${where}.at`);
 	});
 	expect(data.step === null || (isObject(data.step) && isId(data.step.id) && isString(data.step.at, 64)), 'step');
+	// When the person closed the welcome. Files from before the welcome don't have it.
+	expect(data.welcomedAt === undefined || isStringOrNull(data.welcomedAt, 64), 'welcomedAt');
 	if (data.lastCheck !== null) {
 		const check = data.lastCheck;
 		expect(isObject(check), 'lastCheck');
 		expect(isStringOrNull(check.at, 64) && isString(check.receivedAt, 64), 'lastCheck times');
-		expect(check.os === null || (isObject(check.os) && isStringOrNull(check.os.name, 200)), 'lastCheck.os');
+		expect(check.os === null || (isObject(check.os) && isStringOrNull(check.os.name, 200) && (check.os.arch === undefined || isStringOrNull(check.os.arch, 32))), 'lastCheck.os');
 		checkMap(check.items, 'lastCheck.items', (entry, where) => {
 			expect(isObject(entry) && CHECK_OK.includes(entry.ok), `${where}.ok`);
 			expect(typeof entry.required === 'boolean' && isString(entry.detail, 2000), `${where}.detail`);

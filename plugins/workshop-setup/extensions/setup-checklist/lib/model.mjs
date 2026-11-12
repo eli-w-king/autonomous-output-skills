@@ -157,6 +157,21 @@ export class SetupModel extends EventEmitter {
 		return { step: this.view().step };
 	}
 
+	// The welcome shows the first time the canvas opens on this computer, until the person closes it.
+	welcomePending() {
+		return !this.record?.welcomedAt;
+	}
+
+	async markWelcomed() {
+		await this.ensureLoaded();
+		if (!this.record.welcomedAt) {
+			await this.save((record) => {
+				record.welcomedAt = record.welcomedAt || this.now();
+			});
+		}
+		return this.record;
+	}
+
 	async setChoice({ id, on }) {
 		await this.ensureLoaded();
 		if (!isOptionalId(id, this.record)) {
