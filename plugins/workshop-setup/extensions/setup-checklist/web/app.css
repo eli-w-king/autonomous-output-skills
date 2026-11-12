@@ -1,4 +1,5 @@
-/* Workshop setup checklist. Quiet, VS Code-like, follows the system's light or dark appearance. */
+/* Workshop setup checklist. Quiet, in the poster's palette, and follows the system's light or dark appearance.
+   Ground, type and muted text match the intro's tokens, and the accent is the poster's teal. */
 :root {
 	--font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 	--font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
@@ -6,17 +7,19 @@
 	--bg: #0d1014;
 	--raised: #14181d;
 	--line: rgba(255, 255, 255, .10);
-	--line-2: rgba(255, 255, 255, .18);
-	--text: #d8dade;
-	--muted: #9aa3ad;
+	--toggle-off: rgba(255, 255, 255, .18);
+	--text: #c4ccd4;
+	--muted: #8a96a3;
 	--heading: #f1f1f1;
 	--brand: #75e2e1;
-	--accent: #4daafc;
-	--accent-bg: rgba(77, 170, 252, .10);
+	--accent: #75e2e1;
+	--accent-bg: rgba(30, 135, 168, .16);
+	--accent-hover: #93ebea;
+	--on-accent: #0d1014;
 	--ok: #4fc27b;
 	--fail: #f26d6d;
 	--fail-bg: rgba(242, 109, 109, .08);
-	--focus: #4daafc;
+	--focus: #75e2e1;
 	--button-bg: rgba(255, 255, 255, .08);
 	--button-hover: rgba(255, 255, 255, .14);
 	color-scheme: dark;
@@ -24,20 +27,23 @@
 
 @media (prefers-color-scheme: light) {
 	:root {
-		--bg: #ffffff;
-		--raised: #f5f7f9;
+		--bg: #f4f7f7;
+		--raised: #ffffff;
 		--line: rgba(13, 16, 20, .10);
-		--line-2: rgba(13, 16, 20, .18);
-		--text: #24292f;
+		--toggle-off: #7b8590;
+		--text: #3b4652;
 		--muted: #5c6670;
 		--heading: #0d1014;
 		--brand: #0e7c86;
-		--accent: #005fb8;
-		--accent-bg: rgba(0, 95, 184, .07);
-		--ok: #1f8a4c;
+		/* One step deeper than the brand teal, so text on the current row's tint stays above 4.5:1. */
+		--accent: #0b6e78;
+		--accent-bg: rgba(14, 124, 134, .08);
+		--accent-hover: #095c64;
+		--on-accent: #ffffff;
+		--ok: #1a7f45;
 		--fail: #c4291d;
 		--fail-bg: rgba(196, 41, 29, .06);
-		--focus: #005fb8;
+		--focus: #0b6e78;
 		--button-bg: rgba(13, 16, 20, .06);
 		--button-hover: rgba(13, 16, 20, .11);
 		color-scheme: light;
@@ -181,7 +187,7 @@ button:disabled, button[aria-disabled="true"] { opacity: .6; cursor: default; }
 .progress-fill {
 	position: absolute;
 	inset: 0;
-	background: var(--ok);
+	background: var(--accent);
 	transform-origin: left center;
 	transform: scaleX(0);
 	transition: transform .4s ease;
@@ -325,6 +331,9 @@ h2 {
 .copy { flex: none; }
 .copy-row.is-code { align-items: center; }
 .copy-row.is-code .copy-text { padding: 6px 12px; font: 600 20px/1.3 var(--mono); letter-spacing: .14em; }
+/* Copying the one-time code is the person's next action, so its button gets the welcome's primary style. */
+.copy-row.is-code .copy { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.copy-row.is-code .copy:hover { border-color: var(--accent-hover); background: var(--accent-hover); }
 
 .toggle {
 	display: inline-flex;
@@ -340,7 +349,7 @@ h2 {
 	width: 28px; height: 16px;
 	margin: 0;
 	border-radius: 8px;
-	background: var(--line-2);
+	background: var(--toggle-off);
 	position: relative;
 	cursor: pointer;
 	transition: background .15s ease;
@@ -355,7 +364,7 @@ h2 {
 	transition: transform .15s ease;
 }
 .toggle input:checked { background: var(--accent); }
-.toggle input:checked::after { transform: translateX(12px); }
+.toggle input:checked::after { transform: translateX(12px); background: var(--on-accent); }
 
 .later {
 	margin-top: 28px;
