@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/repo-hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/repo-hero-light.svg">
+  <img alt="Autonomous output skills" src="docs/assets/repo-hero-dark.svg">
+</picture>
+
 # Autonomous output skills
 
 Agent skills for the work I hand to Copilot and walk away from: background desktop automation,
@@ -253,7 +259,8 @@ autonomous-research/       SKILL.md, references/ (running-a-study, synthesis, ha
 tools/                     sync-skills.py, publish-public.py, validate-skills.py, collect-messages.py, install-devbox.mjs
 automations/               weekly-skill-miner.md (prompt and procedure), run-weekly-skill-miner.sh (schedule)
 retired.txt                skill names the sync removes from every machine
-docs/                      "Designing the Loop" talk site (GitHub Pages, July 2026)
+docs/                      "Designing the Loop" talk site (GitHub Pages, July 2026); docs/assets/ also has this
+                           README's hero, a QR code and a social preview, drawn by make-repo-imagery.py
 INSTALL.md
 ```
 
