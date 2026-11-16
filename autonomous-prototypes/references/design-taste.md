@@ -44,11 +44,25 @@ user's latest word beats anything here.
 - **Grown-up and safe.** Nothing childish, cartoony or cute (serious beats cute), and no sensitive
   flows (sign-in, purchases, personal data) in product demos.
 
-## Promo art
+## Presentation
+
+- **Lead with the real artifact.** A page, post or review leads with the thing itself (a playable
+  video, a before and after, the live prototype), one thing at a time, and the text supports it. A
+  tutorial page is mostly its video.
+- **Polished before it is shown.** Every piece gets a final fit-and-finish pass (alignment, spacing,
+  type, states) before the user sees it, so they never have to ask for one more round of polish or
+  push for it to look nice.
+
+## Promo art and showcase pieces
 
 - **The real product is the art.** Event covers, invites and banners show the real product UI: a
   wall of real demo tiles or UI widgets in two or three columns, some bleeding off the frame's
   edges, rather than mockups or abstract illustration.
+- **The user's own look.** Their event sites, setup screens, intros and repo imagery share one look:
+  minimal and dark, with dithered gradients and an ambient, generative background animation (a swarm
+  worked), futuristic and a little glowy but never too much, and current rather than dated. A hero
+  built on that animation carries itself: product demos go in sections of their own, never layered
+  over it.
 
 ## Maintaining this file
 

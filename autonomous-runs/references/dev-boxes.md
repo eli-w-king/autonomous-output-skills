@@ -140,6 +140,10 @@ laptop):
 3. `devtunnel access create <id> -p 4650 --anonymous`, for the drop's port only. A review port stays private, so the
    user signs in to open it.
 4. `devtunnel host <id>`, started detached. Its log prints the URL, `https://<id-part>-4650.<region>.devtunnels.ms`.
+   A port added to a tunnel that is already hosted only works after the host restarts: stop your own host by its
+   PID, start it again, and check that the existing ports still answer. A port with no access entries needs
+   sign-in; test it headlessly with a token from `devtunnel token <id> --scopes connect`, sent as
+   `X-Tunnel-Authorization: tunnel <token>` and never printed.
 5. Teardown: `devtunnel delete <id> -f`. The tunnel also expires on its own (`-e`).
 
 **Hosting it on a box that is not signed in.** Mint a host token where you are signed in, straight into a file
@@ -160,10 +164,23 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
 **Windows hosts.**
 - Node: the default may not be the repo's version (one box ran 24 by default, with 22 under fnm). Put that version's
   fnm installation folder first on PATH; `fnm exec npm` failed.
-- `npm install` rewrote `package-lock.json`: restore it, and don't run it in lab worktrees.
+- `npm install` rewrote `package-lock.json`, and a pnpm install rewrites `pnpm-lock.yaml` (its own `@pnpm/exe`
+  entry): restore incidental lockfile rewrites before every commit, commit a lockfile change only when the branch
+  deliberately changes a dependency, and don't run installs in lab worktrees.
+- Never install or upgrade a global tool on a shared box. Corepack's download of the vscode repo's pinned pnpm
+  returned 404 on the corporate package feed, and the workaround, `npm install -g pnpm@<version>`, replaced the
+  box-wide pnpm other agents were using. Install the pinned version into a private tools folder and put it first on
+  PATH in the lab's own env script.
 - Use `curl.exe`: in PowerShell, `curl` is an alias for `Invoke-WebRequest`.
+- `cmd /c` strips the first and last quote of its command line when the line starts with a quoted path and holds
+  more quotes, so a detached launch failed without any error. Use `cmd /d /s /c` and wrap the whole line in one
+  extra pair of quotes. From PowerShell, pass it as one single-quoted argument so PowerShell leaves the quotes alone:
+  `Start-Process cmd.exe -ArgumentList '/d /s /c ""C:\tools\app.exe" host > "log.txt" 2>&1"' -WindowStyle Hidden`.
 - Start detached processes with `Start-Process node -ArgumentList '<args>' -WorkingDirectory <dir> -WindowStyle
   Hidden -RedirectStandardOutput <log> -RedirectStandardError <errlog> -PassThru`, and keep `.Id` to stop that PID.
+  A server started through pnpm or cmd is a process tree: to restart it, stop each child of your recorded PID
+  (walk `Win32_Process` by `ParentProcessId`) by its literal PID, start it again and record the new PID. A quick
+  restart can hit `EADDRINUSE` on `::1`; retry when it does.
 - But never from a script whose output a caller reads through a pipe: with `-Redirect*`, Start-Process creates the
   process with handle inheritance, so the server inherits the caller's pipe and `pwsh -File sync.ps1 | Select-Object`
   never returns. Start servers from such scripts through ShellExecute (Start-Process with no `-Redirect*`, for
@@ -195,6 +212,10 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
 - On a Cloud PC, files the user uploads through the Windows 365 client land in the client's redirected drive,
   under `\\tsclient\Windows365 virtual drive\Uploads`. Look there when the user says they uploaded something.
 - With no Chrome, headless Playwright runs with `channel: 'msedge'`.
+- To zip a large build output, write the file list with `-Encoding ascii` and run the built-in
+  `$env:SystemRoot\System32\tar.exe -a -c -f out.zip -T list.txt` from the folder the paths are relative to. Build the
+  zip in a staging folder, check it with `tar -t` (the key files present, no source maps or tests, the `PK` magic
+  bytes), then move it into place.
 - The drop's bash scripts run in Git Bash (`C:\Program Files\Git\bin\bash.exe`). They avoid `lsof` and fall back
   from `sha256sum` to `shasum`, but so far they have been tested on macOS only.
 
@@ -226,4 +247,10 @@ standard input. The URL stays the same, so it can go in prompts before the hub i
   `$Matches` is overwritten by each successful `-match` and stale after a failed one, so never read it without
   checking the match. Piping a Python script into `Select-Object -First` stops reading early, so the script dies
   on a broken pipe; let the output drain before selecting from it.
+- PowerShell's current location is not .NET's current directory, so `[IO.File]` and other .NET file APIs resolve
+  relative paths against a different folder: always pass them full paths (`Join-Path (Get-Location) ...`). `?` is a
+  legal character in variable names, so `"$base?v=A4"` expands a variable named `base?v` and drops the URL; write
+  `"${base}?v=A4"` or use single quotes. Windows PowerShell 5.1 writes a UTF-8 BOM with `Set-Content -Encoding utf8`
+  (and `Out-File`), which ends up in source files; write them with PowerShell 7 (`utf8NoBOM`),
+  `[IO.File]::WriteAllText(path, text, [Text.UTF8Encoding]::new($false))`, or the edit tool.
 - Test a sync script with fake bundles in a scratch clone and scratch refs before the real run.

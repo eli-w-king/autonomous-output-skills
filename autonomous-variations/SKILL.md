@@ -25,7 +25,8 @@ with many labs also follow [`autonomous-runs`](../autonomous-runs/SKILL.md). Web
 1. **One lab per decision, in real context.** Scope the lab to the part being decided (a hero
    animation, a homepage section, how a panel's details open), never a rebuild. Show it with the
    real surrounding UI, content and assets, and hold everything else at today's version, so only the
-   decision changes.
+   decision changes: the controls around it look and behave exactly as they do today (the real
+   composer with its model and permission pickers, not a simplified stand-in).
 2. **Exactly the count asked for, genuinely different.** Different ideas, not parameter tweaks of
    one idea. Each gets an id, a short name and a one-line idea, and today's version is the baseline
    (`?v=0`) whenever there is one.
@@ -159,6 +160,11 @@ What the README says and in which order, the manifest, and the stills: see
 - When the user names winners ("these two are the winners"), make the next round: N variations of
   each winner, a family per winner, that carry their notes. Put the notes verbatim at the top of the
   README and say how each is answered.
+- Team feedback feeds a round too. After a crit or review, gather it before changing anything: the
+  meeting transcript, the chat threads about the designs, PR comments and any usability results. List
+  the notes in the README (who said what only when the transcript makes it clear; see
+  [`evidence.md`](../autonomous-runs/references/evidence.md) in autonomous-runs), apply them, and
+  publish the new round at the same review link.
 - Read vague notes explicitly and record the reading ("a bit longer" means longer than round one,
   shorter than today).
 - Keep earlier rounds reachable: by id on the same page, on a sub-page (`v2/`), or by a commit

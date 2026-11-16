@@ -39,14 +39,17 @@ the rules below.
 ## The rules (always enforced)
 
 These come from the user's feedback across every demo session; `DEMO-RULES.md` at the root of the
-`autonomous-output-skills` repo has the same list with sources. An explicit
-instruction in the current request wins; write the override into the brief.
+`autonomous-output-skills` repo has the same list with sources. They apply to every recording or
+screenshot of the product (study stimulus aside, as above), including a quick walkthrough of today's
+product to frame a problem, so load this skill before the first capture; the user should never have
+to remind you. An explicit instruction in the current request wins; write the override into the brief.
 
 **Truth**
 
 1. **Real product only.** Every pixel comes from the running build: Code OSS built from
    `microsoft/vscode`, the real website, or the actual prototype. Never recreate, mock, or paint over
-   UI. A browser page never stands in for the desktop app.
+   UI. A browser page never stands in for the desktop app, and a simulated terminal never stands in
+   for the real CLI: show the real command-line tool in a real terminal window.
 2. **Never show errors.** No error or warning toasts, failed tool calls, extension-host toasts,
    sign-in prompts, 404s, console overlays, model warning glyphs, or broken states. If one appears,
    fix the setup and retake. Never edit it out in post.
@@ -80,8 +83,8 @@ instruction in the current request wins; write the override into the brief.
     crops are only secondary detail shots.
 11. **At most two focal areas.** Chat and editor (about 1/3 and 2/3), session list and one session
     (1/3 and 2/3), session and PR (50/50). Switch between sessions instead of tiling many of them.
-12. **Clean chrome.** File explorer hidden, Agents window side panel closed, Customizations
-    collapsed, Aquarium off, menus closed unless they are the subject, no notifications.
+12. **Clean chrome.** File explorer and source control views hidden, Agents window side panel closed,
+    Customizations collapsed, Aquarium off, menus closed unless they are the subject, no notifications.
 13. **Standard look.** Modern UI and compact density,
     `sessions.chat.experimental.newSessionComposerLayout` enabled, Dark 2026 unless another theme is
     requested, and one theme across every asset in a set (video, stills, PDF).

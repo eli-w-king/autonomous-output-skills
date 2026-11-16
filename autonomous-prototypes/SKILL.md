@@ -16,7 +16,9 @@ gotchas are in [`code-oss.md`](../autonomous-runs/references/code-oss.md).
 
 1. **Real code in the real component.** Never mock VS Code UI in HTML. Prototype inside Code OSS
    (or a Component Explorer fixture of the real component). Confirm the exact component before
-   building (grep a string from the user's screenshot, name the file and class).
+   building (grep a string from the user's screenshot, name the file and class). Reuse the product's
+   real controls as they are today (the same chat input, model and permission pickers used
+   elsewhere), never a minimal stand-in, and keep everything outside the change exactly as it is.
 2. **Start from the latest upstream.** New work branches from current `microsoft/main` in its own
    worktree. Continuing work rebases on upstream main when the user asks or the base is stale.
 3. **Surgical by default.** Change only what was asked. "Replace the icon and text" means the
@@ -38,8 +40,10 @@ gotchas are in [`code-oss.md`](../autonomous-runs/references/code-oss.md).
    repeatedly, and never touch the user's own VS Code windows.
 8. **Ship cleanly, and only when asked.** Commit locally as you go, but push, open or update PRs,
    upload media, or post issues only when the user asks for it (or the brief says so); "don't push"
-   always wins. Draft PRs are scoped to the change, with before/after images and the demo, reviewers
-   and assignee as asked, checks green, review comments addressed and resolved.
+   always wins. Exploratory work ("I just want to see what it's like") stays off the branch and PR
+   you are working on: make a branch off it, don't push, and hand over a local link. Draft PRs are
+   scoped to the change, with before/after images and a demo video, reviewers and assignee as asked,
+   checks green, review comments addressed and resolved.
 
 ## 1. Understand the ask
 
@@ -59,9 +63,12 @@ git fetch microsoft main
 git worktree add -b eli/<area>/<slug> ../microsoft-vscode.worktrees/<slug> microsoft/main
 cd ../microsoft-vscode.worktrees/<slug>
 export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use "$(cat .nvmrc)"
-npm install && npm run compile
+pnpm install && npm run compile
 ```
 
+- The vscode repo installs with pnpm now; where an older note says `npm install`, run `pnpm install`.
+  On a Windows dev box a plain install can fail on long paths: see the Component Explorer recipe in
+  `code-oss.md` in autonomous-runs.
 - Branch names: `eli/<area>/<slug>` (for example `eli/agents/session-list-polish`) unless the user
   names one. Remotes in the main checkout: `microsoft` is microsoft/vscode, `origin` is the user's
   fork. Push to `microsoft` for PRs to microsoft/vscode unless told otherwise.
@@ -90,6 +97,10 @@ npm install && npm run compile
 - Validate before showing anyone: `npm run typecheck-client`, `npm run valid-layers-check`, hygiene
   and stylelint, focused unit tests (`npm run transpile-client` first, then `./scripts/test.sh
   --grep <area>`), fixtures render. Skip heavy suites while the user is live-demoing.
+- Before the final delivery, have a review sub-agent (top model, max effort, long context) read the
+  diff, and fix or answer every finding. After typecheck, lint, the layers check and tests were all
+  clean, one still found six real bugs in a prototype: toggle and layout races, duplicate sends, and
+  lost focus.
 
 ## 4. Let the user try it
 
@@ -127,14 +138,17 @@ gh pr create --repo microsoft/vscode --draft --base main --head eli/<area>/<slug
 - Scope check first: `git diff --stat microsoft/main...HEAD` must show only the intended files (no
   screenshots, recordings, scratch scripts, or session artifacts). Split unrelated work into its own
   PR ("open a separate PR for making the codicon consumable").
-- PR body: what and why in a few lines, before/after images per state, the demo (GIF or MP4) when
-  asked, how to test (settings and steps), and any prototype-only parts. Upload media with the
+- PR body: what and why in a few lines, before/after images per state, a short demo video of the
+  change (the user expects one with every PR: an MP4, with a GIF preview when it helps), how to test
+  (settings and steps), and any prototype-only parts. Upload media with the
   `github-pr-media` skill (GitHub user-attachments) when available; otherwise follow the GitHub posts
   reference in autonomous-runs. If the user says a GIF is enough, remove the extra video.
 - Checks: `gh pr checks <n> --repo microsoft/vscode`; read failures with
   `gh run view <run-id> --repo microsoft/vscode --log-failed` and fix the real cause (the repo
   `fix-ci-failures` skill helps). Distinguish failures caused by the change from flaky or
-  pre-existing ones, and say which is which.
+  pre-existing ones, and say which is which: run the same test list at the base commit before
+  changing anything to prove a failure is pre-existing, and never edit existing tests just to make
+  them pass.
 - Copilot and human review comments: fix what is right, push, then resolve those threads; reply
   briefly on any you decline. List unresolved threads and resolve one by id:
 
@@ -147,6 +161,10 @@ gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$
   as simple as the ask), rerun validation, `git push --force-with-lease`.
 - Mark ready (`gh pr ready <n> --repo microsoft/vscode`) only when the user asks ("move it from draft
   to a real PR", "mark ready for review").
+- Sharing it: when the user asks you to send it, set the assignee and reviewers they named, then post
+  the PR link and the demo video with a short message in the "Sharing work for feedback" pattern of
+  `my-voice`, where the people involved talk: their group chat, or a DM to the reviewer when that is
+  what was asked. The send follows `autonomous-computer-use`; fix any failing checks after.
 - Report: PR link, branch, what changed in a few bullets, check status, anything left open.
 
 ## Websites

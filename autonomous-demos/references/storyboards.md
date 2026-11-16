@@ -36,8 +36,9 @@ where the narrative changed many times and the capture approach did not.
 ## Capture
 
 - Real Code OSS from a current upstream build, Dark 2026 (or the one requested theme), Modern UI,
-  compact, `sessions.chat.experimental.newSessionComposerLayout`, file explorer hidden, Agents side
-  panel closed (the final PR overview is the only exception), Customizations collapsed, Aquarium off.
+  compact, `sessions.chat.experimental.newSessionComposerLayout`, file explorer and source control
+  hidden, Agents side panel closed (the final PR overview is the only exception), Customizations
+  collapsed, Aquarium off.
 - Square recordings for storyboard video (1000 x 1000 CSS pixels at 2x). Record a square viewport;
   do not crop a wide one.
 - Continuous takes per pillar. Waiting and off-camera setup are compressed with in-place speed ramps,

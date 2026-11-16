@@ -23,14 +23,23 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
 2. **Never block on the user.** No questions, no OS authentication or keychain prompts, no sign-in
    flows, nothing that needs the laptop. Pick the reasonable default, record it under "Assumptions"
    in the status file, and continue. If an item truly needs the user, skip it, say exactly what is
-   needed in the status file, and move on to the next item.
+   needed in the status file (the exact text to paste and where to paste or run it, written for a
+   beginner), and move on to the next item.
 3. **Use the time. Never cut corners.** Do not stop early, shrink scope silently, or skip the hard
-   state to finish sooner. When the user sets a deadline ("the PDF in 20 minutes"), ship the best
-   complete version at the deadline, then keep going on the rest unless told to stop.
+   state to finish sooner. With no deadline there is no rush: take the time the work needs,
+   overnight above all. When the user sets a deadline or a check-in time ("the PDF in 20 minutes",
+   "around 3:00 so we can look at it"), have a reviewable result ready by then, the time-critical
+   piece first, then keep going on the rest unless told to stop. Read the time from the clock
+   (`date`, `Get-Date`) for every deadline check, heartbeat and report: agents lose track of the
+   time over long runs.
 4. **Answer pings briefly, then keep working.** "How is it going", "are you done", "almost done?":
    two to four lines (done, now, next, honest ETA), with the links to what is ready (local preview,
    branch or PR, files) in the reply itself; the user should never have to ask for a link or dig it
-   out of a file. "Stop everything" means stop now. "End this turn" means end the turn.
+   out of a file. "Stop everything" means stop now. "End this turn" means end the turn. Better
+   still, report before they ask: say the moment something lands or needs them, what they are still
+   waiting on, and whether they need to do anything now. When many sessions run, keep one live view
+   of each session's status and progress (the status file, or a canvas when they ask for one), so
+   the state of things is never a mystery.
 5. **Share the Mac politely.** Never steal focus. Use APIs or CDP for owned browser/Electron
    surfaces and the dedicated background Computer Use lane for native apps. All Computer Use
    actions must be app-targeted; never move the real pointer, type through the foreground keyboard,
@@ -41,8 +50,10 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    the user with `open -g` while they are away and plain `open` when they ask to see something now;
    do not use Computer Use for simple file opening.
 6. **Split the work, and brief it completely.** For big runs, split independent work across parallel
-   sessions or background agents, on every machine the user offers, and hand side tasks (a banner, a
-   quick fix, a question) to a session of their own so the main thread keeps moving. Each brief is
+   sessions or background agents (sub-agents count), on every machine the user offers and on the dev
+   boxes whenever they are connected, with no fixed cap such as five sessions, and hand side tasks (a
+   banner, a quick fix, a question) to a session of their own so the main thread keeps moving. Going
+   faster never means less thorough. Each brief is
    self-contained: the goal, the hard rules (paste the relevant demo or data
    rules), exact inputs and output paths, what not to touch (for example "do not edit the website",
    "CDP port 9411 belongs to another agent; never connect to it"), and when to stop. Save each brief
@@ -101,8 +112,11 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
 11. **Finish with a report and a tidy machine.** Write the final summary (`Read me.txt` in the
     deliverable folder, or `FINAL-REPORT-<date>.txt` for multi-part runs): what was done and where,
     what is real versus scripted, how it was verified, what could not be done and why, and links.
-    Open the deliverable folder. Stop the processes you started, except what the user asked to keep
-    open (for example one Code OSS window for a live demo).
+    After an overnight run, that report reaches the user by morning without being asked, where they
+    asked for it (for example a Slack message to themselves at 8:00): what was done, what went well
+    and what did not, with the links, videos and images. Open the deliverable folder. Stop the
+    processes you started, except what the user asked to keep open (for example one Code OSS window
+    for a live demo).
 12. **Build for every machine.** Scripts, schedules, review pages and setup you make for the user's
     own workflow work on every machine they use, including dev boxes added later, so nothing depends
     on one machine's paths or state.
@@ -178,11 +192,12 @@ When many chats or background agents work at once (for example a variation lab p
   and a chain of 30-minute waits for a worker froze another. Waiting belongs to an automation that
   checks on a schedule, or to the worker's own completion message (queued, which wakes an idle chat).
   End the turn instead of waiting.
-- **Recover stalled sessions before the user finds them.** At each checkpoint, check every session
-  you started. One that has stopped moving gets no more queued messages: clear its queue, restart it
-  from its brief, or move its work to a healthy machine, and keep going. When a box or remote session
-  fails, fall back to another box, or retry only after checking that the first attempt started
-  nothing, instead of stopping; say in the report what stalled and why.
+- **Recover stalled sessions before the user finds them.** Started is not running: check each
+  session right after you start it, at each checkpoint, and again after a crash, a reboot, or the
+  laptop locking or sleeping. One that has stopped moving gets no more queued messages: clear its
+  queue, restart it from its brief, or move its work to a healthy machine, and keep going. When a
+  box or remote session fails, fall back to another box, or retry only after checking that the first
+  attempt started nothing, instead of stopping; say in the report what stalled and why.
 - **Push shared changes outward.** When shared content changes (an example the user rejected), tell
   every chat or lab that shows it to merge and retake its stills, and track the replies.
 - **Dev boxes run on their own.** When the work is spread over dev boxes so the user can close the
@@ -200,7 +215,7 @@ Read the matching one before the work it names:
 
 | Reference | Read before |
 |-----------|-------------|
-| [`references/code-oss.md`](references/code-oss.md) | building, launching, or changing Code OSS; finding the real component; simulating states; Component Explorer; Agents window PR flow |
+| [`references/code-oss.md`](references/code-oss.md) | building, launching, or changing Code OSS; finding the real component; simulating states; workbench UI traps (keybindings, focus, hovers, phone layout); Component Explorer, including on Windows; Agents window PR flow |
 | [`references/recording.md`](references/recording.md) | any screenshot, recording, or storyboard capture of Code OSS (including on Windows); Compare Models runs |
 | [`references/computer-use.md`](references/computer-use.md) | driving macOS apps in the background; permissions; native and Electron text editing; consequential actions; duplicate-send prevention |
 | [`references/studies.md`](references/studies.md) | authoring an Outset study or driving UserTesting, User Interviews, or Outset in a browser |

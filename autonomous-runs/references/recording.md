@@ -95,6 +95,13 @@ pcap `glide`/`glideClick` helpers already do this.
 stay up until focus moves, so they linger through the lead-out. End the take by clicking into the
 chat input (focus moves, hover closes), then glide to rest.
 
+**A menu button pops its tooltip when its menu closes.** A managed hover (a button's `title`) also
+shows when the button regains focus with a `relatedTarget`, so closing a context menu that returns
+focus to its button can put the tooltip on screen mid-take. Keep the demo profile's long hover delay
+(`launch-demo-oss.mjs` sets it unless `--hovers` or `--mode visible` is passed), or move focus off the
+button before the delay ends. Never strip `title` from product buttons to fix a take: it can take
+away their accessible name.
+
 **Finding existing recordings:** macOS Screen Recording filenames put a narrow no-break space
 (U+202F) before AM/PM, so a quoted path typed with a normal space fails with "No such file". Use
 globs (`Screen\ Recording\ 2026-09-08\ at\ 4.31.31*.mov`), then pull a few ffmpeg frames per file
@@ -292,6 +299,16 @@ Hard-won from a two-minute, two-session continuous take (plan in one column, a p
   leaving CDP ports listening but both HTTP and WebSocket connections unresponsive. Never authenticate the
   macOS prompt: stop the owned instance and relaunch the isolated mock. Keep omitting this flag for genuine
   signed-in demos that need real tokens.
+- **Scripted takes run signed out.** A signed-in Code OSS sends agent-host chat to the real Copilot service even
+  when a mock LLM is configured, so the mock only takes effect signed out. Never run a mock demo in a signed-in
+  profile (stop it at once if you did). A signed-out Agents launch opens on "Sign in to use Agents": dismiss it with
+  Continue Without Signing In before anything else. The non-dismissible "Choose how you want to use Copilot" banner
+  goes away when you seed a BYOK custom endpoint model that points at the mock: `chatLanguageModels.json` in both
+  `User` and `User/profiles/builtin/agents`, with a group `{ name, vendor: "customendpoint", apiKey, apiType:
+  "chat-completions", models: [{ id, name, url: "http://127.0.0.1:<mock port>/chat/completions", toolCalling: true }] }`.
+- **A real-account dry run of a prototype is not a rehearsal.** One surfaced an MCP connector sign-in banner, a
+  failed GitHub MCP tool call, and an agent tool call on the user's real memories waiting for approval. Never
+  approve such calls, delete only the sessions the dry run created, and record prototype flows in scripted mode.
 - **Integrations without sign-in:** Figma's hosted MCP rejects dynamic client registration from Code - OSS
   ("Forbidden"). Figma desktop's local MCP (`http://127.0.0.1:3845/mcp`) answers `tools/list` only while a design
   file is open. The Azure DevOps MCP accepts `-a azcli` to reuse the az login. The built-in GitHub MCP server reads
@@ -443,6 +460,13 @@ November 2026 on a Windows 11 Cloud PC with a Code OSS sign-in demo.
   codes posted mid-run went unused three times: hand over the code with its deadline at the end of a turn, and
   continue when they reply. For demos that start signed in, use the vscode `launch` skill (`launch.ps1`), which
   copies both the profile and the shared-data dir.
+- **Native dialogs hide the device code from CDP.** With native dialogs (the regular workbench's default on
+  Windows), the code shows in a Win32 `#32770` TaskDialog that CDP cannot see or click. Read it with read-only UI
+  Automation (`System.Windows.Automation`, the descendants of the Code - OSS process windows) and press its buttons
+  with `InvokePattern` (or a `BM_CLICK` `PostMessage`), or set `window.dialogStyle` to `custom` in the profile
+  before launch. When the person is waiting for the code, post it with the time it was generated (fetch a fresh one
+  if only a few minutes remain); a watcher that polls for their done file every 15 s, then presses Copy & Continue
+  and answers the open-website prompt, finished the sign-in about 30 s after they were done.
 - **Warm up, then ramp the waits:** start the instance about 45 s before recording so startup ("Activating
   Extensions...") is over. After Continue with GitHub, the code still takes about 6 s while the sign-in extension
   activates and requests it; mark that wait and ramp it in place.

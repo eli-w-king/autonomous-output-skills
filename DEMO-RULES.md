@@ -8,16 +8,18 @@ screenshots) plus the two rule files those sessions produced (the recording inst
 executive demo and the storyboard rules list).
 
 The [`autonomous-demos`](autonomous-demos/SKILL.md) skill enforces these rules and turns them into a
-brief, a recording pipeline, and a QA checklist. An explicit instruction in the current request
-always wins over a default here; record the override in the demo's brief.
+brief, a recording pipeline, and a QA checklist. They apply to every recording or screenshot of the
+product, including a quick walkthrough of today's product to frame a problem; study stimulus is the
+exception, with capture rules that `autonomous-research` owns. An explicit instruction in the current
+request always wins over a default here; record the override in the demo's brief.
 
 ## The short version
 
-1. Real product UI only, never mocked or painted over.
+1. Real product UI only, never mocked or painted over, and the real CLI in a real terminal.
 2. Never show an error, warning, toast, or sign-in prompt. Fix the setup and retake.
 3. One story told through outcomes, not a feature tour or a tour of settings.
 4. The full flow from a clean start: new session, typed prompt, every state to the result.
-5. The full relevant window, at most two focal areas, file explorer and side panel closed.
+5. The full relevant window, at most two focal areas, file explorer, source control and side panel closed.
 6. Modern UI, compact, new session composer layout, Dark 2026, one theme for every asset.
 7. Visible pointer with deliberate clicks and a subtle blue click ring. No random zooms.
 8. One continuous take. Fast-forward only idle waits, in place. Hold key moments long enough to read.
@@ -32,7 +34,8 @@ always wins over a default here; record the override in the demo's brief.
 
 1. **Real product only.** Every pixel comes from the running build: Code OSS built from
    `microsoft/vscode`, the real website, or the actual prototype. Never recreate, mock, or paint over
-   UI. A browser page never stands in for the desktop app.
+   UI. A browser page never stands in for the desktop app, and a simulated terminal never stands in
+   for the real CLI: show the real command-line tool in a real terminal window.
 2. **Never show errors.** No error or warning toasts, failed tool calls, extension-host toasts,
    sign-in prompts, 404s, console overlays, model warning glyphs, or broken states. If one appears,
    fix the setup and retake. Never edit it out in post.
@@ -66,8 +69,8 @@ always wins over a default here; record the override in the demo's brief.
     crops are only secondary detail shots.
 11. **At most two focal areas.** Chat and editor (about 1/3 and 2/3), session list and one session
     (1/3 and 2/3), session and PR (50/50). Switch between sessions instead of tiling many of them.
-12. **Clean chrome.** File explorer hidden, Agents window side panel closed, Customizations
-    collapsed, Aquarium off, menus closed unless they are the subject, no notifications.
+12. **Clean chrome.** File explorer and source control views hidden, Agents window side panel closed,
+    Customizations collapsed, Aquarium off, menus closed unless they are the subject, no notifications.
 13. **Standard look.** Modern UI and compact density,
     `sessions.chat.experimental.newSessionComposerLayout` enabled, Dark 2026 unless another theme is
     requested, and one theme across every asset in a set (video, stills, PDF).

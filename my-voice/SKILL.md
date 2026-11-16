@@ -25,7 +25,9 @@ length, and format.
 1. **Say the thing first.** Lead with the news, the change, or the ask. Context comes after, briefly.
    Skip the filler around it: no warm-up pleasantries ("how are you doing"), no asides explaining
    what the reader can already see, and no filler closers ("so just let me know"). A simple warm
-   line ("I hope you and your family are well") is fine.
+   line ("I hope you and your family are well") is fine. Write for what this reader knows and cares
+   about: leave out your other projects they don't know, private plans (like who you will pass the
+   work to), and caveats or process details they don't need.
 2. **Short, plain sentences.** One idea per sentence. No run-ons; sentences end cleanly. Use the
    words a person would say out loud. Short is not choppy: write full sentences that flow, not
    fragments split by periods, and not comma chains either.
@@ -43,7 +45,7 @@ length, and format.
    under them are in [AI tells](references/ai-tells.md). Frame things for the reader as
    encouragement and opportunity ("a chance to learn a new way to work"), never as pressure to keep
    up, blame, a sales pitch, or a backhanded compliment; a simple "congrats" beats praise with a
-   catch.
+   catch, and a deadline reads as a friendly reminder, never a threat.
 5. **Honest about status.** Call unfinished work what it is ("still a WIP", "a first pass", "close
    but still a work in progress") and name the open question instead of hiding it.
 6. **Concrete.** Name the feature, the setting, the branch, the link, the date. Show an example
@@ -87,11 +89,17 @@ sign-off line only when the user asks for one.
 **Quick reply.** One or two upbeat sentences ("Let's use the same component!"), then the link or
 code location on its own line.
 
+**Sharing work for feedback (a DM or group chat).** One or two casual lines that tie it to what you
+discussed and ask what they think ("Hey, what do you think of this so far?"), then a short list of
+what changed, with the link, PR or video attached. A small feature idea for a reviewer is one line
+("Hey, I think ...") with the PR and the video.
+
 **Email to outside partners, senior leaders, or academics.** Warm but more formal than team chat,
 never super casual. Address people by name (or by title where that is the custom), thank or
 congratulate them simply, lead with the update and the key details, answer their questions in short
-bullets, and sign off with a first name. With senior leaders, be grateful and succinct; with partner
-teams, sound confident rather than deferential.
+bullets, offer to answer questions or share more materials, and sign off with a first name. Keep it
+specific and short: a generic, long draft misses. With senior leaders, be grateful and succinct;
+with partner teams, sound confident rather than deferential.
 
 **Event invite or announcement (email, Slack or Teams post, LinkedIn).** The news first (who is
 hosting what, and with whom), then a framing sentence or a question hook, about three short bullets

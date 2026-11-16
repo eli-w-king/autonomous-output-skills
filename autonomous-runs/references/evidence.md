@@ -1,6 +1,6 @@
 # Evidence, run ledgers, and stimuli
 
-Read before research or demo work that others will rely on: what counts as the real surface, the ledger that survives a lost chat, the evidence chain, who said what in meeting transcripts, and media that must be checked before it is shared.
+Read before research or demo work that others will rely on: what counts as the real surface, the ledger that survives a lost chat, the evidence chain, who said what in meeting transcripts (and finding them all), what counts as human feedback, and media that must be checked before it is shared.
 
 ---
 
@@ -61,6 +61,19 @@ whole two-person call can sit under one name, and a room label can cover several
 that required a named speaker once dropped dozens of cues without a word. Keep unlabeled speech as
 unlabeled, check that every timed cue is accounted for, and never attribute a quote or a preference
 to a person from a label alone; say who said it only when the context establishes it.
+
+Finding every transcript is its own trap. A global inventory of meetings and recordings can miss
+occurrences of a recurring meeting, so also list each series' own occurrences and merge the two before
+calling coverage complete. The same transcript can come back through several routes and IDs:
+deduplicate by meeting ID plus `contentCorrelationId` (keeping the aliases) so no meeting is read or
+counted twice. When a date filter only takes whole seconds but the cutoff has fractions, widen the
+filter by a second on each side and apply the exact cutoff to each record in code.
+
+Not every message is human feedback. Messages sent through an integration or generated with Copilot,
+and replies people pasted from a script for a recording, never count as someone's preference or as a
+contact, and a generated post never counts as support for the content it promotes. For the reads
+themselves (batch counts, retries, pagination limits), see "Long reads" under Microsoft 365 with
+WorkIQ in [`autonomous-computer-use`](../../autonomous-computer-use/SKILL.md).
 
 ---
 

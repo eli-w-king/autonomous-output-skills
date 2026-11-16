@@ -63,10 +63,10 @@ flowchart LR
 [`DEMO-RULES.md`](DEMO-RULES.md) is the full list of rules for every demo, compiled from the
 feedback across the September 24 to October 9, 2026 demo sessions. The short version:
 
-1. Real product UI only, never mocked or painted over.
+1. Real product UI only, never mocked or painted over, and the real CLI in a real terminal.
 2. Never an error, warning, toast, or sign-in prompt on screen. Fix the setup and retake.
 3. One story told through outcomes, the full flow from a clean start.
-4. The full relevant window, at most two focal areas, file explorer and side panel closed.
+4. The full relevant window, at most two focal areas, file explorer, source control and side panel closed.
 5. Modern UI, compact, new session composer layout, Dark 2026, one theme for every asset.
 6. A visible pointer with deliberate clicks and a subtle blue click ring; no random zooms.
 7. One continuous take, idle waits fast-forwarded in place, key moments held long enough to read.

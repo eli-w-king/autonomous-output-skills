@@ -129,7 +129,11 @@ started all 20 sessions within ten minutes.
    the launcher tells the user the lab runs on its own now, so the laptop can close.
 
 Repo-specific build steps (a docs clone before the install, a production install for the built server) belong in
-the base brief. When the repo is the same as last time, start from the last lab's base brief.
+the base brief. When the repo is the same as last time, start from the last lab's base brief. Install once per box,
+in the base or kit worktree: six lab sessions installing the vscode repo on one dev box at once saturated its disk
+(installs took 10 to 15 minutes, and one hung after printing done). Worktrees that only add source files get
+directory junctions to each `node_modules` folder instead (for the vscode repo: the root, `build`, `build/rspack`,
+`test/componentFixtures/playwright` and `extensions`), and never run an install inside a junctioned worktree.
 
 ## 5. Briefs on disk, short prompts
 
@@ -193,7 +197,9 @@ review media (stills, videos, zips). These are the files that carry the lab:
   "latest|report|plan|request" --timeout 3600`, handles what changed, and starts the next wait. When the shell tool
   moves the wait to the background, the hub ends its turn, which also lets queued messages in, and the wait's
   completion notice wakes it. If a wake-up is ever missed, nothing breaks: sessions depend only on files, and the
-  next message or ping resumes the hub. Keep each round's output short.
+  next message or ping resumes the hub. Keep each round's output short. `wait --change` returns at once when its
+  state file does not exist yet, so a fresh loop fires on files it has already handled: seed the state file with the
+  current hash of each watched file (the orders file, for example) before the first wait.
 - **Each round:** pass kit requests to the kit author (it is on the same box), look at each new first look on the
   review server (headless, at 1440x900 and 390x844), write follow-ups into `orders.md`, update `RUN.md` and the
   status, and flag sessions whose report is older than their phase allows, with the start prompt that restarts them.

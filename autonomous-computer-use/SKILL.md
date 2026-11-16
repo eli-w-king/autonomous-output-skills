@@ -125,6 +125,19 @@ that WorkIQ does not implement, or a setup without WorkIQ, browser or Computer U
 needed UI capability. Never use that fallback to bypass a denial, missing consent, or confirmation.
 Apply the message and ambiguity rules below.
 
+Long reads (weeks of messages, meetings, or recordings) need their own checks:
+
+- A batched read that returns fewer results than it was asked for (13 paths, 5 results) cannot be
+  matched to its requests, so trust none of it: refetch every path in batches of about five and compare
+  request and result counts on every batch.
+- A transient `CircuitOpen` HTTP 500 or an HTTP 504 usually clears: wait about 15 seconds and retry
+  the exact same path once, and keep both the failure and the success in the run's receipts.
+- A continuation link used exactly as returned can still fail with HTTP 400 "Value cannot be null.
+  (Parameter 'threadId')" on the recording list. That is a backend limit: record the coverage as
+  incomplete instead of retrying or editing the link.
+- Coverage traps for meetings and transcripts (recurring series, duplicate routes, what counts as
+  human feedback) are in [`evidence.md`](../autonomous-runs/references/evidence.md) in autonomous-runs.
+
 ## Slack
 
 Prefer the Slack MCP server when its tools are loaded in the session. It can search, read channels

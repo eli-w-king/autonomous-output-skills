@@ -57,6 +57,12 @@ Turning results into decisions:
 > projects again, once a round or the study has ended, with the same guard, dry run and ledger.
 > Everything else still stops at the draft.
 
+> **HARD RULE, what automated studies are for.** Unmoderated and AI-moderated studies run by agents
+> are for comparing design alternatives and getting first impressions (messaging, terminology), to
+> improve designs within the loop. They are not for understanding motivation or other nuanced
+> behavior, and they never replace talking to customers or a researcher's own methods. Say so in
+> every brief, readout and issue that uses them.
+
 > **HARD RULE, iterate in the real target surface.** App redesigns and demos come from **Code OSS
 > launched from microsoft-vscode**. Website redesigns come from the actual website/prototype repo and
 > are demonstrated at the real hosted/local URL. Never use a browser facsimile to stand in for the

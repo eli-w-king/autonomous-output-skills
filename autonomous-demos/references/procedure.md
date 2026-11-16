@@ -41,7 +41,8 @@ still):
 - Composer empty; required toggles set (for example Auto off at first open); current models chosen.
 - No notifications (press F7 again about 20 s after launch: the extension-host toast comes back),
   no banners or nudges in the chat input, no menus, hovers, dialogs, or quick input.
-- File explorer hidden, side panel closed, Customizations collapsed, correct proportions.
+- File explorer and source control hidden, side panel closed, Customizations collapsed, correct
+  proportions.
 - Theme and settings confirmed in a still before the first take.
 
 Record every process you start (pid, ports, run dir) in the run ledger. Never connect to a port you

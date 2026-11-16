@@ -1,8 +1,8 @@
 # Glossary: Code OSS build, run, and components
 
 Reusable facts for building, launching, and changing Code OSS (VS Code from `microsoft/vscode`): finding
-the real component, simulating states, build and launch traps, Agents window surfaces, Component
-Explorer, and the PR flow inside the Agents window. Part of the
+the real component, simulating states, build and launch traps, Agents window surfaces, workbench UI traps,
+Component Explorer, and the PR flow inside the Agents window. Part of the
 [`autonomous-runs`](../SKILL.md); used by `autonomous-prototypes` and `autonomous-demos`.
 
 ---
@@ -225,6 +225,13 @@ command instead of blanking the whole workbench at startup.
   junctions into one installed base worktree are quick to make, but `npm install`, `npm ci` or `git clean -x`
   inside one rewrites or wipes the shared base. Never run them in a junctioned worktree; give a branch that needs
   its own install a real copy.
+- **Search the vscode repo with `git grep`,** limited to a folder when you can: the grep tool times out on the full
+  repo. Typecheck through the package script (`typecheck-client`), never `node_modules/typescript/bin/tsc`: in a
+  pnpm checkout that package is an older TypeScript alias (its bin is `tsc6`) while the script runs the native
+  compiler. Before trusting a clean typecheck for code in a new folder, prove the tsconfig covers it with a
+  throwaway file holding a deliberate type error, then delete the file. Code under `src/vs/workbench` may not
+  import from `src/vs/sessions` (valid-layers-check fails); constants both sides need belong in a workbench file
+  that the sessions side imports.
 
 ---
 
@@ -306,6 +313,40 @@ next to a text button, use `supportIcons: true` with the label `$(icon-id)` plus
 
 ---
 
+## Workbench UI traps (keybindings, focus, hovers, phone layout)
+
+Found while building prototypes inside the workbench; each cost a round of debugging.
+
+- **Workbench keybindings run before DOM handlers.** In a modal editor, Close Modal Editor
+  (`WorkbenchContrib+10`) fires in the capture phase, so Escape in an inner search box closed the whole modal. The
+  chat Submit action binds Enter at `EditorContrib` weight and acts on the last focused chat widget, so a chat input
+  hosted in a custom surface sends through it instead of your handler. Add a scoped context key (for example "search
+  has text", or one for your input plus `inChatInput && !suggestWidgetVisible`) and register your own keybinding
+  under it at a higher weight (`WorkbenchContrib+20`, `EditorContrib+10`).
+- **Lint:** `local/code-no-observable-get-in-reactive-context` rejects `.get()` on an observable inside autoruns (use
+  the reader, or `.read(undefined)`), and `no-restricted-syntax` rejects `querySelectorAll`, so keep your own array
+  of the elements you need.
+- **Focus:** a text `Button` with a `title` uses the tooltip as its accessible name, so pass an explicit `ariaLabel`.
+  Row actions hidden with `visibility: hidden` until hover cannot take focus, so restoring focus to them after a
+  re-render or a closed menu fails silently; add a temporary class that shows them, focus, then remove it. A hover
+  widget focuses its own container after `onDidShow`, so defer focusing a control inside it by one animation frame.
+  `IContextViewService` shows one context view at a time, so a context menu opened from an action widget list
+  closes the list; capture any anchor rectangle before opening it. Keyboard-driven context menus need ArrowDown
+  before Enter, render in a shadow root that document queries miss, and hand focus back to the element that had it.
+- **Phone layout (Agents window):** `.monaco-hover` stays hidden unless the hover adds `visible-on-mobile`. Taps go
+  through `Gesture` and never fire `mousedown`, so an open hover needs its own dismissal on a `pointerdown` outside
+  it. Hovers and context views clamp to the window, not to a phone frame drawn inside a wider page, so pass an
+  explicit position and width. A list or tree row cannot shrink below its content's min-content width, so give the
+  text column no intrinsic width (`flex: 1 1 0; width: 0`).
+- **The chat list keeps a row's first height.** It treats the first measurement as initialization without telling
+  the list, so a row that expands during its first render overlaps the next row. Decide the expansion synchronously
+  when the row is attached and call its `measure()` then.
+- **Styling:** the workbench sizes codicons with `.monaco-workbench .codicon[class*='codicon-']`, so resizing one needs
+  a more specific selector. In High Contrast themes an active input option has no fill, so give a selected chip or
+  toggle a shape cue (a `contrastActiveBorder` outline) and check the High Contrast tiles.
+
+---
+
 ## Settle the interaction/IA contract BEFORE a redesign
 
 A redesign in this session took four full build/verify/record rounds largely because the
@@ -328,7 +369,7 @@ in round 1 instead of round 4.
 
 ---
 
-## Component Explorer from a worktree on a shared Mac
+## Component Explorer from a worktree on a shared machine
 
 - **Do not run the "Component Explorer Server" task (`component-explorer serve ... --kill-if-running`) when other
   agents are active.** It claims the shared redirection port 5337 and kills whichever worktree's server holds it.
@@ -358,6 +399,36 @@ in round 1 instead of round 4.
   `inputPart.attachmentModel.addContext({ kind: 'generic', ... })`.
 - **Delayed hovers intercept Playwright clicks** when an element slides under the resting pointer (for example a
   chip list after one chip hides). Use `locator.dispatchEvent('click')`, or move the pointer away first.
+- **On a Windows dev box a plain `pnpm install` of the vscode repo fails** with an MSBuild `PathTooLongException`
+  while building a native module under `node_modules\.pnpm`. For Component Explorer work, use CI's browser-only
+  recipe from `.github/workflows/component-fixtures.yml`: with `CI=1`, run
+  `pnpm install --frozen-lockfile --ignore-scripts --filter . --filter ./test/componentFixtures/playwright` at the
+  root and `pnpm install --frozen-lockfile --ignore-scripts --filter .` in `build/rspack`, then serve with
+  `pnpm exec rspack serve --config rspack.serve-out.config.mts` from `build/rspack`. `typecheck-client` then reports
+  hundreds of Electron and `original-fs` errors from that environment, so filter its output to your own folder.
+- **Copy `codicon.ttf` after every fresh install or new worktree.** The explorer needs it copied from
+  `node_modules` into its git-ignored place under `src`, as CI's recipe does, or it does not start.
+- **The rspack dev server hot-rebuilds edits in about a second but never sees new fixture files:** they stay
+  "Fixture not found" until you restart your own server. A page loaded mid-rebuild renders blank, so wait for the
+  compile to finish before taking stills.
+- **Each fixture has a hard 3 s render budget.** On a busy box a cold load can fail with "Fixture timed out after
+  3000ms" and pass on reload, and the first page of a run logs a favicon 404 from the explorer itself. In
+  zero-error checks treat both as environment noise (retry the timeout once), not as bugs in your fixture.
+- **Scripted checks:** open `/___explorer?mode=headless` and call `window.__componentExplorer__.renderFixture(id)`
+  per fixture. Launch headless Playwright with an explicit `timezoneId` and `locale` (for example
+  `America/Los_Angeles` and `en-US`): fixtures run on a seeded clock, but times formatted with `toLocaleString`
+  still follow the browser's zone. Captures are byte-identical when nothing visual changed, so a byte diff of before
+  and after stills proves an untouched default stayed the same.
+- **Fixtures use a mock keybinding service,** so keybindings never fire there (an action widget's Escape and Enter,
+  chords like Ctrl+K Ctrl+I). For fixture checks, handle the keys in the component or a fixture-level listener, and
+  verify the real keybindings in a launched Code OSS.
+- **One load-time side effect breaks every fixture.** Importing a module that calls `FileAccess.asFileUri` at load
+  time into code that fixtures reach took down the whole explorer. Keep such files free of import-time work and
+  resolve those values on first use.
+- **A static build** (`COMPONENT_EXPLORER_STATIC_BUILD=1` with `pnpm exec rspack build --config
+  rspack.serve-out.config.mts` in `build/rspack`) lacks `vscode-oniguruma`'s `onig.wasm`, the extensions'
+  `syntaxes` folders and the favicon; copy them into the output before serving it. It is about 334 MB with source
+  maps, so leave `*.map` out of zips.
 
 ---
 

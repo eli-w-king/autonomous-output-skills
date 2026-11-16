@@ -27,7 +27,7 @@ re-recorded. The structure follows the compare-models executive demo instruction
 ## Starting state (verify with /preflight and a still before recording)
 - Window layout and proportions (for example chat 1/3, editor 2/3):
 - Sessions list contents (clean, or N real sessions across ~4 repos at different phases):
-- Open files, panels closed (file explorer, side panel, Customizations collapsed):
+- Open files, panels closed (file explorer, source control, side panel, Customizations collapsed):
 - Toggles and selections at first open (for example Auto OFF, model <current model>):
 - Nothing visible: toasts, banners, hovers, menus, dialogs, sign-in prompts
 
