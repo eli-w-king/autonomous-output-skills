@@ -299,6 +299,55 @@ Hard-won from a two-minute, two-session continuous take (plan in one column, a p
 
 ---
 
+## Recording a terminal next to Code OSS (ScreenCaptureKit, Terminal.app, native alerts)
+
+- **Capture real windows by ID.** ScreenCaptureKit (SCK) per-window streams keep the native title bar and
+  traffic lights that CDP screencasts lack; compose the windows side by side in post. SCK doesn't depend on
+  window position, so record before moving a window. `SCShareableContent` sometimes fails once with "The
+  user declined TCCs", with no prompt; retry after 300 ms.
+- **Native alerts and AppleScript stop every stream.** While a Code OSS app-modal alert is up, macOS
+  interrupts every SCK stream, and CDP calls block. VS Code's external-terminal AppleScript, which opens a
+  Terminal window to run a command, does the same ("application connection being interrupted").
+  - Take a still of the alert as it appears (it doesn't change while open), and click it over Accessibility.
+  - Restart the recorders as new segments, and merge segments by time.
+  - Run a recorder watchdog. Fail a take if a recorder died or a gap between segments exceeds 3 s outside an
+    alert.
+  - A window that another window covers never sends a first frame, so drop covered windows instead of
+    restarting them.
+- **A second terminal window mid-take is a new segment.** Record its CGWindowID as the next terminal
+  segment, and stop the old recorder.
+- **Stage Manager parks a background app's new window in its strip.** CG and SCK report the thumbnail frame
+  (77 x 151), while Accessibility reports the real one. Move the window with AX (no focus change), and wait
+  until SCK reports its full size before starting its stream.
+- **Terminal.app settings.**
+  - Terminal ignores `defaults write com.apple.Terminal "Default Window Settings"` while it runs. Use
+    AppleScript `set default settings` and `set startup settings`, and revert the same way before the user
+    returns.
+  - A profile whose command runs inside a login shell keeps the window open after a relay exits, and races
+    with typed input. Set `RunCommandAsShell` true and `shellExitAction` 0.
+  - Terminal snaps window heights to whole rows (1012 asked, 1017 given), so crop instead of resizing.
+- **Never type a wrapper path where the camera sees it.** Point launch commands, including a terminal command
+  that VS Code types, at a plain name, and put the wrapper's folder first on the demo shell's PATH.
+- **Agents window state for takes.**
+  - The sessions filter lives in the built-in agents profile database
+    (`User/profiles/builtin/agents/globalStorage/state.vscdb`); write it only while Code OSS is stopped.
+  - Session rows and chat rows are both `.monaco-list-row`, so scope queries to `.sessions-list-control`.
+  - With `chat.agentSessions.showExternal` set to "recent", sessions imported during a run stay external
+    until a restart, and failed prep sessions resurface when the two slots shift. Relaunch once before the
+    takes, mark failed sessions Done at once, and fail any take that lists a title twice.
+  - Close the one-time "picked up this session" notice with its X before recording.
+- **Takes driven through a CLI.**
+  - Reset a failed prep first: Esc, Ctrl+C twice, `cd`, Ctrl+L, `git reset`. The shell can be left in
+    another folder, or with a CLI still running.
+  - Plugin "elevated permissions" prompts don't show up in the TUI text. Watch the session's `events.jsonl`
+    for `permission.requested` with kind `extension-permission-access`, and press Esc.
+  - Keep turn checks strict whenever a turn shows again later on camera: a resumed CLI and VS Code's
+    transcript both replay earlier turns.
+- **ffmpeg reads stdin.** In a `while read` loop over file names, `ffmpeg`, `ffprobe` and scripts that wrap
+  them eat bytes of the next name (a symlink lost its leading `/`). Redirect them from `/dev/null`.
+
+---
+
 ## Compare models (Judge) runs and the scorecard
 
 - **On the Copilot CLI harness with a Claude Judge, the verdict never lands while agent-host tool search is on**

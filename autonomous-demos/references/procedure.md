@@ -80,6 +80,9 @@ bash $S/mp4-to-gif.sh demo.mp4 demo.gif 12 960                       # PR previe
 Speed ramps of 10x to 18x suit agent waits. Keep a second of real-time motion on both sides of a
 ramp. Square takes come from a square viewport, not a crop. Use title cards to label variants and
 phases; never add zoom effects, highlight overlays, or captions unless the brief asks.
+When two captioned events happen at once (a CLI exits as a native prompt appears), caption the one that
+dominates the frame first. Caption the other afterward, while its evidence is still on screen. Never show a
+caption while a different event dominates the frame.
 
 ## Step 4: QA (all must pass before delivery)
 

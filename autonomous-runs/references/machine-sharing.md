@@ -34,3 +34,32 @@ Read before launching or driving any window on a machine where other agents also
   (shared by every Code OSS dev instance), Copilot CLI plugins in `~/.copilot/installed-plugins` are listed
   too, and agent-host sessions land in the real `~/.copilot/session-state` unless `COPILOT_HOME` is set at
   launch. Uninstall demo plugins right after capture and delete only folders you created.
+- **Native prompts take focus even from an invisible instance.** Code OSS's protocol-link confirmation
+  ("An external application wants to open...") is an app-modal alert with no parent window. macOS activates
+  the app to show it, and the user's next Return answers it. Set
+  `security.promptForLocalFileProtocolHandling: false` for every take that doesn't film it, and film it only
+  after 300+ s of HID idle. A launch activates the app too, because Electron shows a window as it creates it,
+  before a `browser-window-created` patch runs. Treat every launch, and the first Agents window, as an
+  activating step.
+- **Log the front app, and restore it around activating steps.** Read it with `lsappinfo front` and
+  `lsappinfo info -only bundleid <asn>`. Restore it with `osascript -e 'tell application id "<bid>" to activate'`,
+  but skip the restore when the saved app has no bundle ID (an MDM `osascript` dialog). A one-second poller
+  that logs every front-app change with HID idle names the culprit in seconds. Have it flag Code OSS,
+  Terminal or SecurityAgent coming forward while the user is active.
+- **IT dialogs belong to the user.** MDM agents (Intune, for example) open `osascript display dialog` prompts
+  at any hour, and they come to the front. Never answer, move or close them; mention them in the morning
+  report.
+- **Overnight wake lock.** Hold `caffeinate -dims` around a loop that exits when a done-file appears, with a
+  hard cap, so displays stay awake for capture until the run ends. While display sleep is prevented,
+  loginwindow skips the screen saver ("PMNoDisplaySleepEnabled so do not launch screen saver"), so an MDM
+  screen-saver lock doesn't start. Ask the user to leave the lid open and the screen unlocked.
+- **Check Apple Events consent without a prompt.** Driving Terminal over AppleScript (VS Code's external
+  terminal) needs Automation consent for the app that starts `osascript`. A small Swift tool can check it
+  without ever showing a dialog. It calls
+  `AEDeterminePermissionToAutomateTarget(addr, typeWildCard, typeWildCard, false)` and must run as a child of
+  that app; for Electron, start it from the main process over the inspector with
+  `process.getBuiltinModule('child_process').execFileSync(...)`. It prints 0 (granted), -1744 (would
+  prompt), -1743 (denied) or -600 (not running).
+- **Stop orphaned second instances.** Link openers that run `code.sh --open-url` can leave extra Code OSS
+  processes on your profile (ppid 1, ignoring SIGTERM). Find them by `--user-data-dir` at cleanup and stop
+  them by pid.
