@@ -76,7 +76,7 @@ def approved_models():
 
 
 MODEL = (os.environ.get('SKILL_MINER_MODEL') or sync.load_settings().get('miner_model')
-         or (approved_models() or ['claude-opus-5.5'])[0])  # miner_model: attendee mode, from setup-attendee --model
+         or (approved_models() or ['gpt-6-astra'])[0])  # miner_model: attendee mode, from setup-attendee --model
 FALLBACK_MODEL = next((m for m in approved_models() if m != MODEL), None)  # never a smaller one or "auto"
 EFFORT, CONTEXT = 'max', 'long_context'
 TIME_LIMIT = int(os.environ.get('SKILL_MINER_TIME_LIMIT', '14400'))

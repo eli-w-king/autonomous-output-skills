@@ -52,7 +52,7 @@ The point of running on dev boxes is that the user can close the laptop and the 
   home, start a detached process and stop it, run git and node, with no prompt and no denial. Fan out only after
   every pilot passes.
 - **Model, effort and context are inherited, so launch from the right chat.** Start the launcher at the model,
-  effort and context the user wants (for example Opus 5.5, max, 1M). The hub and bases created from it with
+  effort and context the user wants (for example GPT-6 Astra, max, 1M). The hub and bases created from it with
   `create_remote_session` ran at all three, and sessions they created with `create_session` **without** `model`
   inherited them too. Passing a model id to `create_session` started sessions at medium effort; one hub caught that
   in its audit and replaced ten sessions. Check every session from its own `events.jsonl` (section 4), never from its

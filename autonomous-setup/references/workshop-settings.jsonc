@@ -1,5 +1,5 @@
 {
-	"chat.defaultModel": "claude-opus-5.5",
+	"chat.defaultModel": "gpt-6-astra",
 	"sessions.chat.experimental.workspaceOptOut": true,
 	"chat.agentHost.computerUse.enabled": true,
 	"chat.remoteSessions.tools.enabled": true,

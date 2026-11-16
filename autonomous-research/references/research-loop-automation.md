@@ -45,7 +45,7 @@ Session template on an agent host (the values that worked; check them against `l
   once. For one-off workers, prefer a manual automation with the template above, and audit `session.start` within
   two minutes of starting any session.
 - **Subagents from the task tool need the model passed too.** Left unset, one ran on a different model than the run.
-  Pass model, reasoning effort and context tier on every task call (for example `claude-opus-5.5`, `max`,
+  Pass model, reasoning effort and context tier on every task call (for example `gpt-6-astra`, `max`,
   `long_context`).
 - **A gate check for a morning when a gate is expected to open.** When recruiting waits on a person (an admin's
   publish approval, a sign-in), add a one-off automation for those hours (for example cron

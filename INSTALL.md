@@ -27,7 +27,7 @@ In this order (the workshop page walks through the same steps):
    expected.
 4. Click the radio tower icon at the top right of the Agents window (tooltip "Remote Connections: Off") and choose
    **Dev Tunnels**.
-5. Start a new chat: **Chat** (no workspace), **Claude Opus 5.5**, **Max** reasoning, **1M** context, **Autopilot**,
+5. Start a new chat: **Chat** (no workspace), **GPT-6 Astra**, **Max** reasoning, **1M** context, **Autopilot**,
    **Allow all**, and **Sandboxing for terminal** off.
 
 Then paste one line, with your event's name and its hosts:

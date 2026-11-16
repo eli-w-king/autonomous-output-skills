@@ -32,7 +32,7 @@ This is attendee mode: one GitHub account, one private repo. (The maintainer set
 ## Set it up
 
 The setup interview does this for you: set up VS Code in the order in [INSTALL.md](../INSTALL.md), "Before you
-paste", then paste its one-line prompt into a chat on Claude Opus 5.5, Max, 1M, Autopilot and Allow all. By hand,
+paste", then paste its one-line prompt into a chat on GPT-6 Astra, Max, 1M, Autopilot and Allow all. By hand,
 after cloning this repo to `~/.copilot/autonomous-output-skills`:
 
 ```bash
@@ -71,7 +71,7 @@ Then schedule the weekly run.
    [`weekly-skill-update.automation.md`](weekly-skill-update.automation.md) (or drag it onto the list). The New
    automation dialog opens with the name, prompt, and schedule filled in: Mondays at 11:00, your time.
 2. Set the folder to `~/.copilot/autonomous-output-skills`. Leave Worktree isolation and Run in the Cloud off.
-3. Leave the harness on Copilot. In Models, pick your best model (Claude Opus 5.5 if you have it), with the highest
+3. Leave the harness on Copilot. In Models, pick your best model (GPT-6 Astra if you have it), with the highest
    thinking effort and the largest context size.
 4. The mode and permissions picker starts on Interactive and Manual permissions. Choose Autopilot and Allow all, so
    the run never waits for a click: with Manual or Assisted permissions, the first shell command waits for a click
@@ -108,7 +108,7 @@ shape:
   "target": { "kind": "workspace", "folderUri": "file:///<home>/.copilot/autonomous-output-skills",
               "providerId": "local-agent-host", "sessionTypeId": "copilotcli", "isolation": "folder" },
   "sessionTemplate": {
-    "modelId": "agent-host-copilotcli:claude-opus-5.5",
+    "modelId": "agent-host-copilotcli:gpt-6-astra",
     "modelConfiguration": { "thinkingLevel": "max", "contextTier": "long_context" },
     "config": { "mode": "autopilot", "autoApprove": "autoApprove" }
   },
@@ -142,7 +142,7 @@ python "$HOME\.copilot\autonomous-output-skills\automations\run-weekly-skill-min
 It checks at 11:00, 14:00, 17:00, 20:00, and at logon, and starts a run when one is due: Monday after 11:00, a week
 that was missed, or a retry after a failed run. It shares the automation's lock and its record of the last run, so a
 week never runs twice. It runs Copilot CLI at max effort with the long context, on the model you gave
-`setup-attendee --model` (Claude Opus 5.5 by default); `--check --llm` proves the model answers. `--status`,
+`setup-attendee --model` (GPT-6 Astra by default); `--check --llm` proves the model answers. `--status`,
 `--check`, `--now`, and `--uninstall` work as in the maintainer setup. `--dry-run` runs every step except the model:
 it pushes `skill-updates` and opens or updates the pull requests with what is already there.
 

@@ -490,9 +490,9 @@ def run_checks(env):
     good, bad = sessions / 'good-run', sessions / 'bad-run'
     for folder_path, completed in ((good, True), (bad, False)):
         folder_path.mkdir(parents=True, exist_ok=True)
-        events = [{'type': 'session.start', 'data': {'selectedModel': 'claude-opus-5.5', 'contextTier': 'long_context'}},
+        events = [{'type': 'session.start', 'data': {'selectedModel': 'gpt-6-astra', 'contextTier': 'long_context'}},
                   {'type': 'user.message', 'data': {'content': '[weekly-skill-miner] Weekly skill update. Run it.',
-                                                    'responsesReasoning': {'model': 'claude-opus-5.5', 'effort': 'max'}}},
+                                                    'responsesReasoning': {'model': 'gpt-6-astra', 'effort': 'max'}}},
                   {'type': 'permission.requested', 'data': {'requestId': 'r1'}}]
         if completed:
             events.append({'type': 'permission.completed', 'data': {'requestId': 'r1', 'result': {'kind': 'approved'},

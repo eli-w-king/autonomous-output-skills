@@ -21,7 +21,7 @@ VS Code's agent plugins in `~/.vscode-insiders/agent-plugins/installed.json`.
 
 **New tools need a new chat.** A chat's tools are fixed when it starts. After installing, record the step as pending
 ("installed; test it in the next chat"), install the Playwright MCP server too, then start the next chat yourself
-with `create_session` (SKILL.md, "The next chat": no `model`, so it keeps Claude Opus 5.5, Max, 1M, Autopilot and
+with `create_session` (SKILL.md, "The next chat": no `model`, so it keeps GPT-6 Astra, Max, 1M, Autopilot and
 Allow all). That chat runs both tests.
 
 **The test (Try it): the check-in.** Load the `workiq` skill first and follow its routing and tool names (the host may

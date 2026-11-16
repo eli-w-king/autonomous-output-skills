@@ -61,16 +61,16 @@ The procedure, starting with the rule that such a lab runs on its own with its h
   differ from session ids: find a new worker's `events.jsonl` by the exact text of its brief. Parse only the
   structured events (start, resume, model change, usage and permission events); a text search for setting
   names also matches echoes inside prompts and hook output.
-- Copilot CLI's user defaults (`~/.copilot/settings.json`: `model` `claude-opus-5.5`, `effortLevel` `max`,
+- Copilot CLI's user defaults (`~/.copilot/settings.json`: `model` `gpt-6-astra`, `effortLevel` `max`,
   `contextTier` `long_context`, and `subagents.agents.<name>` with all three set to `inherit` for each built-in
   sub-agent) make a `copilot` run started with no flags, and every sub-agent it starts, use the top settings
-  (tested). The skills sync sets them once on each machine and keeps the old values (`sync-skills.py cli-defaults
-  --undo`). The VS Code agent host did not pick them up while it was running: a `create_session` child without a
+  (tested). The skills sync sets them once on each machine, and again when the top model changes, and keeps the old
+  values (`sync-skills.py cli-defaults --undo`). The VS Code agent host did not pick them up while it was running: a `create_session` child without a
   model ran at medium, and a task sub-agent without arguments ran a small model at low effort. In agent-host
   chats, keep passing the model, effort and context on every task call.
 - With the same `create_remote_session` call and model, sessions on one host started at max and on another at
   medium. The first thing to compare is `chat.agentHost.copilot.modelCapabilityOverrides` (for example
-  `{"claude-opus-5.5": {"reasoningEffort": "max"}}`) in each machine's VS Code user settings; the host reads it
+  `{"gpt-6-astra": {"reasoningEffort": "max"}}`) in each machine's VS Code user settings; the host reads it
   from the VS Code window that runs it.
 - `send_remote_message` only queues, first in first out. The target reads it when its turn ends, so a long turn
   sees nothing new. `send_message` can steer a running turn, but only between sessions on the same host.

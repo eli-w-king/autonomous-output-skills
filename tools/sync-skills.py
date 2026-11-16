@@ -126,9 +126,9 @@ MINER_FILES = (  # private/skill-miner/<name> in the repo <-> ~/.copilot/skill-m
     ('ledger.json', 'ledger.json'),
     ('runner.json', 'runner.json'),
 )
-CLI_DEFAULTS = {'model': 'claude-opus-5.5', 'effortLevel': 'max', 'contextTier': 'long_context'}
+CLI_DEFAULTS = {'model': 'gpt-6-astra', 'effortLevel': 'max', 'contextTier': 'long_context'}
 CLI_SUBAGENTS = ('explore', 'task', 'general-purpose', 'rubber-duck', 'code-review', 'research', 'security-review')
-CLI_DEFAULTS_VERSION = 1
+CLI_DEFAULTS_VERSION = 2  # 2: GPT-6 Astra instead of Claude Opus 5.5 (Nov 16, 2026); every machine applies it again
 MAX_COMMIT_BYTES = 5 * 1024 * 1024
 DEFAULT_PUBLIC_URL = 'https://github.com/eli-w-king/autonomous-output-skills.git'
 DEFAULT_PUBLIC_USER = 'eli-w-king'
@@ -1478,15 +1478,18 @@ def cli_settings_path():
 
 def cli_defaults_due(settings):
     state = load_state()
+    undone = state.get('cli_defaults') is not None and 'cli_defaults_before' not in state  # after cli-defaults --undo
     return (settings.get('cli_defaults', True) is not False and state.get('cli_defaults') != CLI_DEFAULTS_VERSION
-            and state.get('cli_defaults_tried') != dt.date.today().isoformat())
+            and not undone and state.get('cli_defaults_tried') != dt.date.today().isoformat())
 
 
 def apply_cli_defaults(run=None):
-    """Once per machine: Copilot CLI's user defaults become the top model, max effort, and the long context,
+    """Once per machine, and again when CLI_DEFAULTS_VERSION goes up (a new top model): Copilot CLI's user
+    defaults become the top model, max effort, and the long context,
     and every built-in sub-agent inherits them (a CLI session started with no flags, and its sub-agents, then
     run at those settings). The values it replaced are kept in sync-state.json for `cli-defaults --undo`.
-    Later changes are left alone; "cli_defaults": false in ~/.copilot/skills-sync.json skips it."""
+    Later changes are left alone until the version goes up. After `cli-defaults --undo`, or with
+    "cli_defaults": false in ~/.copilot/skills-sync.json, the sync never sets them."""
     path = cli_settings_path()
     try:
         data = json.loads(path.read_text(encoding='utf-8-sig')) if path.is_file() else {}
@@ -1517,7 +1520,7 @@ def apply_cli_defaults(run=None):
     state['cli_defaults'] = CLI_DEFAULTS_VERSION
     save_state(state)
     if run:
-        run.note('Copilot CLI defaults set: claude-opus-5.5, max effort, long context, sub-agents inherit')
+        run.note(f"Copilot CLI defaults set: {CLI_DEFAULTS['model']}, max effort, long context, sub-agents inherit")
     return True
 
 
@@ -2634,7 +2637,7 @@ UPSTREAM_BRANCH = 'upstream-updates'
 KEEP_MINE = ('my-voice/SKILL.md', 'my-taste/SKILL.md')
 NO_PUSH = 'no_push'  # the shared repo's push URL in attendee mode, so git push public always fails
 MINER_MARKER = '[weekly-skill-miner]'
-AUTOMATION_MODEL = 'claude-opus-5.5'
+AUTOMATION_MODEL = 'gpt-6-astra'
 MINER_TASK_NAME = os.environ.get('SKILL_MINER_TASK', 'Autonomous weekly skill miner')
 MINER_LABEL = os.environ.get('SKILL_MINER_LABEL', 'com.autonomous-output-skills.weekly-skill-update')
 JOB_ENV = ('COPILOT_HOME', 'COPILOT_SKILLS_DIR', 'SKILL_MINER_DIR', 'SKILLS_SYNC_SETTINGS', 'COPILOT_SESSION_STATE',
@@ -3125,7 +3128,7 @@ def automation_steps():
         'In the Agents window, open Automations and choose Import Automation (or drag the file onto the list): '
         f'{tilde(blueprint)}. The New automation dialog opens with the name, prompt, and schedule (Monday at 11:00).',
         f'Set the folder to {tilde(REPO)}. Leave Worktree isolation and Run in the Cloud off.',
-        'Leave the harness on Copilot. In Models, pick your best model (Claude Opus 5.5 if you have it) at the highest '
+        'Leave the harness on Copilot. In Models, pick your best model (GPT-6 Astra if you have it) at the highest '
         'thinking effort and the largest context size.',
         'In the mode and permissions picker (it starts on Interactive and Manual permissions), choose Autopilot and '
         'Allow all, so the run never waits for a click. Create it, and turn it on if it shows as off (imported '

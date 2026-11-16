@@ -6,7 +6,7 @@
 //   node check-sessions.mjs --match "<text>"   sessions whose first prompt contains the text
 //   node check-sessions.mjs --id <session-id>
 // Exit code 1 when any matched session has an unanswered permission request or is not on the expected settings
-// (EXPECT_MODEL, default claude-opus-5.5; effort max; context long_context).
+// (EXPECT_MODEL, default gpt-6-astra; effort max; context long_context).
 import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -17,7 +17,7 @@ const opt = n => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1]
 const sinceMin = Number(opt('since') ?? 0);
 const match = opt('match');
 const id = opt('id');
-const EXPECT = { model: process.env.EXPECT_MODEL || 'claude-opus-5.5', effort: 'max', tier: 'long_context' };
+const EXPECT = { model: process.env.EXPECT_MODEL || 'gpt-6-astra', effort: 'max', tier: 'long_context' };
 
 let dirs = readdirSync(ROOT, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('.')).map(d => d.name);
 if (id) {

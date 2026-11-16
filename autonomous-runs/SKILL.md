@@ -63,9 +63,9 @@ mechanics (invisible windows, input guards, ownership receipts) and the other go
    with every permission allowed.** This holds
    for every session or chat you start, for any reason: `create_session`, `create_remote_session`,
    a hub, a base, a lab, or just "make another session". Use the best model the user permits, at
-   maximum reasoning effort and the largest context it supports. Today that is Claude Opus 5.5
-   (`claude-opus-5.5`) or the other model listed in `~/.copilot/autonomous-output-skills/private/models.txt`
-   (private), at max effort with 1M context. Never rely on
+   maximum reasoning effort and the largest context it supports. Today that is GPT-6 Astra
+   (`gpt-6-astra`), the model listed in `~/.copilot/autonomous-output-skills/private/models.txt`
+   (private), at max effort with 1M context, and never Claude Opus. Never rely on
    a default, and never choose a smaller, faster or cheaper model or a lower setting, not even when
    the preferred one is slow or busy. Start it in autopilot with every permission allowed as well, so
    it never stops on an approval prompt; the user should never have to ask for any of this

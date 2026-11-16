@@ -108,8 +108,8 @@ When the setup needs a chat that starts after something was installed (Work IQ a
 were off when this chat started), start it yourself with `create_session`: a `title` like "Workshop setup
 (continued)" and a `prompt` like "Continue my workshop setup: follow
 $HOME/.copilot/autonomous-output-skills/autonomous-setup/SKILL.md, Resuming." Pass no `model` and nothing else. Without
-`model`, the new chat keeps this chat's Claude Opus 5.5, Max, 1M, Autopilot and Allow all; with `model` set (even
-to Claude Opus 5.5) its effort dropped to Medium. Then tell the person in one line that the setup continues in that
+`model`, the new chat keeps this chat's GPT-6 Astra, Max, 1M, Autopilot and Allow all; with `model` set (even
+to the same model) its effort dropped to Medium. Then tell the person in one line that the setup continues in that
 chat (it's under this one in the session list), say it on the canvas (`setStep`), and end your turn so only one chat
 works at a time. Never ask them to start a chat or paste the prompt again.
 
@@ -155,7 +155,7 @@ The workshop page has people do these first, in this order, so canvases are alre
    and restart when VS Code asks (only Computer Use needs it). The snippet turns the agent sandbox off (with it on, the
    setup can't write outside its folder, so it can't clone the skills into `~/.copilot` or install tools, and a chat
    without a workspace can't start), turns on canvases (the setup checklist) and cloud dictation, starts new chats on
-   Claude Opus 5.5 (`chat.defaultModel`; the effort still starts at Medium, so Max stays a step), and turns on what
+   GPT-6 Astra (`chat.defaultModel`; the effort still starts at Medium, so Max stays a step), and turns on what
    later modules use. In the editor window, the settings that exist only in the Agents window show greyed out; that's
    expected.
 5. **Turn on Dev Tunnels:** the radio tower icon at the top right of the Agents window (its tooltip says "Remote
@@ -163,7 +163,7 @@ The workshop page has people do these first, in this order, so canvases are alre
    Insiders is open.
 6. **Start a new chat, set up exactly like this.** No project or folder is needed:
    - Workspace: **Chat**.
-   - Model: **Claude Opus 5.5**.
+   - Model: **GPT-6 Astra**.
    - Reasoning effort: **Max**.
    - Context: **1M**.
    - Mode: **Autopilot**.
@@ -188,7 +188,7 @@ When the prompt says "on my dev box", this machine is their dev box: read
    `restart_needed`, VS Code asks "A setting has changed that requires a restart to take effect.": they click
    **Restart**, reopen this chat from the session list and say "continue my setup". Mark `settings ok` once the check
    shows all of them.
-4. **This chat's picker:** check it's on **Claude Opus 5.5**, **Max** and **1M**. If the host doesn't expose these,
+4. **This chat's picker:** check it's on **GPT-6 Astra**, **Max** and **1M**. If the host doesn't expose these,
    ask them to check the picker rather than claiming you verified it. Autopilot: if `ask_user` comes back with the
    host's automatic reply ("The user is not available..."), it's on. Allow all can't be read from here: ask them to
    check the picker says **Allow all** (and **Sandboxing for terminal** is off), and to tell you if an approval prompt

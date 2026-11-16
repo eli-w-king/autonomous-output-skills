@@ -166,13 +166,13 @@ back on every other machine, so any machine can take it over and `my-voice` has 
 everywhere. Nothing in `private/` is ever published.
 
 **Copilot CLI at the top settings.** The first sync on a machine also sets Copilot CLI's user
-defaults (`~/.copilot/settings.json`) to Claude Opus 5.5 at max effort with the long context, with
+defaults (`~/.copilot/settings.json`) to GPT-6 Astra at max effort with the long context, with
 every built-in sub-agent inheriting them, so a `copilot` run started with no flags, and its
-sub-agents, use the top settings. It does this once and keeps the old values: `sync-skills.py
-cli-defaults --undo` puts them back, and `"cli_defaults": false` in `~/.copilot/skills-sync.json`
-skips it. The VS Code agent host does not read these while it runs
-([`dev-boxes.md`](autonomous-runs/references/dev-boxes.md), "Checking and setting model, effort and
-context").
+sub-agents, use the top settings. It does this once, and again whenever the top model changes, and
+keeps the values from before: `sync-skills.py cli-defaults --undo` puts them back for good, and
+`"cli_defaults": false` in `~/.copilot/skills-sync.json` skips it. The VS Code agent host does not
+read these while it runs ([`dev-boxes.md`](autonomous-runs/references/dev-boxes.md), "Checking and
+setting model, effort and context").
 
 The tools:
 
