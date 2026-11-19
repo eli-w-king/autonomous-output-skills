@@ -8,6 +8,8 @@
 	const svgNs = 'http://www.w3.org/2000/svg';
 	let view = null;
 	let introRunning = false;
+	// 'ai-first' while the canvas shows the AI-First path (flow.js draws its steps); 'internal' otherwise.
+	let path = 'internal';
 	const seen = new Map();
 	const signatures = new Map();
 
@@ -173,7 +175,7 @@
 			}
 			body.append(box);
 		}
-		if (item.optional && !(item.status === 'done' || item.status === 'installed')) {
+		if (item.optional && path !== 'ai-first' && !(item.status === 'done' || item.status === 'installed')) {
 			const label = el('label', 'toggle');
 			const input = el('input');
 			input.type = 'checkbox';
@@ -346,13 +348,39 @@
 		}
 	}
 
+	// The AI-First path: flow.js draws the hero and the steps; after Confirm, this page's checklist shows under the hero.
+	function renderPath(next) {
+		const aiFirst = next.path === 'ai-first' && !!next.flow;
+		path = aiFirst ? 'ai-first' : 'internal';
+		document.documentElement.dataset.path = aiFirst ? 'ai-first' : '';
+		const main = $('#main');
+		if (!aiFirst) {
+			$('#flow').hidden = true;
+			main.hidden = false;
+			return false;
+		}
+		window.SetupFlow?.render(next, flowApi);
+		main.hidden = !next.flow.confirmed;
+		const title = $('#page-title');
+		title.textContent = 'Your setup';
+		title.setAttribute('aria-level', '2');
+		$('.lede').textContent = 'The agent works through your list. Green checks are ready. When something needs you, it says exactly what to do here. To pick up where you left off, say "continue my setup" in the chat.';
+		const done = $('.done-note');
+		done.hidden = !next.allDone;
+		done.textContent = next.allDone
+			? `You're all set.${next.flow.restart ? ' One last thing: quit and reopen VS Code Insiders, so new chats find the tools the setup added.' : ''}`
+			: '';
+		return true;
+	}
+
 	function render(next) {
 		const stepChanged = next.step?.id !== view?.step?.id;
 		const metaChanged = JSON.stringify(next.meta) !== JSON.stringify(view?.meta);
 		const first = !view;
+		const aiFirst = renderPath(next);
 		renderHeader(next);
 		renderSim(next.simulation);
-		if (first || metaChanged) {
+		if (!aiFirst && (first || metaChanged)) {
 			renderBand(next.meta);
 		}
 		renderGroups(next.groups);
@@ -381,6 +409,10 @@
 	// The opening (once per open, when motion is on) and the welcome (until the person closes it once). With reduced
 	// motion the welcome is a still page.
 	async function runIntro(next) {
+		if (next.path === 'ai-first') {
+			await window.SetupFlow?.start(next, flowApi);
+			return;
+		}
 		const welcome = !!next.welcome?.show;
 		const cinematic = !!next.intro?.play && !reduced.matches;
 		if (!window.SetupIntro || (!welcome && !cinematic)) {
@@ -407,6 +439,14 @@
 			revealStep(view?.step);
 		}
 	}
+
+	const flowApi = {
+		post,
+		announce,
+		copy: copyText,
+		flow: (body) => post('/api/flow', body),
+		check: () => post('/api/check'),
+	};
 
 	// A simulation starts once its intro is over, so the run plays from the first check.
 	async function startSim(state) {

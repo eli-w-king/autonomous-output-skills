@@ -34,8 +34,14 @@ export function renderPage({ title }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>${safeTitle}</title>
+<link rel="stylesheet" href="/horizon/horizon.css">
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/welcome.css">
+<link rel="stylesheet" href="/flow.css">
+<script src="/horizon/horizon.js"></script>
 <script src="/intro.js" defer></script>
+<script src="/welcome.js" defer></script>
+<script src="/flow.js" defer></script>
 <script src="/app.js" defer></script>
 </head>
 <body>
@@ -73,6 +79,16 @@ export function renderPage({ title }) {
 	</div>
 	<button type="button" class="intro-skip">Skip intro</button>
 </div>
+<div id="flow" class="flow" hidden>
+	<canvas class="hero-field" aria-hidden="true"></canvas>
+	<header class="hero">
+		<p class="hero-label">Welcome</p>
+		<p class="hero-title" role="heading" aria-level="1"></p>
+		<p class="hero-subtitle"></p>
+		<p class="hero-presenter"></p>
+	</header>
+	<section class="flow-card hz-card" aria-labelledby="flow-title"></section>
+</div>
 <main id="main" class="page" tabindex="-1">
 	<section class="sim" aria-label="Simulation" hidden>
 		<p class="sim-text"><span class="sim-tag">Simulation</span> <span class="sim-desc"></span></p>
@@ -101,6 +117,7 @@ export function renderPage({ title }) {
 	</header>
 	<div class="groups"></div>
 	<aside class="later" hidden><h2>At the workshop</h2><p class="later-text"></p></aside>
+	<p class="done-note" hidden></p>
 	<div class="sr-only" role="status" aria-live="polite" id="live"></div>
 	<noscript><p>This checklist needs JavaScript to show your setup.</p></noscript>
 </main>

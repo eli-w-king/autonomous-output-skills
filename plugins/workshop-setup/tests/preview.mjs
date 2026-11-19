@@ -3,12 +3,14 @@
 //     shows a setup in progress, against a made-up check result.
 //   node preview.mjs --simulate mac|windows [--speed N] [--title T] [--subtitle S] [--presenter P] [--port-file F]
 //     plays a first-time setup from scratch, in memory, like the canvas's simulate input.
+//   add --workshop choose to either one for the AI-First path. With --home it opens at --step pick|gate|ready|install|
+//     uninstall|after|confirmed (gate with --gate ok shows a passed sign-in; --os windows shows a PC).
 // It prints the page URL and keeps running until stopped.
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { SetupModel } from '../extensions/setup-checklist/lib/model.mjs';
 import { CanvasHub } from '../extensions/setup-checklist/lib/server.mjs';
-import { Simulation } from '../extensions/setup-checklist/lib/simulation.mjs';
+import { Simulation, firstAiFirstCheck } from '../extensions/setup-checklist/lib/simulation.mjs';
 import { Store } from '../extensions/setup-checklist/lib/store.mjs';
 
 const args = process.argv.slice(2);
@@ -28,9 +30,45 @@ async function writeUrl(url) {
 async function simulate(os) {
 	const fields = { title: opt('title'), subtitle: opt('subtitle'), presenter: opt('presenter'), checkInChat: opt('chat') };
 	const meta = Object.fromEntries(Object.entries(fields).filter(([, value]) => value));
-	const simulation = new Simulation({ os, speed: Number(opt('speed', '1')) || 1, meta });
+	const simulation = new Simulation({ os, speed: Number(opt('speed', '1')) || 1, meta, workshop: opt('workshop') });
 	await simulation.ready();
 	const instance = await new CanvasHub({ model: simulation.model }).open('preview', { simulation });
+	await writeUrl(instance.url);
+}
+
+// The AI-First path at one step, against a made-up first check on a new Mac or PC.
+async function aiFirstAt(home) {
+	const os = opt('os', 'mac') === 'windows' ? 'windows' : 'mac';
+	const items = firstAiFirstCheck(os);
+	if (opt('gate') === 'ok') {
+		items.microsoft_signin = { ok: true, required: false, detail: 'signed in with a work account (mona_contoso)', size: { download: 0, disk: 0 } };
+	}
+	const data = { time: new Date().toISOString(), path: 'ai-first', os: { name: os === 'mac' ? 'macOS' : 'Windows', arch: os === 'mac' ? 'arm64' : 'x64' }, folder_display: '~/ai-first-workshop', free_bytes: 38e9, items, steps: {} };
+	const runner = { run: async () => ({ data: JSON.parse(JSON.stringify(data)), script: 'fixture' }) };
+	const model = new SetupModel({ store: new Store({ home }), runner, aiFirstRunner: runner, platform: os === 'mac' ? 'darwin' : 'win32' });
+	await fsp.mkdir(home, { recursive: true });
+	await model.load();
+	await model.setMeta({ title: opt('title'), subtitle: opt('subtitle'), presenter: opt('presenter') });
+	await model.setWorkshop({ workshop: 'choose', workshopDir: path.join(home, 'ai-first-workshop') });
+	await model.refresh();
+	const step = opt('step', 'pick');
+	const order = ['ready', 'install', 'uninstall', 'after'];
+	if (step === 'gate') {
+		await model.flowAction({ action: 'pick', id: 'microsoft' });
+	} else if (step !== 'pick') {
+		await model.flowAction({ action: 'pick', id: 'ai-first' });
+		await model.flowAction({ action: 'select', id: 'skill_taste', on: true });
+		for (const next of order.slice(1, step === 'confirmed' ? order.length : order.indexOf(step) + 1)) {
+			await model.flowAction({ action: 'step', step: next });
+		}
+		if (step === 'confirmed') {
+			await model.flowAction({ action: 'confirm' });
+			await model.setItem({ id: 'git', status: 'installed', note: null, commands: [] });
+			await model.setItem({ id: 'node', status: 'working', note: 'Adding Node.js 26 to your workshop folder', commands: [] });
+			await model.setStep({ id: 'node' });
+		}
+	}
+	const instance = await new CanvasHub({ model }).open('preview');
 	await writeUrl(instance.url);
 }
 
@@ -39,6 +77,10 @@ async function inProgress() {
 	if (!home) {
 		process.stderr.write('Pass --home with a scratch folder.\n');
 		process.exit(2);
+	}
+	if (opt('workshop')) {
+		await aiFirstAt(home);
+		return;
 	}
 
 	const ok = (detail, extra = {}) => ({ ok: true, required: true, detail, ...extra });

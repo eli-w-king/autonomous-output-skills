@@ -56,6 +56,17 @@ It sets up the same tools (Chrome required), the skills from your private copy w
 Playwright MCP server, Computer Use and research on the box, and skips dictation, the weekly update (your laptop runs
 it), Azure and creating a dev box.
 
+**For a public workshop on personal laptops** (the AI-First path), the line names a workshop folder instead:
+
+```text
+Set me up for "<Series>: <Title>", hosted by <Host>, in ~/ai-first-workshop. Follow https://github.com/eli-w-king/autonomous-output-skills/blob/main/autonomous-setup/SKILL.md
+```
+
+The agent puts the skills in that folder, opens the canvas, and installs nothing until you click **Confirm** on it.
+The canvas shows what it will add, with sizes (under 1 GB), and how to undo it. Missing tools go in the folder as
+portable copies, and one command takes everything back. The details are in
+[autonomous-setup/references/ai-first.md](autonomous-setup/references/ai-first.md).
+
 The canvas comes from the clone: the setup copies it into `~/.copilot/extensions/setup-checklist`. If you installed
 the `workshop-setup` plugin yourself ([plugins/workshop-setup/README.md](plugins/workshop-setup/README.md)), the setup
 uses that instead. Use one or the other, never both: with both, chats see the canvas twice.

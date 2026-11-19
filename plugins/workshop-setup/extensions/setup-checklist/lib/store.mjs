@@ -12,6 +12,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { SetupError } from './errors.mjs';
 import { CANVAS_ID, REPORT_STATUSES } from './catalog.mjs';
+import { FLOW_ALL_STEPS, FLOW_MODES, WORKSHOPS } from './ai-first.mjs';
 
 export const FORMAT = 'autonomous-setup-checklist';
 export const VERSION = 1;
@@ -35,7 +36,7 @@ export function tilde(file, home = os.homedir()) {
 }
 
 export function emptyRecord(now) {
-	return { format: FORMAT, version: VERSION, createdAt: now, updatedAt: now, meta: {}, baseline: null, choices: {}, reports: {}, step: null, lastCheck: null, welcomedAt: null };
+	return { format: FORMAT, version: VERSION, createdAt: now, updatedAt: now, meta: {}, baseline: null, choices: {}, reports: {}, step: null, lastCheck: null, welcomedAt: null, aiFirst: null };
 }
 
 class ShapeError extends Error {}
@@ -79,6 +80,19 @@ export function checkShape(data) {
 	expect(data.step === null || (isObject(data.step) && isId(data.step.id) && isString(data.step.at, 64)), 'step');
 	// When the person closed the welcome. Files from before the welcome don't have it.
 	expect(data.welcomedAt === undefined || isStringOrNull(data.welcomedAt, 64), 'welcomedAt');
+	// The AI-First path's picker and steps (ai-first.mjs). Files from before it don't have it.
+	if (data.aiFirst !== undefined && data.aiFirst !== null) {
+		const flow = data.aiFirst;
+		expect(isObject(flow), 'aiFirst');
+		expect(flow.mode === null || flow.mode === undefined || FLOW_MODES.includes(flow.mode), 'aiFirst.mode');
+		expect(flow.pick === null || flow.pick === undefined || WORKSHOPS.some((w) => w.id === flow.pick), 'aiFirst.pick');
+		expect(flow.step === undefined || FLOW_ALL_STEPS.includes(flow.step), 'aiFirst.step');
+		expect(flow.folder === undefined || isStringOrNull(flow.folder, 1024), 'aiFirst.folder');
+		expect(flow.confirmedAt === undefined || isStringOrNull(flow.confirmedAt, 64), 'aiFirst.confirmedAt');
+		expect(flow.continuedAt === undefined || isStringOrNull(flow.continuedAt, 64), 'aiFirst.continuedAt');
+		checkMap(flow.selections || {}, 'aiFirst.selections', (entry, where) => expect(typeof entry === 'boolean', where));
+		expect(flow.plan === undefined || flow.plan === null || (Array.isArray(flow.plan) && flow.plan.every(isId)), 'aiFirst.plan');
+	}
 	if (data.lastCheck !== null) {
 		const check = data.lastCheck;
 		expect(isObject(check), 'lastCheck');

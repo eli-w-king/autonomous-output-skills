@@ -90,6 +90,8 @@ them, and an empty string clears one. Nothing about an event is built in: the se
 | `checkInChat` | the meeting chat where the Work IQ test posts a check-in | `Design systems workshop` |
 | `skillsDir` | absolute path (or `~/...`) of the folder with `autonomous-setup/scripts/check-setup.py` | `~/.copilot/autonomous-output-skills` |
 | `simulate` | for hosts previewing the workshop: `mac` or `windows` plays a first-time setup (see below); leave it out for a real setup | `mac` |
+| `workshop` | the AI-First path (below): `choose` opens on the workshop picker, `ai-first` skips it. Leave it out for the internal setup, which then works exactly as before | `choose` |
+| `workshopDir` | with `workshop`: the workshop folder from the setup prompt, absolute or `~/...` | `~/ai-first-workshop` |
 
 Without `checkInChat`, the Work IQ test reads the next meeting's subject instead of posting.
 
@@ -111,6 +113,7 @@ takes about two and a half minutes. Voice and taste aren't part of it, as in v1.
 | `refresh` | `{quick?}` | runs the check again, waits for it, returns the same as `getState` |
 | `setItem` | `{id, status, note?, commands?}` | `{ok, item, progress}` |
 | `setStep` | `{id}`: an item id, a group id, or `none` | `{step}` |
+| `waitForConfirm` | `{timeoutSeconds?}` (5 to 300, default 120) | AI-First path only. `{status, flow}`: `status` is `confirmed`, `gate`, `microsoft` or `waiting` (call it again); `flow` has `install` (the ids to install, in order), `alreadyHere`, `selections`, `total` and `folder` |
 
 `setItem` statuses:
 
@@ -147,6 +150,25 @@ Item ids are check-setup.py's (`gh`, `node`, `settings`, `skills`, `playwright`,
   note.
 - `dictation` is installed once `dictation.model` is in the check's matching settings.
 
+### The AI-First path
+
+A light, public setup for a workshop on personal laptops (`autonomous-setup/references/ai-first.md` has the agent's
+side, and `autonomous-setup/scripts/ai-first.mjs` does the installing). Opened with `workshop`, the canvas shows a
+welcome with the event's names over the Horizon band, then a few steps on a card:
+
+1. **Which workshop:** AI-First Design, or the Microsoft workshop. Microsoft waits for a sign-in with a Microsoft
+   GitHub account (an Enterprise Managed User in the GitHub CLI), then hands over to the internal setup, unchanged.
+2. **Let's get your computer ready:** one folder, about how long, no computer password.
+3. **What we'll install:** each item with its download and disk size, and a total. Required items are locked on;
+   optional ones have a switch. Tools this computer already has say so and download nothing.
+4. **How to undo it:** what the uninstall takes back, with a link to the site's uninstall page.
+5. **After you confirm:** what the agent does next. **Confirm** freezes the list.
+
+Nothing is installed before Confirm. The agent calls `waitForConfirm` while the person reads, installs `flow.install`
+in order with `setStep` and `setItem` as above, and the page becomes the live checklist with the Computer Use and
+dictation Try it prompts. The checks come from `ai-first.mjs check --json`, run with VS Code's own runtime, so the
+path needs no Python.
+
 ### When the setup skill calls what
 
 1. Open the canvas with the event's text from the setup prompt. It runs the check on its own.
@@ -163,6 +185,13 @@ Item ids are check-setup.py's (`gh`, `node`, `settings`, `skills`, `playwright`,
 
 - `extensions/setup-checklist/extension.mjs` wires the canvas to `lib/`: the item catalog, the check runner, the
   status logic, storage, input checks and the page server. `web/` has the page, its styles and the intro.
+- The AI-First path: `lib/ai-first.mjs` (its items, sizes and steps), `web/flow.css` and `web/flow.js` (the steps and
+  the light checklist), and `web/welcome.css` and `web/welcome.js` (the welcome, swappable on their own).
+- `web/horizon/` is the Horizon visual kit's runtime (`horizon.css`, `horizon.js` and the font licenses), copied in
+  verbatim by `node tools/sync-horizon.mjs --from <the kit's folder>`; `--check` says whether it's current. Never
+  edit those files: theme through the kit's `--hz-*` variables. The kit's woff2 fonts aren't in this repo.
+  `ai-first.mjs canvas` fetches them next to the copy, checked against `web/horizon-fonts.json`, and without them
+  the canvas uses the system's fonts.
 - Progress is saved in `<copilot-home>/extension-data/autonomous-setup-checklist/setup-progress.json` (the Copilot home
   is `COPILOT_HOME` when it's set). Writes are atomic, and a file that doesn't read back cleanly is reported and left
   alone, never overwritten.
@@ -182,5 +211,7 @@ node plugins/workshop-setup/tests/preview.mjs --simulate mac --speed 2 --title "
 ```
 
 The first serves the page against a made-up check result, the second plays the first-time setup (`--speed` speeds
-it up), and both print the address. Every module passes `node --check`; the tests are
+it up), and both print the address. Add `--workshop choose` to either for the AI-First path; with `--home` it opens
+at `--step pick`, `gate`, `ready`, `install`, `uninstall`, `after` or `confirmed` (`--gate ok` shows a passed
+sign-in, `--os windows` a PC). Every module passes `node --check`; the tests are
 `node --test plugins/workshop-setup/tests/*.test.mjs`.

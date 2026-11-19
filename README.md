@@ -34,7 +34,7 @@ time and the output needs no fixing.
 
 | Skill | What it does | Triggers |
 |-------|--------------|----------|
-| [`autonomous-setup`](autonomous-setup/SKILL.md) | A setup interview: one prompt gets a Mac or Windows machine ready for these skills and a workshop (tools, VS Code settings with cloud dictation, a private copy of the skills with the weekly update, Work IQ, Playwright, Computer Use, an optional dev box that stays on), with a checklist canvas and a Try-it test for each item | "set me up for the workshop", "check my setup", "continue my setup" |
+| [`autonomous-setup`](autonomous-setup/SKILL.md) | A setup interview: one prompt gets a Mac or Windows machine ready for these skills and a workshop (tools, VS Code settings with cloud dictation, a private copy of the skills with the weekly update, Work IQ, Playwright, Computer Use, an optional dev box that stays on), with a checklist canvas and a Try-it test for each item. Its AI-First path sets up a personal laptop for a public workshop in one folder, installs nothing before Confirm, and undoes it all with one command | "set me up for the workshop", "check my setup", "continue my setup" |
 
 **Research, when a decision needs evidence from users**
 
@@ -90,6 +90,19 @@ compiled from the parallel design labs of October 9 to 12, 2026. The short versi
 8. Many labs at once get one review page that ends in a prompt naming each pick.
 9. Labs across dev boxes run on their own: the hub (orchestrator, file drop, review) is a dev box, so
    closing the laptop never stalls a session.
+
+## Editions
+
+Lighter copies of some skills for one audience live in [`editions/`](editions/README.md), under the same
+names as the full skills. [`editions/ai-first/`](editions/ai-first/) is for the public AI-First
+Design Workshop: autonomous-variations, autonomous-prototypes, autonomous-demos and autonomous-computer-use are
+required; autonomous-runs, autonomous-research and my-taste are optional; my-voice is never in it. Each is a
+fraction of the full skill's size, cheap by default, works on a personal Mac or Windows laptop with what the
+workshop setup installs, and has nothing employer-specific.
+
+The workshop setup copies an edition into `~/.copilot/skills` only when someone picks it. The daily sync and
+`install-devbox.mjs` manage top-level skill folders only, so they never install one. The validator checks
+editions like full skills, the publish step publishes them, and `tools/test-editions.py` tests all three.
 
 ## How the skills stay current
 
@@ -247,7 +260,8 @@ The sync backs up and removes every old name from `~/.copilot/skills` on each ma
 ```text
 DEMO-RULES.md              the demo rules, with sources
 my-voice/                  SKILL.md (private writing samples stay in ~/.copilot/skill-miner/)
-autonomous-setup/          SKILL.md, references/ (machine, connections, optional, workshop.json, workshop settings), scripts/
+autonomous-setup/          SKILL.md, references/ (machine, connections, optional, workshop.json, workshop settings,
+                           ai-first), scripts/ (ai-first.mjs: the AI-First path), ai-first/resources/
 autonomous-demos/          SKILL.md, references/ (brief template, storyboards), scripts/
 autonomous-computer-use/   SKILL.md, references/ (macos, windows)
 autonomous-prototypes/     SKILL.md, references/ (design taste)
@@ -256,7 +270,9 @@ autonomous-runs/           SKILL.md, references/ (code-oss, recording, computer-
                            machine-sharing, github-posts, labs-and-pages, dev-boxes)
 autonomous-research/       SKILL.md, references/ (running-a-study, synthesis, harvest, platforms,
                            demo-video-capture, packaging), scripts/, chatmodes/, research.env.template
-tools/                     sync-skills.py, publish-public.py, validate-skills.py, collect-messages.py, install-devbox.mjs
+tools/                     sync-skills.py, publish-public.py, validate-skills.py, collect-messages.py, install-devbox.mjs,
+                           sync-horizon.mjs (the setup canvas's copy of the Horizon kit)
+editions/                  lighter copies of some skills for one audience (ai-first: the AI-First Design Workshop)
 automations/               weekly-skill-miner.md (prompt and procedure), run-weekly-skill-miner.sh (schedule)
 retired.txt                skill names the sync removes from every machine
 docs/                      "Designing the Loop" talk site (GitHub Pages, July 2026); docs/assets/ also has this

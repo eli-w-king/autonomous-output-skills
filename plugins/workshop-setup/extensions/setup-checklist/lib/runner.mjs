@@ -178,6 +178,25 @@ export function compactCheck(data, receivedAt) {
 		if (id === 'settings') {
 			entry.keys = { matching: stringList(item.matching), missing: stringList(item.missing), different: stringList(item.different) };
 		}
+		// The AI-First check (ai-first.mjs) also says what each item adds here and whether this computer needs it.
+		const size = sizeOf(item.size);
+		if (size) {
+			entry.size = size;
+		}
+		const fallback = sizeOf(item.fallback);
+		if (fallback) {
+			entry.fallback = fallback;
+		}
+		for (const flag of ['needed', 'installed', 'signed_in']) {
+			if (typeof item[flag] === 'boolean') {
+				entry[flag] = item[flag];
+			}
+		}
+		for (const field of ['login', 'browser', 'by', 'repo']) {
+			if (typeof item[field] === 'string' && item[field]) {
+				entry[field] = clip(item[field], 120);
+			}
+		}
 		items[id] = entry;
 	}
 	const steps = {};
@@ -187,7 +206,65 @@ export function compactCheck(data, receivedAt) {
 		}
 	}
 	const osInfo = isObject(data.os) ? { name: clip(data.os.name, 200) || null, version: clip(data.os.version, 100) || null, arch: clip(data.os.arch, 32) || null } : null;
-	return { at: typeof data.time === 'string' ? data.time.slice(0, 64) : null, receivedAt, os: osInfo, items, steps };
+	const out = { at: typeof data.time === 'string' ? data.time.slice(0, 64) : null, receivedAt, os: osInfo, items, steps };
+	if (data.path === 'ai-first') {
+		out.path = 'ai-first';
+		out.folder = clip(data.folder_display || data.folder, 1024) || null;
+		out.freeBytes = Number.isFinite(data.free_bytes) ? data.free_bytes : null;
+		out.settingsMissing = stringList(data.settings?.missing, 32);
+	}
+	return out;
+}
+
+function sizeOf(value) {
+	if (!isObject(value) || !Number.isFinite(value.disk) || !Number.isFinite(value.download)) {
+		return null;
+	}
+	return { download: Math.max(0, Math.round(value.download)), disk: Math.max(0, Math.round(value.disk)) };
+}
+
+// Runs autonomous-setup/scripts/ai-first.mjs check on this extension's own runtime. Inside VS Code that's its
+// Electron, which runs scripts as Node with ELECTRON_RUN_AS_NODE, so the check works before Node or Python is
+// installed. The script only reads.
+export class AiFirstRunner {
+	constructor({ copilotHome, env = process.env, fs = fsp, exec = execProgram, execPath = process.execPath, timeoutMs = 90000 }) {
+		this.copilotHome = copilotHome;
+		this.env = env;
+		this.fs = fs;
+		this.exec = exec;
+		this.execPath = execPath;
+		this.timeoutMs = timeoutMs;
+	}
+
+	async locate({ skillsDir, folder }) {
+		const parts = ['autonomous-setup', 'scripts', 'ai-first.mjs'];
+		const tried = [skillsDir && path.join(skillsDir, ...parts), folder && path.join(folder, 'autonomous-output-skills', ...parts)].filter(Boolean);
+		for (const file of tried) {
+			try {
+				if ((await this.fs.stat(file)).isFile()) {
+					return file;
+				}
+			} catch {
+				// Not there; try the next one.
+			}
+		}
+		const where = tried.map((file) => tilde(file)).join(', ') || 'the workshop folder';
+		throw new SetupError('check_not_found', `Can't find ai-first.mjs. Looked in ${where}. Clone the skills into the workshop folder first.`);
+	}
+
+	async run({ skillsDir = null, folder = null } = {}) {
+		const script = await this.locate({ skillsDir, folder });
+		const env = { ...this.env, ELECTRON_RUN_AS_NODE: '1' };
+		const args = [script, 'check', '--json', ...(folder ? ['--folder', folder] : [])];
+		const result = await this.exec(this.execPath, args, { timeoutMs: this.timeoutMs, env, cwd: path.dirname(script) });
+		if (result.error) {
+			throw new SetupError('check_failed', `Couldn't start the setup check: ${result.error.message}`);
+		}
+		if (result.timedOut) {
+			throw new SetupError('check_timeout', `The setup check didn't finish in ${Math.round(this.timeoutMs / 1000)} seconds. Try again.`);
+		}
+		return { data: parseCheckOutput(result.stdout, result.stderr), script };
+	}
 }
 
 export class CheckRunner {

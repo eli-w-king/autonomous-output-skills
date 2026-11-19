@@ -9,6 +9,11 @@ checks; everything else gets all of the checks below.
 Errors (exit 1):
   - a skill folder without valid frontmatter, a name that differs from its folder, a duplicate
     name, or a description over 1024 characters (the skill registry silently skips those)
+  - an edition skill (editions/<edition>/<skill>/, a lighter copy of a full skill for one audience,
+    which the sync never installs) with one of those frontmatter problems, without a full skill of
+    the same name, or out of step with its edition's editions.json: a folder it doesn't list, a
+    listed skill with no folder, no status (required or optional) or summary, or a skill it says the
+    edition must never have. Editions get every other check below too.
   - a relative markdown link that does not resolve
   - an em or en dash in skill text or scripts (documenting the characters inside backticks is fine)
   - DEMO-RULES.md rules (from "## Truth" to the end) that differ from the rules section of
@@ -35,8 +40,9 @@ Errors (exit 1):
   - with --commits REF: the same secret, path, email, and private term checks on every commit
     message and every added line in REF..HEAD, and any binary file in those commits.
 Warnings:
-  - a description over 1000 characters, a SKILL.md over 35 KB, a script with a shebang that is not
-    executable, a skill that README.md does not mention, a binary file (without --base)
+  - a description over 1000 characters, a SKILL.md over 35 KB, an edition SKILL.md over a third of
+    its full skill's, a script with a shebang that is not executable, a skill that README.md does not
+    mention, a binary file (without --base)
 
 --secrets-only (needs --commits REF) is the quick check the sync runs before every push to the
 private repo: secret-looking text in REF..HEAD and secret-looking file names it adds are errors;
@@ -50,6 +56,7 @@ Usage: validate-skills.py [--private-terms FILE]... [--private-terms-warn] [--ba
 """
 import argparse
 import difflib
+import json
 import os
 import re
 import shutil
@@ -267,38 +274,90 @@ def find_bash():
 
 
 skills = []
+
+
+def check_frontmatter(folder, label, names=None):
+    """Frontmatter the skill registry accepts (it silently skips a skill without it). Returns the skill's name, or None."""
+    text = read(folder / 'SKILL.md')
+    m = re.match(r'^---\n(.*?)\n---\n', text, re.S)
+    if not m:
+        errors.append(f'{label}/SKILL.md: missing frontmatter')
+        return None
+    fm = m.group(1)
+    name = re.search(r'^name:\s*(.+)$', fm, re.M)
+    desc = re.search(r'^description:\s*(.+)$', fm, re.M)
+    if not name or not desc:
+        errors.append(f'{label}/SKILL.md: frontmatter needs name and description')
+        return None
+    name = name.group(1).strip().strip('"\'')
+    desc = desc.group(1).strip()
+    if desc.startswith('"') and desc.endswith('"'):
+        desc = desc[1:-1].replace('\\"', '"')
+    if name != folder.name:
+        errors.append(f'{label}/SKILL.md: name "{name}" differs from its folder')
+    if names is not None:
+        if name in names:
+            errors.append(f'{label}/SKILL.md: duplicate skill name "{name}" (also {names[name]})')
+        names[name] = label
+    if len(desc) > 1024:
+        errors.append(f'{label}: description is {len(desc)} characters (limit 1024)')
+    elif len(desc) > 1000:
+        warnings.append(f'{label}: description is {len(desc)} characters (close to the 1024 limit)')
+    size = (folder / 'SKILL.md').stat().st_size
+    if size > 35000:
+        warnings.append(f'{label}/SKILL.md is {size // 1000} KB; move detail into references/')
+    return name
+
+
+def check_edition(edition):
+    """editions/<edition>/<skill>/ are lighter copies of full skills for one audience, under the full skill's name. The
+    sync and install-devbox.mjs never install them (they manage top-level skill folders only); a setup copies one in
+    when someone picks it. Each is checked like a skill, and the folders must match the edition's editions.json:
+    {"skills": [{"name", "status": "required" or "optional", "summary"}], "never": [names it must never have]}."""
+    where = f'editions/{edition.name}'
+    folders = sorted(p.name for p in edition.iterdir() if p.is_dir())
+    for folder in folders:
+        d, label = edition / folder, f'{where}/{folder}'
+        if not (d / 'SKILL.md').is_file():
+            errors.append(f'{label}: an edition folder needs a SKILL.md')
+            continue
+        check_frontmatter(d, label)
+        full = REPO / folder
+        if not full.is_dir():
+            errors.append(f'{label}: there is no full skill named {folder} (an edition keeps its full skill\'s name)')
+        elif (full / 'SKILL.md').is_file() and (d / 'SKILL.md').stat().st_size * 3 > (full / 'SKILL.md').stat().st_size:
+            warnings.append(f'{label}/SKILL.md is over a third of the size of {folder}/SKILL.md; keep editions light')
+    try:
+        listing = json.loads(read(edition / 'editions.json'))
+        entries = listing['skills']
+        listed = [entry['name'] for entry in entries]
+        never = set(listing.get('never', []))
+        incomplete = [entry['name'] for entry in entries
+                      if entry.get('status') not in ('required', 'optional') or not str(entry.get('summary', '')).strip()]
+    except (ValueError, KeyError, TypeError):
+        errors.append(f'{where}/editions.json: missing, or not {{"skills": [{{"name", "status", "summary"}}], "never": [...]}}')
+        return
+    for name in incomplete:
+        errors.append(f'{where}/editions.json: {name} needs a status (required or optional) and a summary')
+    for name in sorted({n for n in listed if listed.count(n) > 1}):
+        errors.append(f'{where}/editions.json: {name} is listed more than once')
+    for name in sorted(set(folders) - set(listed) - never):
+        errors.append(f'{where}/{name}: not listed in editions.json')
+    for name in sorted(set(listed) - set(folders) - never):
+        errors.append(f'{where}/editions.json: {name} is listed but has no folder')
+    for name in sorted(never & (set(folders) | set(listed))):
+        errors.append(f'{where}/{name}: editions.json says this edition never has {name}')
+
+
 if not args.secrets_only:
     # 1. Skills and frontmatter
     names = {}
     for d in sorted(p for p in REPO.iterdir() if p.is_dir() and (p / 'SKILL.md').is_file()):
         skills.append(d.name)
-        text = read(d / 'SKILL.md')
-        m = re.match(r'^---\n(.*?)\n---\n', text, re.S)
-        if not m:
-            errors.append(f'{d.name}/SKILL.md: missing frontmatter')
-            continue
-        fm = m.group(1)
-        name = re.search(r'^name:\s*(.+)$', fm, re.M)
-        desc = re.search(r'^description:\s*(.+)$', fm, re.M)
-        if not name or not desc:
-            errors.append(f'{d.name}/SKILL.md: frontmatter needs name and description')
-            continue
-        name = name.group(1).strip().strip('"\'')
-        desc = desc.group(1).strip()
-        if desc.startswith('"') and desc.endswith('"'):
-            desc = desc[1:-1].replace('\\"', '"')
-        if name != d.name:
-            errors.append(f'{d.name}/SKILL.md: name "{name}" differs from its folder')
-        if name in names:
-            errors.append(f'{d.name}/SKILL.md: duplicate skill name "{name}" (also {names[name]})')
-        names[name] = d.name
-        if len(desc) > 1024:
-            errors.append(f'{d.name}: description is {len(desc)} characters (limit 1024)')
-        elif len(desc) > 1000:
-            warnings.append(f'{d.name}: description is {len(desc)} characters (close to the 1024 limit)')
-        size = (d / 'SKILL.md').stat().st_size
-        if size > 35000:
-            warnings.append(f'{d.name}/SKILL.md is {size // 1000} KB; move detail into references/')
+        check_frontmatter(d, d.name, names)
+    if (REPO / 'editions').is_dir():
+        for edition in sorted(p for p in (REPO / 'editions').iterdir() if p.is_dir()):
+            check_edition(edition)
 
     readme = read(REPO / 'README.md')
     for s in skills:

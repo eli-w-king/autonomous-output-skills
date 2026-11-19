@@ -1,6 +1,6 @@
 ---
 name: autonomous-setup
-description: "Autonomous: Setup. Gets a Mac or Windows machine ready for the autonomous skills and a hands-on workshop from a one-line prompt that names the event and links here, pasted after the person set up VS Code: the agent clones the skills, checks the settings, opens a setup checklist canvas in the same chat, installs what's missing (running installers and starting sign-ins itself), and has the person test each item with a Try-it prompt. Never handles passwords or keys. Covers the tools (VS Code Insiders, GitHub CLI, git, Node and Yarn 1, Python, ffmpeg, a browser), the workshop settings, a private copy of the skills with the daily sync and the weekly update, Work IQ, the Playwright MCP server, Computer Use, dictation, and optional Azure, a dev box that stays on, and research. A dev box mode sets up the box itself. Resumable. Use for 'set me up for <event>', 'set me up on my dev box', 'set up the autonomous skills', 'check my setup', 'continue my setup', or 'am I ready for the workshop'."
+description: "Autonomous: Setup. Gets a Mac or Windows machine ready for the autonomous skills and a hands-on workshop from a one-line prompt that names the event and links here: the agent gets the skills, opens a setup checklist canvas in the same chat, installs what's missing, starts the sign-ins, and has the person test each item with a Try-it prompt. Never handles passwords or keys. The internal setup covers VS Code Insiders, GitHub CLI, git, Node and Yarn 1, Python, ffmpeg, a browser, the workshop settings, a private copy of the skills with the daily sync and weekly update, Work IQ, Playwright, Computer Use, dictation, and optional Azure, a dev box and research. A prompt naming a workshop folder takes the light AI-First path: portable tools, light skills and a practice repo, only what the person checks, after Confirm. Resumable. Use for 'set me up for <event>', 'set me up on my dev box', 'set up the autonomous skills', 'check my setup', 'continue my setup', or 'am I ready for the workshop'."
 ---
 
 # Autonomous: Setup
@@ -12,10 +12,17 @@ Copilot CLI) on macOS and Windows, and the same line picks up again at any point
 
 People do this alone, before the workshop, so every message says plainly what's happening and what they need to do.
 
+A prompt that names a workshop folder ("... in ~/ai-first-workshop") takes the light AI-First path instead: a public
+setup for designers on their own laptops, with portable tools in that folder and nothing installed until they click
+Confirm on the canvas. It's in [`references/ai-first.md`](references/ai-first.md), and it starts below, in "Start here".
+
 ## Start here
 
 Do these first, in order, before anything else in this file.
 
+0. **Which path.** When the prompt names a folder ("... in ~/ai-first-workshop. Follow ..."), do "The AI-First path"
+   just below instead of steps 1 to 3, then follow [`references/ai-first.md`](references/ai-first.md) and nothing
+   else in this file. Without a folder, it's the setup in the rest of this file, steps 1 to 3 first.
 1. **Work from the clone.** If you're reading this anywhere other than
    `$HOME/.copilot/autonomous-output-skills/autonomous-setup/SKILL.md` (on GitHub, from a link, in another folder),
    clone the repo there first: `git clone https://github.com/eli-w-king/autonomous-output-skills
@@ -26,6 +33,25 @@ Do these first, in order, before anything else in this file.
 2. **Stay in this chat.** Never set, change or move this session's workspace, not even to the clone. Use full paths
    (rule 9).
 3. **Save the values from the prompt** (below) with `check-setup.py remember`, before the first check.
+
+### The AI-First path
+
+1. **The folder** is the one the prompt names (`~/ai-first-workshop`; on Windows `$HOME\ai-first-workshop`). Make it
+   if it's missing. Install nothing else yet: the person chooses on the canvas first.
+2. **Get the skills into `<folder>/autonomous-output-skills`**, never into `~/.copilot/autonomous-output-skills`:
+   - **When git works without installing anything,** clone shallow: `git clone --depth 1
+     https://github.com/eli-w-king/autonomous-output-skills "<folder>/autonomous-output-skills"`, or pull with
+     `git -C "<folder>/autonomous-output-skills" pull --ff-only` when it's there. On a Mac, git works when
+     `xcode-select -p` succeeds or a git is in `/opt/homebrew/bin` or `/usr/local/bin`. Never run `/usr/bin/git`
+     without Apple's command line tools: it opens a 1.3 GB install dialog.
+   - **Otherwise download it.** macOS: `curl -fsSL
+     https://github.com/eli-w-king/autonomous-output-skills/archive/refs/heads/main.tar.gz | tar -xz -C "<folder>"`,
+     then rename `autonomous-output-skills-main` to `autonomous-output-skills`. Windows (PowerShell, one at a time):
+     `curl.exe -fsSL -o "<folder>\skills.zip" https://github.com/eli-w-king/autonomous-output-skills/archive/refs/heads/main.zip`,
+     `tar.exe -xf "<folder>\skills.zip" -C "<folder>"`, rename the folder the same way, and delete the zip. When a
+     copy is already there, move it aside first.
+3. **Then read `<folder>/autonomous-output-skills/autonomous-setup/references/ai-first.md` and follow it.** Stay in
+   this chat, as everywhere in this skill.
 
 ### Values from the prompt
 
@@ -133,6 +159,7 @@ works at a time. Never ask them to start a chat or paste the prompt again.
 | `mcp-servers.py` | `status`, `add playwright`, `add devbox`, `remove` in Copilot's MCP config |
 | `devbox.py` | a dev box that stays on: `status`, `pools`, `create`, `wait`, `link`, `delete` and the admin message |
 | `practice-repo.py`, `screenshot.mjs` | the practice repo, for the workshop itself (not used during setup) |
+| `ai-first.mjs` | the AI-First path, with no Python: `check`, `canvas`, `install <item>`, `env`, `automation`, `record`, `uninstall` ([`references/ai-first.md`](references/ai-first.md)) |
 
 - Workshop values are in [`references/workshop.json`](references/workshop.json), the settings in
   [`references/workshop-settings.jsonc`](references/workshop-settings.jsonc).

@@ -2,14 +2,14 @@
 import { createCanvas, CanvasError, joinSession } from '@github/copilot-sdk/extension';
 import { CANVAS_ID } from './lib/catalog.mjs';
 import { SetupError } from './lib/errors.mjs';
-import { CheckRunner } from './lib/runner.mjs';
+import { AiFirstRunner, CheckRunner } from './lib/runner.mjs';
 import { SetupModel } from './lib/model.mjs';
 import { CanvasHub } from './lib/server.mjs';
 import { Simulation } from './lib/simulation.mjs';
 import { Store, copilotHome } from './lib/store.mjs';
 import {
-	OPEN_INPUT_SCHEMA, REFRESH_SCHEMA, SET_ITEM_SCHEMA, SET_STEP_SCHEMA,
-	validateOpenInput, validateRefreshInput, validateSetItemInput, validateSetStepInput,
+	OPEN_INPUT_SCHEMA, REFRESH_SCHEMA, SET_ITEM_SCHEMA, SET_STEP_SCHEMA, WAIT_SCHEMA,
+	validateOpenInput, validateRefreshInput, validateSetItemInput, validateSetStepInput, validateWaitInput,
 } from './lib/validate.mjs';
 
 let session = null;
@@ -18,8 +18,17 @@ const log = (message, level = 'info') => {
 };
 
 const home = copilotHome();
-const model = new SetupModel({ store: new Store({ home }), runner: new CheckRunner({ copilotHome: home }), log });
+const model = new SetupModel({ store: new Store({ home }), runner: new CheckRunner({ copilotHome: home }), aiFirstRunner: new AiFirstRunner({ copilotHome: home }), log });
 const hub = new CanvasHub({ model, log });
+
+// When the person clicks Confirm and the agent isn't waiting for it (its turn ended), say so in the chat, so the
+// setup carries on without them typing anything.
+model.on('confirmed', () => {
+	if (model.waiters > 0 || typeof session?.send !== 'function') {
+		return;
+	}
+	session.send({ prompt: 'I clicked Confirm on the setup checklist. Go ahead and set up what I checked.', mode: 'enqueue' }).catch(() => {});
+});
 
 function toCanvasError(error) {
 	if (error instanceof CanvasError) {
@@ -49,16 +58,16 @@ async function savedMeta() {
 	}
 }
 
-// A simulation for this instance: the one it already plays (same OS), or a new one from the start.
-async function openSimulation(instanceId, os, fields) {
+// A simulation for this instance: the one it already plays (same OS and path), or a new one from the start.
+async function openSimulation(instanceId, os, fields, workshop = null) {
 	const given = { ...fields };
 	delete given.skillsDir;
 	const current = hub.get(instanceId)?.simulation;
-	if (current && current.os === os) {
+	if (current && current.os === os && current.workshop === workshop) {
 		await current.setMeta(given);
 		return hub.open(instanceId, { simulation: current });
 	}
-	const simulation = new Simulation({ os, meta: { ...(await savedMeta()), ...given }, log });
+	const simulation = new Simulation({ os, workshop, meta: { ...(await savedMeta()), ...given }, log });
 	await simulation.ready();
 	return hub.open(instanceId, { simulation });
 }
@@ -102,15 +111,22 @@ const canvas = createCanvas({
 			inputSchema: SET_STEP_SCHEMA,
 			handler: guard(async (ctx) => hub.modelFor(ctx.instanceId).setStep(validateSetStepInput(ctx.input))),
 		},
+		{
+			name: 'waitForConfirm',
+			description: 'AI-First path only: wait while the person reads the steps. Returns status confirmed (install flow.install), gate (they picked the Microsoft workshop: start its sign-in), microsoft (signed in and continuing to the internal setup) or waiting (call it again).',
+			inputSchema: WAIT_SCHEMA,
+			handler: guard(async (ctx) => hub.modelFor(ctx.instanceId).waitForFlow(validateWaitInput(ctx.input))),
+		},
 	],
 	open: guard(async (ctx) => {
-		const { simulate, ...fields } = validateOpenInput(ctx.input);
+		const { simulate, workshop, workshopDir, ...fields } = validateOpenInput(ctx.input);
 		if (simulate) {
-			const instance = await openSimulation(ctx.instanceId, simulate, fields);
+			const instance = await openSimulation(ctx.instanceId, simulate, fields, workshop || null);
 			return { url: instance.url, title: 'Workshop setup', status: `Simulation: ${instance.simulation.info().label}` };
 		}
 		await model.load();
 		await model.setMeta(fields);
+		await model.setWorkshop({ workshop: workshop || null, workshopDir });
 		const instance = await hub.open(ctx.instanceId);
 		model.refreshSoon();
 		return { url: instance.url, title: 'Workshop setup', status: model.statusLine() };

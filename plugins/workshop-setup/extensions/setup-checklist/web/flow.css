@@ -1,0 +1,312 @@
+/* The AI-First path's steps and its light checklist. Every color, font, radius, shadow and timing for this path is a
+   custom property in the first block, so a new identity is applied here in one place. The welcome hero has its own
+   swappable file (welcome.css). */
+html[data-path="ai-first"] {
+	/* The kit's faces: Inter Display, Inter and Geist Mono once their files are next to the canvas (ai-first.mjs
+	   canvas fetches them), and the system's own until then. */
+	--font: var(--hz-font-text);
+	--font-display: var(--hz-font-display);
+	--mono: var(--hz-font-mono);
+	--mono-label: var(--hz-font-mono);
+	/* Everything else comes from the kit's tokens (web/horizon/horizon.css), with the same values as fallbacks for
+	   the moment before the kit loads. */
+	--bg: var(--hz-ground, #ffffff);
+	--raised: var(--hz-ground, #ffffff);
+	--sunken: #f5f7f8;
+	--line: var(--hz-hairline, #e5e8ec);
+	--line-strong: var(--hz-hairline-strong, #d5d9df);
+	--rule: var(--hz-hairline, #e5e8ec);
+	--rule-2: var(--hz-hairline-strong, #d5d9df);
+	--toggle-off: var(--hz-control-border, #848b95);
+	--text: var(--hz-muted, #464c55);
+	--muted: var(--hz-subtle, #69707a);
+	--heading: var(--hz-ink, #0d1014);
+	--brand: var(--hz-accent, #1b6b9e);
+	--accent: var(--hz-accent, #1b6b9e);
+	--accent-hover: var(--hz-accent-strong, #124874);
+	--accent-press: var(--hz-accent-strong, #124874);
+	--accent-tint: var(--hz-accent-tint, #eef6fa);
+	--accent-bg: var(--hz-accent-tint, #eef6fa);
+	--on-accent: var(--hz-on-accent, #ffffff);
+	--disabled-bg: var(--hz-disabled-bg, #eceef1);
+	--disabled-ink: var(--hz-disabled-ink, #6b727c);
+	--ok: #1a7f45;
+	--fail: #c4291d;
+	--fail-bg: rgba(196, 41, 29, .06);
+	--focus: var(--hz-accent, #1b6b9e);
+	--button-bg: rgba(13, 16, 20, .04);
+	--button-hover: rgba(13, 16, 20, .09);
+	--flow-max: 620px;
+	--flow-radius: var(--hz-radius, 8px);
+	--flow-radius-small: 6px;
+	--flow-radius-control: var(--hz-radius-sm, 4px);
+	--flow-shadow: var(--hz-shadow-2, 0 1px 2px rgba(13, 16, 20, .05), 0 10px 30px rgba(13, 16, 20, .07));
+	--flow-title: 600 16px/1.35 var(--font);
+	--flow-title-tracking: -0.01em;
+	--flow-ease: var(--hz-ease-out, cubic-bezier(.2, .7, .15, 1));
+	--flow-enter: .32s;
+	color-scheme: light;
+}
+
+html[data-path="ai-first"] body { font-size: 13px; }
+
+.flow[hidden] { display: none; }
+.flow.is-confirmed .flow-card { display: none; }
+
+/* The step card sits on the band's glow, at the bottom of the panel. */
+.flow-card {
+	position: relative;
+	width: calc(100% - 40px);
+	max-width: var(--flow-max);
+	margin: auto auto 20px;
+	padding: 18px;
+	border: 1px solid var(--rule-2);
+	border-radius: var(--flow-radius);
+	background: var(--raised);
+	box-shadow: var(--flow-shadow);
+	text-align: left;
+}
+.flow-step.is-entering { animation: flow-step-in var(--flow-enter) var(--flow-ease) both; }
+@keyframes flow-step-in { from { opacity: 0; transform: translateY(6px); } }
+
+.flow-count {
+	margin: 0;
+	color: var(--muted);
+	font: 400 11px/1.4 var(--mono-label);
+	letter-spacing: .02em;
+	font-variant-numeric: tabular-nums;
+}
+
+.flow-title {
+	margin: 6px 0 8px;
+	color: var(--heading);
+	font: var(--flow-title);
+	letter-spacing: var(--flow-title-tracking);
+	outline: none;
+}
+.flow-title:focus-visible { outline: none; }
+
+.flow-lede { margin: 0 0 14px; color: var(--muted); line-height: 1.45; max-width: 60ch; }
+
+.flow-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+.flow-actions .flow-back { margin-right: auto; }
+
+.flow button {
+	height: 28px;
+	padding: 0 14px;
+	border: 1px solid var(--rule-2);
+	border-radius: var(--flow-radius-control);
+	background: var(--raised);
+	color: var(--heading);
+	font: 500 13px var(--font);
+}
+.flow button:hover:not([aria-disabled="true"]) { border-color: #b4bac3; background: var(--raised); }
+.flow button.primary {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--on-accent);
+}
+.flow button.primary:hover:not([aria-disabled="true"]) { border-color: var(--accent-press); background: var(--accent-press); }
+.flow button[aria-disabled="true"] { border-color: var(--disabled-bg); background: var(--disabled-bg); color: var(--disabled-ink); opacity: 1; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------- pick */
+
+.pick-options { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.pick-options legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.pick-option {
+	position: relative;
+	display: grid;
+	grid-template-columns: 16px 1fr;
+	gap: 12px;
+	padding: 11px 13px;
+	border: 1px solid var(--rule-2);
+	border-radius: var(--flow-radius-small);
+	background: var(--raised);
+	cursor: pointer;
+	transition: border-color .12s ease, background-color .12s ease;
+}
+.pick-option:hover { border-color: #b4bac3; }
+.pick-option:has(input:checked) { border-color: var(--accent); background: var(--accent-tint); }
+.pick-option:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.pick-option input {
+	appearance: none;
+	width: 16px;
+	height: 16px;
+	margin: 1px 0 0;
+	border: 1px solid #848b95;
+	border-radius: 50%;
+	background: var(--raised);
+	cursor: pointer;
+}
+.pick-option input:checked { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3.5px #ffffff; }
+.pick-option input:focus-visible { outline: none; }
+
+.pick-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--heading); font-weight: 600; font-size: 13px; }
+.pick-tag {
+	padding: 0 6px;
+	border: 1px solid var(--rule-2);
+	border-radius: var(--flow-radius-control);
+	color: var(--text);
+	background: var(--raised);
+	font: 400 10.5px/16px var(--mono-label);
+}
+.pick-blurb { display: block; margin-top: 3px; color: var(--text); line-height: 1.45; }
+
+/* ---------------------------------------------------------------- gate and notes */
+
+.flow-note {
+	display: grid;
+	grid-template-columns: 16px 1fr;
+	gap: 10px;
+	margin: 0 0 14px;
+	padding: 12px 14px;
+	border-left: 3px solid var(--accent);
+	border-radius: var(--flow-radius-small);
+	background: var(--sunken);
+	color: var(--heading);
+}
+.flow-note svg { margin-top: 2px; fill: var(--accent); color: var(--accent); }
+.flow-note p { margin: 0; }
+
+.gate-status { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text); }
+.gate-status.is-ok { color: var(--ok); font-weight: 500; }
+.gate-status .spin { animation: flow-spin 1s linear infinite; transform-origin: 8px 8px; }
+@keyframes flow-spin { to { transform: rotate(360deg); } }
+
+.flow-points { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.flow-points li { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; }
+.flow-points svg { margin-top: 2px; fill: none; stroke: var(--accent); }
+
+/* ---------------------------------------------------------------- install list */
+
+.install-group + .install-group { margin-top: 16px; }
+.install-group h3 {
+	margin: 0 0 2px;
+	color: var(--muted);
+	font: 400 11px/1.4 var(--mono-label);
+	letter-spacing: .02em;
+}
+.install-rows { margin: 0; padding: 0; list-style: none; }
+
+.install-row {
+	display: grid;
+	grid-template-columns: 20px 1fr auto;
+	gap: 10px;
+	align-items: start;
+	padding: 10px 0;
+}
+.install-row + .install-row { border-top: 1px solid var(--line); }
+.install-row .control { display: flex; align-items: center; justify-content: center; min-height: 20px; }
+.install-label { color: var(--heading); font-weight: 500; }
+.install-reason, .install-note { display: block; margin-top: 2px; color: var(--muted); }
+.install-note { color: var(--text); }
+.install-size {
+	min-height: 20px;
+	color: var(--text);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	text-align: right;
+}
+.install-row.is-present .install-size, .install-row.is-off .install-size { color: var(--muted); }
+.install-row.is-off .install-label { color: var(--text); }
+
+.lock { fill: var(--muted); color: var(--muted); }
+.present-check { fill: var(--ok); }
+
+.flow .switch {
+	appearance: none;
+	width: 28px;
+	height: 16px;
+	margin: 2px 0 0;
+	border-radius: 8px;
+	background: var(--toggle-off);
+	position: relative;
+	cursor: pointer;
+	transition: background .15s ease;
+}
+.flow .switch::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #ffffff;
+	transition: transform .15s ease;
+}
+.flow .switch:checked { background: var(--accent); }
+.flow .switch:checked::after { transform: translateX(12px); }
+
+.install-total {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 4px 12px;
+	margin-top: 12px;
+	padding: 12px 14px;
+	border-radius: var(--flow-radius-small);
+	background: var(--sunken);
+}
+.install-total strong { color: var(--heading); font: 600 15px/1.3 var(--font); }
+.install-total span { color: var(--muted); }
+.install-total.is-tight { background: var(--fail-bg); }
+.install-total.is-tight span { color: var(--fail); }
+
+/* ---------------------------------------------------------------- uninstall and after */
+
+.link-card {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 12px;
+	margin-top: 14px;
+	padding: 12px 14px;
+	border: 1px solid var(--line-strong);
+	border-radius: var(--flow-radius-small);
+}
+.link-card a { color: var(--accent); font-weight: 600; text-underline-offset: 2px; }
+.link-card a:hover { color: var(--accent-hover); }
+.link-card .link-sub { display: block; margin-top: 2px; color: var(--muted); font-weight: 400; }
+
+.after-list { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.after-list li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- the checklist after Confirm */
+
+html[data-path="ai-first"] .page { max-width: var(--flow-max); padding-top: 0; }
+html[data-path="ai-first"] .band { display: none; }
+html[data-path="ai-first"] h1 { font: 500 20px/1.25 var(--font-display); letter-spacing: -0.015em; }
+html[data-path="ai-first"] .item.is-current { background: var(--accent-bg); }
+html[data-path="ai-first"] .callout { background: var(--sunken); }
+html[data-path="ai-first"] .copy-row.is-code .copy { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.done-note {
+	margin: 18px 0 0;
+	padding: 12px 14px;
+	border-radius: var(--flow-radius-small);
+	background: var(--sunken);
+	color: var(--heading);
+}
+.done-note[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+	.flow-step.is-entering { animation: none; }
+	.gate-status .spin { animation: none; }
+}
+
+@media (max-width: 420px) {
+	.flow-card { width: calc(100% - 28px); margin-bottom: 14px; padding: 18px 16px 14px; }
+	.install-row { grid-template-columns: 20px 1fr; }
+	.install-size { grid-column: 2; text-align: left; }
+	.flow-actions { flex-wrap: wrap; }
+}

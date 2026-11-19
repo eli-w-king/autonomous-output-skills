@@ -2,8 +2,21 @@
 // reported with setItem, and the person's choices) into one status per item, the progress, and the summary the agent
 // reads back. Pure functions, so they're easy to test.
 import { GROUPS, ITEMS, ITEM_BY_ID, MERGED_CHECKS, LATER_NOTE, osKey, itemLabel, itemHelp, itemTest, humanize } from './catalog.mjs';
+import { AF_CATALOG, flowOf, itemChosen, usesAiFirst } from './ai-first.mjs';
 
-const GROUP_BY_ID = new Map(GROUPS.map((group) => [group.id, group]));
+const INTERNAL = { kind: 'internal', GROUPS, ITEMS, ITEM_BY_ID, MERGED_CHECKS, LATER_NOTE };
+
+// The internal setup's catalog, or the AI-First one when the last open asked for the AI-First path.
+export function catalogFor(record) {
+	return usesAiFirst(record) ? AF_CATALOG : INTERNAL;
+}
+
+const groupById = (catalog) => new Map(catalog.GROUPS.map((group) => [group.id, group]));
+
+// On the AI-First path, the person's switches on the install list are the choices for optional items.
+function withChoices(record, catalog) {
+	return catalog.kind === 'ai-first' ? { ...record, choices: { ...flowOf(record).selections } } : record;
+}
 const time = (value) => {
 	const ms = Date.parse(value || '');
 	return Number.isNaN(ms) ? -Infinity : ms;
@@ -52,9 +65,16 @@ export function osFromRecord(record, platform = process.platform) {
 	return osKey(record.lastCheck?.os?.name || platform);
 }
 
-// The items to show, in catalog order, then ids only the check or the agent knows about.
+// The items to show, in catalog order, then ids only the check or the agent knows about. On the AI-First path, only
+// what the person chose (and the required items), and nothing the catalog doesn't know.
 export function itemDefs(record) {
+	const catalog = catalogFor(record);
 	const checkItems = record.lastCheck?.items || {};
+	if (catalog.kind === 'ai-first') {
+		const flow = flowOf(record);
+		const defs = catalog.ITEMS.filter((def) => def.required === 'missing' || itemChosen(def, flow, checkItems));
+		return { defs, later: [] };
+	}
 	const defs = [];
 	const later = [];
 	const known = new Set();
@@ -169,7 +189,7 @@ export function deriveItem(def, { record, os, checking = false, meta = {} }) {
 	const how = record.baseline?.ids.includes(def.id) ? 'already' : 'new';
 	return {
 		id: def.id,
-		group: GROUP_BY_ID.has(def.group) ? def.group : 'more',
+		group: groupById(catalogFor(record)).has(def.group) ? def.group : 'more',
 		label: itemLabel(def, os) || humanize(def.id),
 		status,
 		how: status === 'done' || status === 'installed' ? how : null,
@@ -218,12 +238,14 @@ function stepLabel(record, items) {
 	if (item) {
 		return { id, label: item.label, kind: 'item' };
 	}
-	const group = GROUP_BY_ID.get(id);
+	const group = groupById(catalogFor(record)).get(id);
 	return group ? { id, label: group.label, kind: 'group' } : null;
 }
 
 // Everything the page renders.
-export function buildView(record, { platform = process.platform, checking = false, checkError = null, intro = null } = {}) {
+export function buildView(source, { platform = process.platform, checking = false, checkError = null, intro = null } = {}) {
+	const catalog = catalogFor(source);
+	const record = withChoices(source, catalog);
 	const os = osFromRecord(record, platform);
 	const meta = record.meta || {};
 	const { defs, later } = itemDefs(record);
@@ -237,7 +259,7 @@ export function buildView(record, { platform = process.platform, checking = fals
 	}
 	const counted = items.filter((item) => item.counted);
 	const done = counted.filter((item) => item.status === 'done').length;
-	const groups = GROUPS.map((group) => {
+	const groups = catalog.GROUPS.map((group) => {
 		const groupItems = items.filter((item) => item.group === group.id);
 		return {
 			id: group.id,
@@ -251,6 +273,7 @@ export function buildView(record, { platform = process.platform, checking = fals
 	}).filter((group) => group.items.length);
 	return {
 		os,
+		path: catalog.kind,
 		meta: { title: meta.title || null, subtitle: meta.subtitle || null, presenter: meta.presenter || null },
 		check: {
 			checking,
@@ -261,7 +284,7 @@ export function buildView(record, { platform = process.platform, checking = fals
 		allDone: counted.length > 0 && done === counted.length && !checking,
 		step,
 		groups,
-		later: later.length ? { note: LATER_NOTE, items: later.map((def) => itemLabel(def, os) || humanize(def.id)) } : null,
+		later: later.length ? { note: catalog.LATER_NOTE, items: later.map((def) => itemLabel(def, os) || humanize(def.id)) } : null,
 		intro,
 	};
 }
@@ -309,15 +332,19 @@ export function summarize(view, record) {
 // Ids setItem accepts: anything shown, anything the last check reported, and catalog ids (step ids with dashes map
 // to item ids, so computer-use works too).
 export function resolveItemId(id, record) {
+	const catalog = catalogFor(record);
 	const checkItems = record.lastCheck?.items || {};
 	const candidates = [id, id.replace(/-/g, '_')];
 	for (const candidate of candidates) {
-		const merged = MERGED_CHECKS.get(candidate);
+		const merged = catalog.MERGED_CHECKS.get(candidate);
 		if (merged) {
 			return merged;
 		}
-		if (ITEM_BY_ID.has(candidate) && !ITEM_BY_ID.get(candidate).later) {
+		if (catalog.ITEM_BY_ID.has(candidate) && !catalog.ITEM_BY_ID.get(candidate).later) {
 			return candidate;
+		}
+		if (catalog.kind === 'ai-first') {
+			continue;
 		}
 		if (checkItems[candidate] && !checkItems[candidate].later) {
 			return candidate;
@@ -330,9 +357,13 @@ export function resolveItemId(id, record) {
 }
 
 export function isOptionalId(id, record) {
-	const def = ITEM_BY_ID.get(id);
+	const catalog = catalogFor(record);
+	const def = catalog.ITEM_BY_ID.get(id);
 	if (def) {
-		return def.group === 'optional';
+		return catalog.kind === 'ai-first' ? def.required === false : def.group === 'optional';
+	}
+	if (catalog.kind === 'ai-first') {
+		return false;
 	}
 	return record.lastCheck?.items?.[id]?.required === false;
 }
@@ -344,5 +375,5 @@ export function baselineIds(record, platform = process.platform) {
 }
 
 export function knownStepIds(record) {
-	return [...GROUPS.map((group) => group.id), ...itemDefs(record).defs.map((def) => def.id), 'none'];
+	return [...catalogFor(record).GROUPS.map((group) => group.id), ...itemDefs(record).defs.map((def) => def.id), 'none'];
 }

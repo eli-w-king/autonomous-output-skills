@@ -6,17 +6,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SetupError } from './errors.mjs';
 import { renderPage } from './page.mjs';
-import { validateChoiceBody, validateEmptyBody, validateSimBody } from './validate.mjs';
+import { validateChoiceBody, validateEmptyBody, validateFlowBody, validateSimBody } from './validate.mjs';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const ASSETS = {
 	'/app.css': ['app.css', 'text/css; charset=utf-8'],
 	'/app.js': ['app.js', 'text/javascript; charset=utf-8'],
 	'/intro.js': ['intro.js', 'text/javascript; charset=utf-8'],
+	// The AI-First path: its welcome look (swap these two files to restyle it) and its steps.
+	'/welcome.css': ['welcome.css', 'text/css; charset=utf-8'],
+	'/welcome.js': ['welcome.js', 'text/javascript; charset=utf-8'],
+	'/flow.css': ['flow.css', 'text/css; charset=utf-8'],
+	'/flow.js': ['flow.js', 'text/javascript; charset=utf-8'],
+	// The Horizon visual kit, copied in verbatim by tools/sync-horizon.mjs. flow.js loads it on the AI-First path only.
+	'/horizon/horizon.css': ['horizon/horizon.css', 'text/css; charset=utf-8'],
+	'/horizon/horizon.js': ['horizon/horizon.js', 'text/javascript; charset=utf-8'],
 };
 const MAX_BODY = 8 * 1024;
 const MAX_CLIENTS = 16;
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'";
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'";
+const FONT_TYPES = { '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
 
 function headers(extra = {}) {
 	return {
@@ -65,6 +74,35 @@ function readBody(req) {
 		});
 		req.on('error', reject);
 	});
+}
+
+export function withoutFontFaces(css) {
+	return String(css).replace(/@font-face\s*\{[^}]*\}\s*/g, '');
+}
+
+// The kit's woff2 fonts, from web/horizon-fonts.json (tools/sync-horizon.mjs writes it).
+async function fontNames() {
+	try {
+		const manifest = JSON.parse(await fsp.readFile(path.join(WEB_DIR, 'horizon-fonts.json'), 'utf8'));
+		return (manifest.fonts || []).map((font) => font.name).filter((name) => typeof name === 'string');
+	} catch {
+		return [];
+	}
+}
+
+export async function fontsPresent() {
+	const names = await fontNames();
+	if (!names.length) {
+		return false;
+	}
+	for (const name of names) {
+		try {
+			await fsp.access(path.join(WEB_DIR, 'horizon', 'fonts', name));
+		} catch {
+			return false;
+		}
+	}
+	return true;
 }
 
 export class CanvasInstance {
@@ -161,8 +199,35 @@ export class CanvasInstance {
 			}
 			if (ASSETS[url.pathname]) {
 				const [file, type] = ASSETS[url.pathname];
-				const body = await fsp.readFile(path.join(WEB_DIR, file));
+				const body = await fsp.readFile(path.join(WEB_DIR, file)).catch((error) => {
+					if (error.code === 'ENOENT') {
+						return null;
+					}
+					throw error;
+				});
+				if (!body) {
+					sendText(res, 404, 'Not found');
+					return;
+				}
+				// The kit's fonts are fetched next to it when the canvas is copied (ai-first.mjs canvas), since the skills
+				// repo publishes text only. Until they're all there, its CSS is served without its font faces, so the
+				// page uses the system's faces and asks for no missing files. The file itself stays verbatim.
+				const served = url.pathname === '/horizon/horizon.css' && !(await fontsPresent())
+					? Buffer.from(withoutFontFaces(body.toString('utf8'))) : body;
 				res.writeHead(200, headers({ 'Content-Type': type }));
+				res.end(req.method === 'HEAD' ? undefined : served);
+				return;
+			}
+			if (url.pathname.startsWith('/horizon/fonts/')) {
+				const name = decodeURIComponent(url.pathname.slice('/horizon/fonts/'.length));
+				const type = FONT_TYPES[path.extname(name).toLowerCase()];
+				const allowed = type && /^[A-Za-z0-9._-]+$/.test(name) && ((await fontNames()).includes(name) || name.endsWith('.txt'));
+				const body = allowed ? await fsp.readFile(path.join(WEB_DIR, 'horizon', 'fonts', name)).catch(() => null) : null;
+				if (!body) {
+					sendText(res, 404, 'Not found');
+					return;
+				}
+				res.writeHead(200, headers({ 'Content-Type': type, 'Cache-Control': 'max-age=86400' }));
 				res.end(req.method === 'HEAD' ? undefined : body);
 				return;
 			}
@@ -214,6 +279,11 @@ export class CanvasInstance {
 					this.broadcast();
 				}
 				sendJson(res, 200, { ok: true, simulation: this.simulation.info() });
+				return;
+			}
+			if (url.pathname === '/api/flow') {
+				const result = await this.model.flowAction(validateFlowBody(body));
+				sendJson(res, 200, { ok: true, ...result });
 				return;
 			}
 			if (url.pathname === '/api/choice') {

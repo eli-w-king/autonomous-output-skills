@@ -1,0 +1,121 @@
+/* Horizon kit 1.0 · tokens and base styles.
+   Every value is a custom property on :root, so a consumer can theme by overriding variables only.
+   Fonts load from fonts/ next to this file: keep the folder structure when you copy the kit. */
+
+@font-face { font-family: 'Inter Display'; src: url('fonts/InterDisplay-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter Display'; src: url('fonts/InterDisplay-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/Inter-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/Inter-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/Inter-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('fonts/geist-mono-latin.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
+
+:root {
+  /* Color */
+  --hz-ground: #ffffff;
+  --hz-ink: #0d1014;            /* 19:1 on ground */
+  --hz-muted: #464c55;          /* 8.6:1 */
+  --hz-subtle: #69707a;         /* 5.0:1, AA for text */
+  --hz-hairline: #e5e8ec;
+  --hz-hairline-strong: #d5d9df;
+  --hz-control-border: #848b95; /* 3.4:1, meets 3:1 for UI components */
+  --hz-accent: #1b6b9e;         /* 5.8:1, AA for text; white on it is 5.8:1 */
+  --hz-accent-strong: #124874;  /* 9.5:1, hover and pressed */
+  --hz-accent-tint: #eef6fa;
+  --hz-on-accent: #ffffff;
+  --hz-disabled-bg: #eceef1;
+  --hz-disabled-ink: #5f6670;   /* 5.0:1 on the disabled background */
+
+  /* The dither ramp, from the dissolving edge to the light core. Fills only; never text. */
+  --hz-ramp-0: #124874;
+  --hz-ramp-1: #1b6b9e;
+  --hz-ramp-2: #2390b9;
+  --hz-ramp-3: #34abbd;
+  --hz-ramp-4: #4fc4d0;
+  --hz-ramp-5: #7ae1e3;
+  --hz-ramp-6: #89eaeb;
+  --hz-ramp-7: #c4f5f3;
+
+  /* Type */
+  --hz-font-display: 'Inter Display', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --hz-font-text: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --hz-font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --hz-track-display: -0.035em;
+  --hz-track-text: -0.01em;
+  --hz-size-display: clamp(54px, 7.6vw, 108px);
+  --hz-size-h1: clamp(36px, 4.6vw, 56px);
+  --hz-size-h2: clamp(30px, 3.2vw, 44px);
+  --hz-size-h3: 22px;
+  --hz-size-lede: 19px;
+  --hz-size-body: 17px;
+  --hz-size-small: 14px;
+  --hz-size-label: 13px;
+  --hz-leading-display: 0.98;
+  --hz-leading-body: 1.55;
+
+  /* Space, 4px base */
+  --hz-space-1: 4px;
+  --hz-space-2: 8px;
+  --hz-space-3: 12px;
+  --hz-space-4: 16px;
+  --hz-space-5: 24px;
+  --hz-space-6: 32px;
+  --hz-space-7: 48px;
+  --hz-space-8: 64px;
+  --hz-space-9: 96px;
+  --hz-space-10: 128px;
+  --hz-gutter: clamp(20px, 5vw, 64px);
+  --hz-max: 1200px;
+
+  /* Shape and depth */
+  --hz-radius-sm: 4px;
+  --hz-radius: 8px;
+  --hz-radius-lg: 12px;
+  --hz-shadow-1: 0 1px 2px rgba(13, 16, 20, 0.05);
+  --hz-shadow-2: 0 1px 2px rgba(13, 16, 20, 0.05), 0 10px 30px rgba(13, 16, 20, 0.07);
+  --hz-focus: 0 0 0 2px var(--hz-ground), 0 0 0 4px var(--hz-accent);
+
+  /* Motion */
+  --hz-dur-fast: 150ms;
+  --hz-dur: 300ms;
+  --hz-dur-slow: 900ms;
+  --hz-dur-slide: 1400ms;
+  --hz-ease-out: cubic-bezier(0.2, 0.7, 0.15, 1);
+  --hz-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ---------- Base ---------- */
+.hz-base { margin: 0; background: var(--hz-ground); color: var(--hz-ink); font-family: var(--hz-font-text); font-size: var(--hz-size-body); line-height: var(--hz-leading-body); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+.hz-base *, .hz-base *::before, .hz-base *::after { box-sizing: border-box; }
+
+.hz-headline { font-family: var(--hz-font-display); font-weight: 400; font-size: var(--hz-size-display); letter-spacing: var(--hz-track-display); line-height: var(--hz-leading-display); margin: 0; }
+.hz-title { font-family: var(--hz-font-display); font-weight: 400; font-size: var(--hz-size-h2); letter-spacing: var(--hz-track-display); line-height: 1.05; margin: 0; }
+.hz-label { font-family: var(--hz-font-display); font-weight: 400; color: var(--hz-subtle); letter-spacing: var(--hz-track-text); margin: 0; }
+.hz-body { font-size: var(--hz-size-body); line-height: var(--hz-leading-body); color: var(--hz-muted); }
+.hz-lede { font-size: var(--hz-size-lede); line-height: var(--hz-leading-body); color: var(--hz-muted); letter-spacing: -0.005em; }
+.hz-mono { font-family: var(--hz-font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.hz-accent-text { color: var(--hz-accent); }
+
+.hz-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--hz-space-2); height: 46px; padding: 0 22px; border-radius: var(--hz-radius); border: 1px solid transparent; font: 500 15px/1 var(--hz-font-text); letter-spacing: -0.005em; text-decoration: none; cursor: pointer; transition: background-color var(--hz-dur-fast), border-color var(--hz-dur-fast), color var(--hz-dur-fast); }
+.hz-button--primary { background: var(--hz-accent); color: var(--hz-on-accent); }
+.hz-button--primary:hover { background: var(--hz-accent-strong); }
+.hz-button--secondary { background: var(--hz-ground); color: var(--hz-ink); border-color: var(--hz-hairline-strong); }
+.hz-button--secondary:hover { border-color: #b4bac3; }
+.hz-button--small { height: 28px; padding: 0 14px; border-radius: var(--hz-radius-sm); font-size: 13px; }
+.hz-button:disabled, .hz-button[aria-disabled='true'] { background: var(--hz-disabled-bg); color: var(--hz-disabled-ink); border-color: transparent; cursor: not-allowed; }
+
+.hz-card { background: var(--hz-ground); border: 1px solid var(--hz-hairline-strong); border-radius: var(--hz-radius); box-shadow: var(--hz-shadow-2); }
+.hz-rule { border: 0; border-top: 1px solid var(--hz-hairline); margin: 0; }
+
+.hz-focus:focus-visible, .hz-button:focus-visible, .hz-base a:focus-visible { outline: 2px solid var(--hz-accent); outline-offset: 2px; }
+
+/* ---------- The horizon ---------- */
+.hz-host { isolation: isolate; }
+.hz-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; display: block; pointer-events: none; }
+.hz-condense { position: absolute; z-index: 1; pointer-events: none; display: block; }
+
+/* Intro: hidden only while motion is on and before the kit reveals them. Without JS or with reduced motion, everything shows. */
+.hz-motion [data-hz-reveal]:not(.hz-in), .hz-motion [data-hz-condense]:not(.hz-in) { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hz-button { transition: none; }
+}

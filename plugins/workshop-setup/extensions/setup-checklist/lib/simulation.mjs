@@ -12,6 +12,7 @@ export const SIMULATE_OS = ['mac', 'windows'];
 export const SIMULATION_STATES = ['waiting', 'playing', 'paused', 'done', 'failed'];
 
 const LABELS = { mac: 'A new Mac', windows: 'A new Windows PC' };
+const AI_FIRST_FOLDER = '~/ai-first-workshop';
 const OS_INFO = { mac: { name: 'macOS', version: '26.1', arch: 'arm64' }, windows: { name: 'Windows 11', version: '10.0.26100', arch: 'AMD64' } };
 // What GitHub's device sign-in shows; the agent sends it to the canvas as the thing to copy.
 const SIGN_IN_CODE = '7F3A-21C9';
@@ -195,6 +196,57 @@ export class PretendMachine {
 	}
 }
 
+const MB = 1000 * 1000;
+const size = (download, disk) => ({ download: Math.round(download * MB), disk: Math.round(disk * MB) });
+const zero = { download: 0, disk: 0 };
+
+// What ai-first.mjs check reports when the canvas first opens on a new laptop for the AI-First path: the person pasted
+// the workshop settings, and the setup prompt downloaded the skills into the workshop folder. Nothing else is here.
+export function firstAiFirstCheck(os) {
+	const mac = os === 'mac';
+	const items = {
+		git: { ok: false, required: true, needed: true, detail: 'not on this computer yet', size: mac ? size(41.6, 25) : size(39.8, 97) },
+		node: { ok: false, required: true, needed: true, detail: 'not on this computer yet', size: mac ? size(30.6, 162) : size(41.2, 118) },
+		gh: { ok: false, required: true, needed: true, installed: false, signed_in: false, detail: 'not on this computer yet', size: mac ? size(14.1, 40) : size(15.2, 42) },
+		skills: { ok: false, required: true, needed: true, detail: '0 of 4 installed', size: size(0.07, 0.07) },
+		skill_runs: { ok: false, required: false, needed: true, detail: 'not installed', size: size(0.02, 0.02) },
+		skill_research: { ok: false, required: false, needed: true, detail: 'not installed', size: size(0.03, 0.03) },
+		skill_taste: { ok: false, required: false, needed: true, detail: 'not installed', size: size(0.02, 0.02) },
+		excalidraw: { ok: false, required: true, needed: true, detail: 'not created yet', size: size(40, 200) },
+		resources: { ok: false, required: true, needed: true, detail: 'not copied yet', size: size(0.03, 0.03) },
+		demo_tools: { ok: false, required: true, needed: true, detail: mac ? 'uses your Google Chrome' : 'uses your Microsoft Edge', browser: mac ? 'Google Chrome' : 'Microsoft Edge', size: mac ? size(24.2, 67) : size(34.8, 101) },
+		computer_use: { ok: true, required: true, needed: false, detail: 'on; its helper downloads the first time you use it', size: mac ? size(5.3, 6) : size(2.5, 3) },
+		dictation: { ok: true, required: true, needed: false, detail: 'cloud dictation is on (nothing to download)', size: zero },
+		taste_weekly: { ok: null, required: false, needed: true, detail: 'set up after the skills, in the Agents window', size: zero },
+		microsoft_signin: { ok: false, required: false, detail: 'not signed in with GitHub CLI yet', size: zero },
+	};
+	return items;
+}
+
+export class PretendAiFirstMachine {
+	constructor(os) {
+		this.os = os;
+		this.items = firstAiFirstCheck(os);
+	}
+
+	set(id, changes) {
+		this.items[id] = { ...this.items[id], ...changes };
+	}
+
+	snapshot(time) {
+		return {
+			time,
+			path: 'ai-first',
+			os: { ...OS_INFO[this.os] },
+			folder_display: AI_FIRST_FOLDER,
+			free_bytes: 38 * 1000 * MB,
+			settings: { missing: [] },
+			items: structuredClone(this.items),
+			steps: {},
+		};
+	}
+}
+
 export class PretendRunner {
 	constructor({ machine, clock, now }) {
 		this.machine = machine;
@@ -336,6 +388,80 @@ export async function firstTimeSetup(s) {
 	await s.on('none', 0);
 }
 
+// The AI-First path, beat by beat: the person reads the steps and confirms (with My taste and its weekly update
+// switched on), then the agent installs, the person signs in to GitHub, and they try Computer Use and dictation.
+export async function aiFirstSetup(s) {
+	const mac = s.os === 'mac';
+	const done = { needed: false, size: zero };
+	await s.check({ quick: false });
+	await s.wait(3200);
+	await s.flow('pick', { id: 'ai-first' });
+	await s.wait(3000);
+	await s.flow('step', { step: 'install' });
+	await s.wait(2400);
+	await s.flow('select', { id: 'skill_taste', on: true });
+	await s.wait(900);
+	await s.flow('select', { id: 'taste_weekly', on: true });
+	await s.wait(2600);
+	await s.flow('step', { step: 'uninstall' });
+	await s.wait(3000);
+	await s.flow('step', { step: 'after' });
+	await s.wait(3000);
+	await s.flow('confirm');
+	await s.wait(1200);
+
+	await s.on('git');
+	await s.report('git', 'working', 2200, mac ? 'Adding a small portable Git to your workshop folder' : 'Adding MinGit, Git for Windows\' portable build');
+	s.set('git', { ok: true, ...done, detail: 'Git 2.56.1, installed by the setup', by: 'setup' });
+	await s.check();
+	await s.on('node');
+	await s.report('node', 'working', 2400, 'Adding Node.js 26 to your workshop folder');
+	s.set('node', { ok: true, ...done, detail: 'Node.js 26.13.1, installed by the setup', by: 'setup' });
+	await s.check();
+	await s.on('gh');
+	await s.report('gh', 'working', 1600, 'Adding the GitHub CLI');
+	s.set('gh', { installed: true, detail: 'GitHub CLI 2.105.0, not signed in yet', needed: false, size: zero });
+	await s.report('gh', 'working', 1200, 'Starting the GitHub sign-in in your browser');
+	await s.report('gh', 'needs-you', 8000, null, [SIGN_IN_CODE]);
+	s.set('gh', { ok: true, signed_in: true, login: 'mona-designer', detail: 'signed in as mona-designer' });
+	await s.check();
+
+	await s.on('skills');
+	await s.report('skills', 'working', 1600, 'Copying the four workshop skills');
+	s.set('skills', { ok: true, ...done, detail: '4 of 4 installed' });
+	s.set('skill_taste', { ok: true, ...done, detail: 'installed' });
+	await s.check();
+	await s.on('excalidraw');
+	await s.report('excalidraw', 'working', 2400, 'Making your copy: mona-designer/excalidraw-case-study');
+	await s.report('excalidraw', 'working', 2000, 'Turning on GitHub Pages for it');
+	await s.report('excalidraw', 'working', 3200, 'Installing its packages (about 40 MB)');
+	s.set('excalidraw', { ok: true, ...done, repo: 'mona-designer/excalidraw-case-study', detail: `mona-designer/excalidraw-case-study in ${AI_FIRST_FOLDER}/excalidraw-case-study` });
+	await s.check();
+	await s.on('resources');
+	await s.report('resources', 'working', 1200, 'Copying the prompts, cheat sheet and practice docs');
+	s.set('resources', { ok: true, ...done, detail: `in ${AI_FIRST_FOLDER}/resources` });
+	await s.check();
+	await s.on('demo_tools');
+	await s.report('demo_tools', 'working', 2600, mac ? 'Adding Playwright Core and a small ffmpeg; recording uses your Chrome' : 'Adding Playwright Core and a small ffmpeg; recording uses Edge');
+	s.set('demo_tools', { ok: true, ...done, detail: `ready, recording with ${mac ? 'Google Chrome' : 'Microsoft Edge'}` });
+	await s.check();
+
+	await s.on('computer_use');
+	if (mac) {
+		await s.report('computer_use', 'needs-you', 7600);
+	}
+	await s.report('computer_use', 'installed', 3200);
+	await s.report('computer_use', 'tested', 800);
+	await s.on('dictation', 2800);
+	await s.report('dictation', 'tested', 800);
+	await s.on('taste_weekly');
+	await s.report('taste_weekly', 'working', 2000, 'Creating the weekly automation, then running it once to check it');
+	s.set('taste_weekly', { ok: true, ...done, detail: '"Weekly taste update" runs every Monday' });
+	await s.check();
+	await s.report('taste_weekly', 'tested', 800);
+	await s.on('none', 0);
+}
+
 function pickMeta(meta) {
 	const out = {};
 	for (const field of META_FIELDS) {
@@ -348,24 +474,27 @@ function pickMeta(meta) {
 
 // One play-through. Replay throws it away and starts a new one.
 class SimulationRun {
-	constructor({ os, meta, speed, log, now, script, onChange }) {
+	constructor({ os, meta, speed, log, now, script, onChange, workshop = null }) {
 		this.os = os;
+		this.workshop = workshop;
 		this.script = script;
 		this.onChange = onChange;
 		this.state = 'waiting';
 		this.error = null;
 		this.disposed = false;
 		this.clock = new Clock({ speed });
-		this.machine = new PretendMachine(os);
+		this.machine = workshop ? new PretendAiFirstMachine(os) : new PretendMachine(os);
 		this.store = new MemoryStore({ now });
 		const quietLog = (message, level) => {
 			if (!this.disposed) {
 				log(message, level);
 			}
 		};
+		const runner = new PretendRunner({ machine: this.machine, clock: this.clock, now });
 		this.model = new SetupModel({
 			store: this.store,
-			runner: new PretendRunner({ machine: this.machine, clock: this.clock, now }),
+			runner,
+			aiFirstRunner: workshop ? runner : null,
 			platform: os === 'windows' ? 'win32' : 'darwin',
 			now,
 			log: quietLog,
@@ -373,6 +502,9 @@ class SimulationRun {
 		this.ready = (async () => {
 			await this.model.load();
 			await this.model.setMeta(meta);
+			if (workshop) {
+				await this.model.setWorkshop({ workshop, workshopDir: AI_FIRST_FOLDER });
+			}
 		})();
 		this.finished = this.ready.catch(() => {});
 	}
@@ -398,6 +530,7 @@ class SimulationRun {
 				}
 			},
 			choose: (id, on) => model.setChoice({ id, on }),
+			flow: (action, extra = {}) => model.flowAction({ action, ...extra }),
 		};
 	}
 
@@ -453,12 +586,14 @@ class SimulationRun {
 // The simulation behind one canvas instance. Its model is what the page draws and what the agent's actions read.
 // It emits "change" when its state changes and "model" when a replay starts over with a new model.
 export class Simulation extends EventEmitter {
-	constructor({ os = 'mac', meta = {}, speed = 1, log = () => {}, now = monotonicNow(), script = firstTimeSetup } = {}) {
+	constructor({ os = 'mac', meta = {}, speed = 1, log = () => {}, now = monotonicNow(), workshop = null, script = null } = {}) {
 		super();
 		if (!SIMULATE_OS.includes(os)) {
 			throw new SetupError('invalid_input', `simulate must be one of: ${SIMULATE_OS.join(', ')}.`);
 		}
 		this.os = os;
+		this.workshop = workshop;
+		script = script || (workshop ? aiFirstSetup : firstTimeSetup);
 		this.meta = pickMeta(meta);
 		this.speed = speed;
 		this.log = log;
@@ -469,7 +604,7 @@ export class Simulation extends EventEmitter {
 
 	newRun() {
 		return new SimulationRun({ os: this.os, meta: this.meta, speed: this.speed, log: this.log, now: this.now, script: this.script,
-			onChange: () => this.emit('change') });
+			workshop: this.workshop, onChange: () => this.emit('change') });
 	}
 
 	get model() {
@@ -490,7 +625,8 @@ export class Simulation extends EventEmitter {
 	}
 
 	info() {
-		return { os: this.os, label: LABELS[this.os], state: this.run.state, error: this.run.error };
+		const label = this.workshop ? `${LABELS[this.os]}, AI-First setup` : LABELS[this.os];
+		return { os: this.os, label, state: this.run.state, error: this.run.error, ...(this.workshop ? { workshop: this.workshop } : {}) };
 	}
 
 	async setMeta(meta) {

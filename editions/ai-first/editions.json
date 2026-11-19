@@ -1,0 +1,42 @@
+{
+ "edition": "ai-first",
+ "title": "AI-First Design Workshop",
+ "skills": [
+  {
+   "name": "autonomous-variations",
+   "status": "required",
+   "summary": "Builds four different takes on one part of your app at once, one session each, and opens a lab to flip through them."
+  },
+  {
+   "name": "autonomous-prototypes",
+   "status": "required",
+   "summary": "Makes a change in your own repo, tests it in the integrated browser, then ships it: a PR, a merge and a live GitHub Pages link."
+  },
+  {
+   "name": "autonomous-demos",
+   "status": "required",
+   "summary": "Records a short narrated video of your real app, with captions, ready for the page for everyone."
+  },
+  {
+   "name": "autonomous-computer-use",
+   "status": "required",
+   "summary": "Lets the agent use desktop apps like Notes or Notepad in the background. It never sends or buys anything."
+  },
+  {
+   "name": "autonomous-runs",
+   "status": "optional",
+   "summary": "Keeps a long or overnight run going on your laptop: a status file, the laptop kept awake, checkpoints and a morning report."
+  },
+  {
+   "name": "autonomous-research",
+   "status": "optional",
+   "summary": "Drafts a user study and turns results into findings with real quotes. It never launches a study or needs keys."
+  },
+  {
+   "name": "my-taste",
+   "status": "optional",
+   "summary": "Learns your design taste from your own sessions and notes, and applies it when you ask for a review or a polish pass."
+  }
+ ],
+ "never": ["my-voice"]
+}
