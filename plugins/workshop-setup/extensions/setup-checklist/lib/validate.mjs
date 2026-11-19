@@ -25,7 +25,7 @@ export const OPEN_INPUT_SCHEMA = {
 		presenter: { type: 'string', maxLength: LIMITS.presenter, description: 'The host\'s name. The intro resolves into it.' },
 		checkInChat: { type: 'string', maxLength: LIMITS.checkInChat, description: 'The meeting chat where the Work IQ test posts a check-in. Without it, the test reads the next meeting instead.' },
 		skillsDir: { type: 'string', maxLength: LIMITS.skillsDir, description: 'Absolute path (or ~/...) of a folder that has autonomous-setup/scripts/check-setup.py. Default: autonomous-output-skills, then skills, in the Copilot home.' },
-		workshop: { type: 'string', enum: WORKSHOP_MODES, description: 'The AI-First path (autonomous-setup references/ai-first.md): choose shows the workshop picker first, ai-first skips it. Leave it out for the internal setup, which then works exactly as before.' },
+		workshop: { type: 'string', enum: WORKSHOP_MODES, description: 'The AI-First path (autonomous-setup references/ai-first.md): choose shows the workshop picker first, ai-first skips it. Leave it out for the full setup, which then works exactly as before.' },
 		workshopDir: { type: 'string', maxLength: LIMITS.workshopDir, description: 'The workshop folder from the setup prompt, absolute or ~/..., like ~/ai-first-workshop. Only with workshop.' },
 		simulate: { type: 'string', enum: SIMULATE_OS, description: 'Only for hosts previewing the workshop, never for a real setup: plays a made-up first-time setup on a new Mac or Windows PC, from the first check to all set, with its own instanceId. It runs in memory, so nothing on this machine is checked, saved or changed.' },
 	},

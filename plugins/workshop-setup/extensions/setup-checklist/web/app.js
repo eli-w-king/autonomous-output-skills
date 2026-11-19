@@ -8,8 +8,8 @@
 	const svgNs = 'http://www.w3.org/2000/svg';
 	let view = null;
 	let introRunning = false;
-	// 'ai-first' while the canvas shows the AI-First path (flow.js draws its steps); 'internal' otherwise.
-	let path = 'internal';
+	// 'ai-first' while the canvas shows the AI-First path (flow.js draws its steps); 'full' otherwise.
+	let path = 'full';
 	const seen = new Map();
 	const signatures = new Map();
 
@@ -351,7 +351,7 @@
 	// The AI-First path: flow.js draws the hero and the steps; after Confirm, this page's checklist shows under the hero.
 	function renderPath(next) {
 		const aiFirst = next.path === 'ai-first' && !!next.flow;
-		path = aiFirst ? 'ai-first' : 'internal';
+		path = aiFirst ? 'ai-first' : 'full';
 		document.documentElement.dataset.path = aiFirst ? 'ai-first' : '';
 		const main = $('#main');
 		if (!aiFirst) {

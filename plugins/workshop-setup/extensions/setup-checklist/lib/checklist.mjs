@@ -4,11 +4,11 @@
 import { GROUPS, ITEMS, ITEM_BY_ID, MERGED_CHECKS, LATER_NOTE, osKey, itemLabel, itemHelp, itemTest, humanize } from './catalog.mjs';
 import { AF_CATALOG, flowOf, itemChosen, usesAiFirst } from './ai-first.mjs';
 
-const INTERNAL = { kind: 'internal', GROUPS, ITEMS, ITEM_BY_ID, MERGED_CHECKS, LATER_NOTE };
+const FULL = { kind: 'full', GROUPS, ITEMS, ITEM_BY_ID, MERGED_CHECKS, LATER_NOTE };
 
-// The internal setup's catalog, or the AI-First one when the last open asked for the AI-First path.
+// The full setup's catalog, or the AI-First one when the last open asked for the AI-First path.
 export function catalogFor(record) {
-	return usesAiFirst(record) ? AF_CATALOG : INTERNAL;
+	return usesAiFirst(record) ? AF_CATALOG : FULL;
 }
 
 const groupById = (catalog) => new Map(catalog.GROUPS.map((group) => [group.id, group]));

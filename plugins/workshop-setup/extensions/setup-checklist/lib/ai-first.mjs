@@ -1,5 +1,5 @@
 // The AI-First path of the setup canvas: the workshop picker, the steps before Confirm, and the catalog its live
-// checklist uses after Confirm. The canvas's internal path (catalog.mjs) is unchanged; a record uses this one when the
+// checklist uses after Confirm. The canvas's full setup (catalog.mjs) is unchanged; a record uses this one when the
 // canvas was opened with workshop "choose" or "ai-first" (see catalogFor in checklist.mjs).
 //
 // Nothing here names an event or a person: the title, subtitle and host come from the canvas's open input. The two

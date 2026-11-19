@@ -113,7 +113,7 @@ const canvas = createCanvas({
 		},
 		{
 			name: 'waitForConfirm',
-			description: 'AI-First path only: wait while the person reads the steps. Returns status confirmed (install flow.install), gate (they picked the Microsoft workshop: start its sign-in), microsoft (signed in and continuing to the internal setup) or waiting (call it again).',
+			description: 'AI-First path only: wait while the person reads the steps. Returns status confirmed (install flow.install), gate (they picked the Microsoft workshop: start its sign-in), microsoft (signed in and going on to the setup for the Microsoft workshop) or waiting (call it again).',
 			inputSchema: WAIT_SCHEMA,
 			handler: guard(async (ctx) => hub.modelFor(ctx.instanceId).waitForFlow(validateWaitInput(ctx.input))),
 		},

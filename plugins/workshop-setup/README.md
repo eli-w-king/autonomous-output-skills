@@ -90,7 +90,7 @@ them, and an empty string clears one. Nothing about an event is built in: the se
 | `checkInChat` | the meeting chat where the Work IQ test posts a check-in | `Design systems workshop` |
 | `skillsDir` | absolute path (or `~/...`) of the folder with `autonomous-setup/scripts/check-setup.py` | `~/.copilot/autonomous-output-skills` |
 | `simulate` | for hosts previewing the workshop: `mac` or `windows` plays a first-time setup (see below); leave it out for a real setup | `mac` |
-| `workshop` | the AI-First path (below): `choose` opens on the workshop picker, `ai-first` skips it. Leave it out for the internal setup, which then works exactly as before | `choose` |
+| `workshop` | the AI-First path (below): `choose` opens on the workshop picker, `ai-first` skips it. Leave it out for the full setup, which then works exactly as before | `choose` |
 | `workshopDir` | with `workshop`: the workshop folder from the setup prompt, absolute or `~/...` | `~/ai-first-workshop` |
 
 Without `checkInChat`, the Work IQ test reads the next meeting's subject instead of posting.
@@ -157,7 +157,7 @@ side, and `autonomous-setup/scripts/ai-first.mjs` does the installing). Opened w
 welcome with the event's names over the Horizon band, then a few steps on a card:
 
 1. **Which workshop:** AI-First Design, or the Microsoft workshop. Microsoft waits for a sign-in with a Microsoft
-   GitHub account (an Enterprise Managed User in the GitHub CLI), then hands over to the internal setup, unchanged.
+   GitHub account (an Enterprise Managed User in the GitHub CLI), then hands over to the full setup in SKILL.md, unchanged.
 2. **Let's get your computer ready:** one folder, about how long, no computer password.
 3. **What we'll install:** each item with its download and disk size, and a total. Required items are locked on;
    optional ones have a switch. Tools this computer already has say so and download nothing.

@@ -31,7 +31,7 @@ async function aiFirstModel({ os = 'mac', change, workshop = 'choose' } = {}) {
 const rowsOf = (model) => model.view().flow.install.rows;
 const shownIds = (model) => model.view().groups.flatMap((group) => group.items).map((item) => item.id);
 
-test('nothing is picked at first, and the open input keeps the internal setup the default', async () => {
+test('nothing is picked at first, and the open input keeps the full setup the default', async () => {
 	const { model } = await aiFirstModel();
 	const view = model.view();
 	assert.equal(view.path, 'ai-first');
@@ -39,7 +39,7 @@ test('nothing is picked at first, and the open input keeps the internal setup th
 	assert.equal(view.flow.step, 'pick');
 	assert.deepEqual(view.flow.workshops.map((w) => w.id), ['ai-first', 'microsoft']);
 	assert.deepEqual(validateOpenInput({ workshop: 'choose', workshopDir: '~/ai-first-workshop' }, { home: '/Users/you' }), { workshop: 'choose', workshopDir: '/Users/you/ai-first-workshop' });
-	assert.throws(() => validateOpenInput({ workshop: 'internal' }));
+	assert.throws(() => validateOpenInput({ workshop: 'full' }));
 	assert.deepEqual(validateOpenInput({}), {});
 });
 
@@ -127,7 +127,7 @@ test('the plan stays as confirmed while tools land', async () => {
 	assert.equal(model.view().flow.restart, true, 'a tool the setup added asks for a restart at the end');
 });
 
-test('the Microsoft workshop needs a work account on GitHub before it continues to the internal setup', async () => {
+test('the Microsoft workshop needs a work account on GitHub before it continues to the full setup', async () => {
 	const { model, runner } = await aiFirstModel();
 	await model.flowAction({ action: 'pick', id: 'microsoft' });
 	assert.equal(model.view().flow.step, 'gate');
@@ -139,7 +139,7 @@ test('the Microsoft workshop needs a work account on GitHub before it continues 
 	assert.equal(model.view().flow.gate.ok, true);
 	const result = await model.flowAction({ action: 'continue' });
 	assert.equal(result.status, 'microsoft');
-	assert.equal(model.view().path, 'internal', 'the usual checklist from here');
+	assert.equal(model.view().path, 'full', 'the usual checklist from here');
 	assert.equal(model.view().flow, undefined);
 });
 
@@ -172,11 +172,11 @@ test('the agent\'s wait: picking Microsoft, Confirm, and the timeout', async () 
 	assert.throws(() => validateWaitInput({ timeoutSeconds: 1 }));
 });
 
-test('an open without workshop is the internal setup, even after the AI-First path ran here', async () => {
+test('an open without workshop is the full setup, even after the AI-First path ran here', async () => {
 	const { model } = await aiFirstModel();
 	await model.flowAction({ action: 'pick', id: 'ai-first' });
 	await model.setWorkshop({ workshop: null });
-	assert.equal(model.view().path, 'internal');
+	assert.equal(model.view().path, 'full');
 	await assert.rejects(model.flowAction({ action: 'step', step: 'install' }), /picker/);
 	await model.setWorkshop({ workshop: 'choose' });
 	assert.equal(model.view().flow.pick, 'ai-first', 'the AI-First choices are kept for its next open');

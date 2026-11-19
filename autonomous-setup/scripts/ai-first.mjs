@@ -1443,8 +1443,9 @@ async function npm(ctx, args, { cwd, timeoutMs = 15 * 60 * 1000, env = {} } = {}
 		throw new SetupError(`there's no package.json in ${tilde(cwd, ctx.home)}, so npm didn't run`);
 	}
 	const { node, cli } = await npmCommand(ctx);
-	// --prefix keeps npm in this folder; without it, npm looks upward for a project when it can't find one here.
-	const result = await run(node, [cli, ...args, '--prefix', cwd], { cwd, env: childEnv(ctx, env), timeoutMs });
+	// npm runs in the folder itself, which has a package.json (checked above), so it never looks upward for a project.
+	// No --prefix: on the command line it also moves npm's global config, so a registry set there would be skipped.
+	const result = await run(node, [cli, ...args], { cwd, env: childEnv(ctx, env), timeoutMs });
 	if (result.code !== 0) {
 		const lines = `${result.stderr}\n${result.stdout}`.split(/\r?\n/).map((line) => line.trim()).filter((line) => /err/i.test(line));
 		throw new SetupError(`npm ${args[0]} failed in ${tilde(cwd, ctx.home)}: ${lines.slice(-2).join(' ') || `exit ${result.code}`}`);

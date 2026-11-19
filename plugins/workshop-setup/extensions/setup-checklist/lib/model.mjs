@@ -59,7 +59,7 @@ export class SetupModel extends EventEmitter {
 		const record = this.record || emptyRecord(this.now());
 		const out = summarize(this.view(), record);
 		if (record.aiFirst) {
-			out.path = usesAiFirst(record) ? 'ai-first' : 'internal';
+			out.path = usesAiFirst(record) ? 'ai-first' : 'full';
 			out.flow = flowSummary(record, osFromRecord(record, this.platform));
 		}
 		return out;
@@ -175,7 +175,7 @@ export class SetupModel extends EventEmitter {
 	}
 
 	// Which workshop path this open shows. "choose" and "ai-first" show the AI-First flow; anything else (no workshop in
-	// the open input) is the internal setup, exactly as before, even on a machine that once showed the flow.
+	// the open input) is the full setup, exactly as before, even on a machine that once showed the flow.
 	async setWorkshop({ workshop = null, workshopDir } = {}) {
 		await this.ensureLoaded();
 		const mode = FLOW_MODES.includes(workshop) ? workshop : null;
