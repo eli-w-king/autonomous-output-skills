@@ -135,8 +135,8 @@ that doesn't need it.
 9. **computer_use:** the setting is already on. They send `/computer on` in the chat and click **Turn On** (you can't
    do it for them). On a Mac, the Set Up Computer Use dialog asks for Screen Recording and Accessibility:
    `setItem {id: "computer_use", status: "needs-you"}` shows those steps. Then `setItem installed`, and the canvas
-   shows the Try it: "Use Computer Use to write a short joke in a new note in Notes." (Windows: "Write a short joke
-   in a new note in Notepad.") When it works, `setItem tested`.
+   shows the Try it: "Use Computer Use to write a short joke in a new note in Notes." (Windows: "Use Computer Use to
+   write a short joke in a new note in Notepad.") When it works, `setItem tested`.
 10. **dictation:** `setItem installed`; the canvas asks them to click the microphone, say "Dictation works" and send
     it. The first time, their computer asks to allow the microphone. When the dictated message arrives,
     `setItem tested`.

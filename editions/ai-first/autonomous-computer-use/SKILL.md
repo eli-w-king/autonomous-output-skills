@@ -21,10 +21,10 @@ Use desktop apps for the person without taking over their laptop: they keep work
 
 ## The first test
 
-- **Mac:** "Write a short joke in a new note in Notes." Open Notes in the background, make a new note, type the
-  joke, and read it back from the note.
-- **Windows:** "Write a short joke in a new note in Notepad." Open Notepad, open a new tab, type the joke, and read
-  it back. Don't save unless asked.
+- **Mac:** "Use Computer Use to write a short joke in a new note in Notes." Open Notes in the background, make a
+  new note, type the joke, and read it back from the note.
+- **Windows:** "Use Computer Use to write a short joke in a new note in Notepad." Open Notepad, open a new tab, type
+  the joke, and read it back. Don't save unless asked.
 - Say what you wrote and where. Keep it short and kind.
 
 ## How to act

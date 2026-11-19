@@ -275,10 +275,16 @@ test('every prompt in resources/prompts.md is word for word one of the workshop 
 	const pinned = JSON.parse(await fsp.readFile(path.join(REPO, 'tools', 'fixtures', 'site-prompts.json'), 'utf8'));
 	if (process.env.AI_FIRST_SITE) {
 		// With the site's checkout at hand, the pinned copy has to match it too.
-		const { sitePrompts } = await import('./sync-site-prompts.mjs');
-		assert.deepEqual(pinned.prompts, sitePrompts(af.expandHome(process.env.AI_FIRST_SITE)),
-			'the site\'s prompts changed: run node tools/sync-site-prompts.mjs --site <its checkout>');
+		const { sitePrompts, siteTryIts } = await import('./sync-site-prompts.mjs');
+		const site = af.expandHome(process.env.AI_FIRST_SITE);
+		const refresh = 'the site changed: run node tools/sync-site-prompts.mjs --site <its checkout>';
+		assert.deepEqual(pinned.prompts, sitePrompts(site), refresh);
+		assert.deepEqual(pinned.computerUse, siteTryIts(site), refresh);
 	}
+	// The canvas's Computer Use try-its are the site's setup page's, word for word.
+	const { AF_ITEM_BY_ID } = await import('../plugins/workshop-setup/extensions/setup-checklist/lib/ai-first.mjs');
+	const canvas = AF_ITEM_BY_ID.get('computer_use').test.prompt;
+	assert.deepEqual({ mac: canvas.mac, win: canvas.win }, pinned.computerUse);
 	const site = new Set(pinned.prompts.map((prompt) => prompt.text));
 	const text = (await fsp.readFile(path.join(REPO, 'autonomous-setup', 'ai-first', 'resources', 'prompts.md'), 'utf8')).replace(/\r\n/g, '\n');
 	const blocks = [...text.matchAll(/```text\n([\s\S]*?)\n```/g)].map((m) => m[1]);

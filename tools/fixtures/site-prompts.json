@@ -111,5 +111,9 @@
    "label": "Prompt 5b, queue",
    "text": "When you're done, tell me in three bullets what makes this toolbar different."
   }
- ]
+ ],
+ "computerUse": {
+  "mac": "Use Computer Use to write a short joke in a new note in Notes.",
+  "win": "Use Computer Use to write a short joke in a new note in Notepad."
+ }
 }

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Pins the workshop site's prompts for the tests: every ```text label="Prompt ..."``` block in the site's module pages
-// (content/pages/modules/*.md), word for word, in tools/fixtures/site-prompts.json. tools/test-ai-first-setup.mjs
-// checks that each prompt in autonomous-setup/ai-first/resources/prompts.md is one of them, and, with AI_FIRST_SITE
-// set to the site's checkout, that this copy still matches the site. Rerun it when the site's prompts change.
+// Pins the workshop site's prompts for the tests, word for word, in tools/fixtures/site-prompts.json: every
+// ```text label="Prompt ..."``` block in the site's module pages (content/pages/modules/*.md), and the setup page's
+// Computer Use try-its ("On a Mac" and "On Windows"). tools/test-ai-first-setup.mjs checks that each prompt in
+// autonomous-setup/ai-first/resources/prompts.md is one of them, that the setup canvas's try-its are the site's, and,
+// with AI_FIRST_SITE set to the site's checkout, that this copy still matches the site. Rerun it when they change.
 //
 //   node tools/sync-site-prompts.mjs --site <the site's checkout> [--check]
 //
@@ -27,8 +28,15 @@ export function sitePrompts(site) {
 	return prompts;
 }
 
-export function fixtureText(prompts) {
-	return JSON.stringify({ source: 'https://github.com/eli-w-king/ai-first-design-workshop, content/pages/modules', prompts }, null, 1) + '\n';
+// The setup page's Computer Use try-its, by computer.
+export function siteTryIts(site) {
+	const text = fs.readFileSync(path.join(site, 'content', 'pages', 'modules', 'setup.md'), 'utf8').replace(/\r\n/g, '\n');
+	const block = (label) => (new RegExp('```text label="' + label + '"\\n([\\s\\S]*?)\\n```').exec(text) || [])[1] || null;
+	return { mac: block('On a Mac'), win: block('On Windows') };
+}
+
+export function fixtureText(prompts, computerUse) {
+	return JSON.stringify({ source: 'https://github.com/eli-w-king/ai-first-design-workshop, content/pages/modules', prompts, computerUse }, null, 1) + '\n';
 }
 
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -40,7 +48,7 @@ if (invoked) {
 		process.exit(2);
 	}
 	const site = path.resolve(args[at + 1].replace(/^~(?=$|[\\/])/, os.homedir()));
-	const want = fixtureText(sitePrompts(site));
+	const want = fixtureText(sitePrompts(site), siteTryIts(site));
 	const have = fs.existsSync(FIXTURE) ? fs.readFileSync(FIXTURE, 'utf8') : '';
 	if (args.includes('--check')) {
 		console.log(want === have ? 'the pinned prompts match the site' : 'the site\'s prompts changed: run this without --check');
