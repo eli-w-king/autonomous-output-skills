@@ -15,7 +15,8 @@ they ask for another number. Shipping the pick follows [autonomous-prototypes](.
 2. **Genuinely different:** each direction changes how the thing works or reads, not just a color or size. Each
    gets a slug, a name and a one-line idea. Only the decision changes; everything else still works.
 3. **One session per direction, in parallel,** each in its own worktree and branch, adding only its own files.
-4. **Cheap:** desktop size only unless asked, no console errors, one screenshot each. No push or PR until they pick.
+4. **Cheap:** one size, a 13-inch laptop at 1280x800, unless asked; no console errors; one screenshot each. No push
+   or PR until they pick.
 
 ## Steps
 
@@ -35,8 +36,8 @@ they ask for another number. Shipping the pick follows [autonomous-prototypes](.
    Then end your turn; the reports arrive as messages.
 5. **Make the lab:** `git switch -c lab/<topic> <base>` in the main checkout, then `git merge --no-edit
    lab/<slug>` for each. Reuse the running dev server and open the lab in the integrated browser.
-6. **Check each variation** at desktop size: no console errors, and the main task works (for a toolbar, draw a
-   shape). Fix small breakages on the lab branch.
+6. **Check each variation** at 1280x800: no console errors, nothing wraps, overflows or covers the canvas or the
+   welcome screen, and the main task works (for a toolbar, draw a shape). Fix small breakages on the lab branch.
 7. **Report** the lab link, a table (slug, name, idea), how to switch (`[` and `]`, the pill or the URL), the
    screenshots, and anything that didn't land. Ask which one they like.
 
@@ -48,8 +49,9 @@ Direction: <name> (<slug>). Idea: <one line>. Intent: <their words or the PM tea
 First: git switch -c lab/<slug> <base>
 Add only your own files (<slot path, or labs/<slug>/>); don't edit shared files.
 Get dependencies as AGENTS.md says (else npm ci --prefer-offline; npm.cmd on Windows), start the app, open
-<link with the switch set to <slug>> in the integrated browser, use it once, and fix any console error.
-Screenshot: node "<skills folder>/autonomous-demos/scripts/demo.mjs" shot --url <link> --out <review/shots/<slug>.png>
+<link with the switch set to <slug>> in the integrated browser at 1280x800, use it once, and fix any console error
+or anything that wraps, overflows or covers the canvas or the welcome screen.
+Screenshot: node "<skills folder>/autonomous-demos/scripts/demo.mjs" shot --url <link> --out <review/shots/<slug>.png> --width 1280 --height 800
 Commit on lab/<slug>; don't push. Then send_message to <this chat's link>: branch, commit, link, screenshot, one line.
 ```
 
