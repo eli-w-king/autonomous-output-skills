@@ -21,7 +21,8 @@
 //   ai-first.mjs env       [--folder DIR] [--format sh|ps|json]   the PATH line for this shell
 //   ai-first.mjs automation [--folder DIR] [--json]      the configureAutomation input for the weekly taste update
 //   ai-first.mjs record    KEY --value JSON [--folder DIR]   record what the agent did (taste_weekly, choices)
-//   ai-first.mjs uninstall [--folder DIR] [--yes] [--json]  list what the setup added; --yes removes it
+//   ai-first.mjs uninstall [--folder DIR] [--yes] [--json]  list what the setup added; --yes removes it. It leaves
+//                                                        VS Code's settings to the person, last, by hand
 //
 // Environment: COPILOT_HOME (default ~/.copilot), AI_FIRST_WORKSHOP (the folder, default ~/ai-first-workshop), and
 // for testing only, AI_FIRST_IGNORE_SYSTEM_TOOLS=1 to act as if Git, Node.js and the GitHub CLI weren't installed,
@@ -1798,24 +1799,6 @@ export function automationInput(ctx) {
 
 // ---------------------------------------------------------------- uninstall
 
-// Removes the 16 workshop settings from VS Code's settings.json (each on its own line, as pasted), keeping a backup.
-export function removeSettingsText(text, keys = SETTINGS_KEYS) {
-	const lines = String(text).split('\n');
-	const keep = [];
-	let removed = 0;
-	for (const line of lines) {
-		const m = /^\s*"([^"]+)"\s*:/.exec(line);
-		if (m && keys.includes(m[1])) {
-			removed++;
-			continue;
-		}
-		keep.push(line);
-	}
-	// A comma left after the last property before a closing brace is fine in VS Code's JSON with comments, but tidy it.
-	const joined = keep.join('\n').replace(/,(\s*\n\s*})/g, '$1');
-	return { text: joined, removed };
-}
-
 export async function uninstallPlan(ctx) {
 	const manifest = await readManifest(ctx);
 	const items = manifest.items;
@@ -1847,18 +1830,21 @@ export async function uninstallPlan(ctx) {
 	if (items.github?.created_gh_config && items.gh?.by === 'setup') {
 		steps.push({ id: 'gh_signout', text: 'Sign the GitHub CLI out and remove its settings', login: items.github.login || null, dir: items.github.gh_config });
 	}
-	const settings = vscodeSettingsFile(ctx);
-	steps.push({ id: 'settings', text: `Remove the 16 workshop settings from ${t(settings)} (a backup is kept)`, file: settings });
 	if (items.taste_weekly?.automationId) {
 		steps.push({ id: 'taste_weekly', text: `Delete the "${TASTE_AUTOMATION_NAME}" automation (the agent does this with deleteAutomation)`, automationId: items.taste_weekly.automationId, agent: true });
 	}
 	steps.push({ id: 'folder', text: `Delete ${t(ctx.folder)}: your local Excalidraw copy, the skills download, the resources and the tools the setup installed`, path: ctx.folder });
-	const keep = [];
+	// The workshop settings are the person's to remove, last, by hand. Removing them turns the terminal sandbox back on,
+	// which would stop an agent's command partway through.
+	const settings = vscodeSettingsFile(ctx);
+	const keep = [`The 16 workshop settings stay in ${t(settings)} until you remove them, last: in VS Code Insiders, `
+		+ 'Command Palette, Preferences: Open User Settings (JSON), delete the 16 lines you pasted at the workshop (from '
+		+ `"${SETTINGS_KEYS[0]}" to "${SETTINGS_KEYS[SETTINGS_KEYS.length - 1]}"), save, and restart VS Code Insiders.`];
 	if (items.excalidraw?.repo) {
 		keep.push(`Your repo https://github.com/${items.excalidraw.repo} stays on GitHub. Delete it there if you want to.`);
 	}
 	keep.push('Cancel the free month of Copilot before it renews: github.com, Settings, Billing and licensing, Licensing.');
-	return { folder: ctx.folder, steps, keep, guide: UNINSTALL_URL };
+	return { folder: ctx.folder, steps, keep, settings: { file: settings, keys: SETTINGS_KEYS, by_hand: true }, guide: UNINSTALL_URL };
 }
 
 async function removeGitConfig(ctx, git, args) {
@@ -1915,15 +1901,6 @@ export async function uninstall(ctx, { yes = false } = {}) {
 					await run(gh.cli.file, ['auth', 'logout', '--hostname', 'github.com', ...(step.login ? ['--user', step.login] : [])], { env: childEnv(ctx), timeoutMs: 60000 });
 				}
 				await fsp.rm(step.dir, { recursive: true, force: true });
-			} else if (step.id === 'settings') {
-				const text = await fsp.readFile(step.file, 'utf8').catch(() => null);
-				if (text !== null) {
-					const next = removeSettingsText(text);
-					if (next.removed) {
-						await fsp.writeFile(`${step.file}.before-uninstall`, text, 'utf8');
-						await writeAtomic(step.file, next.text);
-					}
-				}
 			} else if (step.id === 'taste_weekly') {
 				results.push({ id: step.id, ok: null, detail: 'for the agent: deleteAutomation with this id', automationId: step.automationId });
 				continue;

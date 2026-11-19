@@ -73,15 +73,6 @@ test('VS Code settings with comments and trailing commas parse', () => {
 	assert.deepEqual(af.parseJsonc(text), { 'editor.fontSize': 14, 'dictation.model': 'mai', url: 'http://x//y' });
 });
 
-test('removing the workshop settings takes exactly the 16 lines and keeps the rest', () => {
-	const pasted = af.SETTINGS_KEYS.map((key) => `\t"${key}": true,`).join('\n');
-	const text = `{\n\t"editor.fontSize": 14,\n${pasted}\n}\n`;
-	const out = af.removeSettingsText(text);
-	assert.equal(out.removed, 16);
-	assert.deepEqual(af.parseJsonc(out.text), { 'editor.fontSize': 14 });
-	assert.match(out.text, /"editor\.fontSize": 14\n}/);
-});
-
 test('the PATH block goes in once, holds only the folders given, and comes back out exactly', () => {
 	const ctx = context('/Users/you');
 	const block = af.pathBlock(ctx, ['/Users/you/ai-first-workshop/tools/bin', '/Users/you/ai-first-workshop/tools/node/bin']);
@@ -290,7 +281,8 @@ test('uninstall lists before it removes, then puts everything back the way it wa
 	const settingsFile = af.vscodeSettingsFile(ctx);
 	await fsp.mkdir(path.dirname(settingsFile), { recursive: true });
 	const pasted = af.SETTINGS_KEYS.map((key) => `\t"${key}": true,`).join('\n');
-	await fsp.writeFile(settingsFile, `{\n\t"editor.fontSize": 14,\n${pasted}\n}\n`);
+	const settingsText = `{\n\t"editor.fontSize": 14,\n${pasted}\n}\n`;
+	await fsp.writeFile(settingsFile, settingsText);
 	// What the setup does.
 	await fsp.mkdir(ctx.folder, { recursive: true });
 	await af.installCanvas(ctx, offline);
@@ -307,7 +299,9 @@ test('uninstall lists before it removes, then puts everything back the way it wa
 	assert.ok(fs.existsSync(ctx.folder), 'listing removes nothing');
 	const ids = plan.steps.map((step) => step.id);
 	assert.deepEqual(ids.slice(-1), ['folder'], 'the folder goes last');
-	assert.ok(ids.includes('canvas') && ids.includes('path_block') && ids.includes('settings') && ids.includes('taste_weekly'));
+	assert.ok(ids.includes('canvas') && ids.includes('path_block') && ids.includes('taste_weekly'));
+	assert.ok(!ids.includes('settings'), 'the settings are the person\'s to remove, by hand');
+	assert.match(plan.keep[0], /16 workshop settings.*Preferences: Open User Settings \(JSON\)/);
 
 	const cwd = process.cwd();
 	const done = await af.uninstall(ctx, { yes: true });
@@ -321,7 +315,7 @@ test('uninstall lists before it removes, then puts everything back the way it wa
 	}
 	assert.equal(fs.readFileSync(path.join(home, '.zprofile'), 'utf8').trim(), 'export EDITOR=vim');
 	assert.equal(fs.existsSync(path.join(ctx.copilotHome, 'extensions', 'setup-checklist')), false);
-	assert.deepEqual(af.parseJsonc(fs.readFileSync(settingsFile, 'utf8')), { 'editor.fontSize': 14 });
-	assert.ok(fs.existsSync(`${settingsFile}.before-uninstall`));
+	// Removing the settings turns the terminal sandbox back on mid-command, so the uninstall never touches them.
+	assert.equal(fs.readFileSync(settingsFile, 'utf8'), settingsText);
 	assert.equal(done.results.find((entry) => entry.id === 'taste_weekly').automationId, 'auto-123', 'the agent deletes the automation');
 });
