@@ -228,6 +228,25 @@ test('the canvas fonts come from the first source that has them, only when they 
 	assert.ok(!asked.some((url) => url.endsWith('Good.woff2')), 'the next copy uses the cache');
 });
 
+test('the copy\'s name skips the names they have, and no answer from GitHub is an error, not a free name', { skip: process.platform === 'win32' }, async () => {
+	const home = await scratchHome('names');
+	const ctx = context(home);
+	// A stand-in for the GitHub CLI: mona has two copies already, and the offline account gets no answer.
+	const gh = path.join(home, 'gh');
+	await fsp.writeFile(gh, [
+		'#!/bin/sh',
+		'case "$2" in',
+		'  repos/mona/excalidraw-case-study|repos/mona/excalidraw-case-study-2) echo "${2#repos/}"; exit 0 ;;',
+		'  repos/offline/*) echo "error connecting to api.github.com" >&2; exit 1 ;;',
+		'  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;',
+		'esac',
+		'',
+	].join('\n'), { mode: 0o755 });
+	assert.equal(await af.nextRepo(ctx, gh, 'mona'), 'mona/excalidraw-case-study-3');
+	assert.equal(await af.nextRepo(ctx, gh, 'newcomer'), 'newcomer/excalidraw-case-study');
+	await assert.rejects(af.nextRepo(ctx, gh, 'offline'), /couldn't ask GitHub/);
+});
+
 test('install excalidraw refuses --skip-npm outside the script\'s tests, before it touches anything', async () => {
 	const home = await scratchHome('skipnpm');
 	const folder = path.join(home, 'ai-first-workshop');

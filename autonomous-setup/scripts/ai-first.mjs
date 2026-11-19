@@ -10,7 +10,9 @@
 //   macOS:   ELECTRON_RUN_AS_NODE=1 "/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Code - Insiders" ai-first.mjs ...
 //   Windows: $env:ELECTRON_RUN_AS_NODE='1'; & "$env:LOCALAPPDATA\Programs\Microsoft VS Code Insiders\Code - Insiders.exe" ai-first.mjs ...
 //
-//   ai-first.mjs check     [--folder DIR] [--json]       what's here, each item's size, and the Microsoft sign-in gate
+//   ai-first.mjs check     [--folder DIR] [--json] [--repo-name]   what's here, each item's size, and the Microsoft
+//                                                        sign-in gate; --repo-name adds the name their Excalidraw copy
+//                                                        will get (excalidraw.next_repo), from GitHub
 //   ai-first.mjs canvas    [--folder DIR] [--json]       copy the setup canvas into Copilot's extensions folder
 //   ai-first.mjs install   ITEM [--folder DIR] [--json]  git, node, gh, github, skills, skill_runs, skill_research,
 //                                                        skill_taste, excalidraw, resources, demo_tools. Each does its
@@ -763,7 +765,8 @@ async function freeBytes(dir) {
 
 // What's here now, in the shape check-setup.py uses (items with ok, required, detail), plus each item's size and
 // whether it's needed on this machine. Read only: it never installs, never changes a file, and needs no network.
-export async function check(ctx) {
+// With repoName, it also asks GitHub which name install excalidraw would give their copy (excalidraw.next_repo).
+export async function check(ctx, { repoName = false } = {}) {
 	const manifest = await readManifest(ctx);
 	const tools = toolPaths(ctx);
 	const [git, node, gh, browser, settings, managed] = await Promise.all([
@@ -860,6 +863,18 @@ export async function check(ctx) {
 		path: repoDir,
 		size: cloned && packagesIn ? { download: 0, disk: 0 } : sizeFor('excalidraw', ctx),
 	};
+	if (repoName && !excalidraw?.repo) {
+		if (!gh.cli || !login) {
+			Object.assign(items.excalidraw, { next_repo: null, next_repo_note: 'sign in to GitHub first' });
+		} else {
+			try {
+				const next = await nextRepo(ctx, gh.cli.file, login);
+				Object.assign(items.excalidraw, { next_repo: next, next_live: `https://${login}.github.io/${next.split('/')[1]}/` });
+			} catch (error) {
+				Object.assign(items.excalidraw, { next_repo: null, next_repo_note: String(error?.message || error) });
+			}
+		}
+	}
 
 	const resourcesSource = path.join(ctx.repoRoot, 'autonomous-setup', 'ai-first', 'resources');
 	const resourcesBytes = await folderBytes(resourcesSource);
@@ -1436,9 +1451,32 @@ async function npm(ctx, args, { cwd, timeoutMs = 15 * 60 * 1000, env = {} } = {}
 	return result;
 }
 
-async function repoExists(ctx, gh, fullName) {
-	const result = await run(gh, ['repo', 'view', fullName, '--json', 'name'], { env: childEnv(ctx), timeoutMs: 60000 });
-	return result.code === 0;
+// Whether GitHub has a repo by this name: exists, free (GitHub answered "not found"), or unknown (no answer).
+async function repoState(ctx, gh, fullName) {
+	const result = await run(gh, ['api', `repos/${fullName}`, '--jq', '.full_name'], { env: childEnv(ctx), timeoutMs: 60000 });
+	if (result.code === 0) {
+		return { state: 'exists' };
+	}
+	if (/HTTP 404|Not Found/.test(`${result.stderr}\n${result.stdout}`)) {
+		return { state: 'free' };
+	}
+	return { state: 'unknown', detail: firstLine(result.stderr) || firstLine(result.stdout) || `exit ${result.code}` };
+}
+
+// The name install excalidraw gives their copy: excalidraw-case-study, or -2 to -20 when they already have those.
+// check --repo-name reports the same name, so the question before it can name the repo.
+export async function nextRepo(ctx, gh, owner, base = REPO_NAME) {
+	for (let n = 1; n <= 20; n++) {
+		const candidate = `${owner}/${n === 1 ? base : `${base}-${n}`}`;
+		const answer = await repoState(ctx, gh, candidate);
+		if (answer.state === 'free') {
+			return candidate;
+		}
+		if (answer.state === 'unknown') {
+			throw new SetupError(`couldn't ask GitHub whether ${candidate} is free (${answer.detail}). Check the Wi-Fi and try again.`);
+		}
+	}
+	throw new SetupError(`every name from ${base} to ${base}-20 is taken in ${owner}'s account`);
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1479,16 +1517,7 @@ async function installExcalidraw(ctx, { skipNpm = false, name: wanted = null, ow
 	let fullName = previous.repo || null;
 	let created = !!previous.created;
 	if (!fullName) {
-		const base = wanted || REPO_NAME;
-		for (let n = 1; n <= 20 && !fullName; n++) {
-			const candidate = `${owner}/${n === 1 ? base : `${base}-${n}`}`;
-			if (!(await repoExists(ctx, gh.cli.file, candidate))) {
-				fullName = candidate;
-			}
-		}
-		if (!fullName) {
-			throw new SetupError(`every name from ${base} to ${base}-20 is taken in ${owner}'s account`);
-		}
+		fullName = await nextRepo(ctx, gh.cli.file, owner, wanted || REPO_NAME);
 		const make = await run(gh.cli.file, ['repo', 'create', fullName, '--template', TEMPLATE_REPO, '--public',
 			'--description', 'My copy of the Excalidraw case study from the AI-First Design Workshop'], { cwd: ctx.folder, env: childEnv(ctx), timeoutMs: 120000 });
 		if (make.code !== 0) {
@@ -1936,7 +1965,7 @@ function parseArgs(argv) {
 			const [name, inline] = arg.slice(2).split('=', 2);
 			if (inline !== undefined) {
 				out[name] = inline;
-			} else if (['json', 'yes', 'skip-npm', 'help'].includes(name)) {
+			} else if (['json', 'yes', 'skip-npm', 'repo-name', 'help'].includes(name)) {
 				out[name] = true;
 			} else {
 				out[name] = argv[++i];
@@ -1977,7 +2006,7 @@ export async function main(argv = process.argv.slice(2)) {
 	const ctx = makeContext({ folder: args.folder });
 	try {
 		if (command === 'check') {
-			const result = await check(ctx);
+			const result = await check(ctx, { repoName: !!args['repo-name'] });
 			print(args.json ? result : checkText(result), !!args.json);
 		} else if (command === 'canvas') {
 			print({ ok: true, ...(await installCanvas(ctx)) }, !!args.json);

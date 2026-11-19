@@ -52,7 +52,7 @@ isn't `~/ai-first-workshop`, and `--json` for JSON (`ok`, `detail`, and on failu
 
 | Command | What it does |
 | --- | --- |
-| `check` | What's here, each item's size on this computer, and the Microsoft sign-in. Read only. |
+| `check` | What's here, each item's size on this computer, and the Microsoft sign-in. Read only. `--repo-name` adds the name their Excalidraw copy will get. |
 | `canvas` | Copies the setup canvas into Copilot's extensions folder (`canvas-extension.py`'s job, without Python). |
 | `install <item>` | One item: `git`, `node`, `gh`, `github`, `skills`, `skill_runs`, `skill_research`, `skill_taste`, `excalidraw`, `resources`, `demo_tools`. Safe to run again. |
 | `env` | The PATH line for this shell, so it finds the tools the setup added. |
@@ -108,10 +108,14 @@ that doesn't need it.
    first. A full skills setup (a `skills-sync.json`, or a private clone in `~/.copilot/autonomous-output-skills`) is
    kept as it is; the result says so.
 5. **excalidraw:** their own copy of the case study, the one public thing.
-   - Ask once (`ask_user`, or one line in the chat): next you'll create their public copy,
-     `<login>/excalidraw-case-study` (`-2` when they already have one), and publish its site with GitHub Pages. That's
-     the only question in this step. When they'd rather not, `setItem {id: "excalidraw", status: "skipped"}` and go
-     on; the workshop's use case needs it, and "continue my setup" picks it up later.
+   - First `<run> check --json --repo-name`. `items.excalidraw.next_repo` is the name the install will create (the
+     script already skipped the names they have), and `next_live` its site. Use them in the question; don't look
+     names up yourself. When `items.excalidraw.repo` is already set, the copy exists: skip the question and run the
+     install, which finishes it.
+   - Ask once (`ask_user`, or one line in the chat): next you'll create their public copy, `<next_repo>`, and publish
+     its site at `<next_live>`. That's the only question in this step. When they'd rather not,
+     `setItem {id: "excalidraw", status: "skipped"}` and go on; the workshop's use case needs it, and "continue my
+     setup" picks it up later.
    - Then `<run> install excalidraw --json`, once, as is. It creates the repo from the template, clones it into the
      folder, sets Pages to deploy from Actions, and installs the packages itself: `npm ci --ignore-scripts` inside
      the clone, from the template's own lockfile, so no package's install script runs. It takes a minute or two.
