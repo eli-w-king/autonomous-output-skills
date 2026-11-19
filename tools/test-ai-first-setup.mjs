@@ -228,6 +228,29 @@ test('the canvas fonts come from the first source that has them, only when they 
 	assert.ok(!asked.some((url) => url.endsWith('Good.woff2')), 'the next copy uses the cache');
 });
 
+test('install excalidraw refuses --skip-npm outside the script\'s tests, before it touches anything', async () => {
+	const home = await scratchHome('skipnpm');
+	const folder = path.join(home, 'ai-first-workshop');
+	const saved = process.env.AI_FIRST_TEST;
+	delete process.env.AI_FIRST_TEST;
+	const write = process.stderr.write;
+	let said = '';
+	process.stderr.write = (chunk) => {
+		said += chunk;
+		return true;
+	};
+	try {
+		assert.equal(await af.main(['install', 'excalidraw', '--skip-npm', '--json', '--folder', folder]), 2);
+	} finally {
+		process.stderr.write = write;
+		if (saved !== undefined) {
+			process.env.AI_FIRST_TEST = saved;
+		}
+	}
+	assert.match(said, /installs its packages itself/);
+	assert.equal(fs.existsSync(folder), false);
+});
+
 test('the canvas isn\'t copied when the workshop-setup plugin already brings it', async () => {
 	const home = await scratchHome('plugin');
 	const ctx = context(home);

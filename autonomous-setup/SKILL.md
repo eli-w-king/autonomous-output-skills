@@ -51,7 +51,8 @@ Do these first, in order, before anything else in this file.
      `tar.exe -xf "<folder>\skills.zip" -C "<folder>"`, rename the folder the same way, and delete the zip. When a
      copy is already there, move it aside first.
 3. **Then read `<folder>/autonomous-output-skills/autonomous-setup/references/ai-first.md` and follow it.** Stay in
-   this chat, as everywhere in this skill.
+   this chat, as everywhere in this skill. Its first step copies the canvas into this chat; until then, don't call
+   `list_canvas_capabilities` or `open_canvas`, and never guess a canvas id. Part 2 below isn't for this path.
 
 ### Values from the prompt
 
@@ -228,6 +229,8 @@ When the prompt says "on my dev box", this machine is their dev box: read
 ### Open the canvas, in this same chat
 
 <!-- CANVAS: the setup canvas (plugins/workshop-setup/extensions/setup-checklist), canvas id autonomous-setup-checklist. -->
+On the AI-First path, skip this section: `references/ai-first.md` copies and opens the canvas.
+
 1. `list_canvas_capabilities` with canvasId `autonomous-setup-checklist`. When it's listed (a machine with the
    workshop-setup plugin, or a copy from an earlier run), use it: go to step 4 and don't copy anything.
 2. Not listed: `<py> <skill>/scripts/canvas-extension.py install --json`. It copies the canvas from the clone

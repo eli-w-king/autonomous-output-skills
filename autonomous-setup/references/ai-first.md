@@ -20,6 +20,11 @@ like a person, keep moving). Also:
   `installed.md`), so the uninstall takes back exactly what was added.
 - **The person is in Interactive mode with Allow all.** Ask in the chat only for real choices; what to install is
   chosen on the canvas.
+- **One public thing, asked once.** Everything else stays on their computer. Their copy of the Excalidraw case study
+  is a public repo with a live site, so ask once, right before step 2.5, and nowhere else.
+- **Run the script as written here.** Each command does its whole step. Don't add flags, split a step, or run its
+  parts (git, gh, npm) yourself, and never set, change or move this chat's workspace: the paths here are full paths.
+  When a step stops partway (the Wi-Fi, a timeout), run the same command again; it picks up where it stopped.
 - **Their names stay out of files.** Take the title, subtitle, host and folder from the prompt, pass them to the
   canvas, and never write them into this repo.
 
@@ -57,9 +62,10 @@ isn't `~/ai-first-workshop`, and `--json` for JSON (`ok`, `detail`, and on failu
 
 ## 1. Open the canvas, then wait for Confirm
 
-1. `<run> canvas --json`. When it says `reload_needed`, call `extensions_reload` (find it with tool search). It also
-   fetches the canvas's fonts (about 0.6 MB) from the workshop site; when they can't be fetched, the canvas uses the
-   system's fonts and the setup carries on.
+1. `<run> canvas --json` first, before any canvas tool. When it says `reload_needed`, call `extensions_reload` (find
+   it with tool search). Until both are done, don't call `list_canvas_capabilities` or `open_canvas`, and never guess
+   a canvas id: the canvas isn't in this chat yet. It also fetches the canvas's fonts (about 0.6 MB) from the
+   workshop site; when they can't be fetched, the canvas uses the system's fonts and the setup carries on.
 2. `list_canvas_capabilities` with canvasId `autonomous-setup-checklist`, then `open_canvas` with that canvasId,
    instanceId `workshop-setup`, and input `{title, subtitle, presenter, workshop: "choose", workshopDir: "<folder>",
    skillsDir: "<folder>/autonomous-output-skills"}`. "Multiple canvases match": add extensionId `user:setup-checklist`.
@@ -101,13 +107,21 @@ that doesn't need it.
    (`COPILOT_HOME` is honored). A folder with the same name is saved to `~/.copilot/skills-backup/ai-first-workshop/`
    first. A full skills setup (a `skills-sync.json`, or a private clone in `~/.copilot/autonomous-output-skills`) is
    kept as it is; the result says so.
-5. **excalidraw:** `<run> install excalidraw --json`. It creates `<login>/excalidraw-case-study` from the template
-   (with `-2`, `-3` when the name is taken), clones it into the folder, sets GitHub Pages to deploy from Actions, and
-   installs its packages with `npm ci` (a minute or two). Show them the repo link.
+5. **excalidraw:** their own copy of the case study, the one public thing.
+   - Ask once (`ask_user`, or one line in the chat): next you'll create their public copy,
+     `<login>/excalidraw-case-study` (`-2` when they already have one), and publish its site with GitHub Pages. That's
+     the only question in this step. When they'd rather not, `setItem {id: "excalidraw", status: "skipped"}` and go
+     on; the workshop's use case needs it, and "continue my setup" picks it up later.
+   - Then `<run> install excalidraw --json`, once, as is. It creates the repo from the template, clones it into the
+     folder, sets Pages to deploy from Actions, and installs the packages itself: `npm ci --ignore-scripts` inside
+     the clone, from the template's own lockfile, so no package's install script runs. It takes a minute or two.
+     Don't pass `--skip-npm` (the script refuses it), don't run npm yourself, and don't open the clone as this chat's
+     workspace: the next prompt in the room opens the project.
+   - Show them the repo link from the result.
 6. **resources:** `<run> install resources --json`: the prompts, a cheat sheet and the settings in `<folder>/resources`.
-7. **demo_tools:** `<run> install demo_tools --json`: Playwright Core with their Chrome or Edge, a small ffmpeg and
-   Playwright's capture encoder, in `<folder>/tools/demo` (paths in `demo-tools.json` there). Without Chrome or Edge
-   it adds a small headless browser (about 105 to 130 MB).
+7. **demo_tools:** `<run> install demo_tools --json`: Playwright Core with their Chrome or Edge and a small ffmpeg
+   with H.264, in `<folder>/tools/demo` (paths in `demo-tools.json` there), checked with the demos skill's own
+   `demo.mjs check`. Without Chrome or Edge it adds a small headless browser (about 105 to 130 MB).
 8. **Extras they switched on:** `skill_runs`, `skill_research`, `skill_taste`, each with `<run> install <id> --json`.
 9. **computer_use:** the setting is already on. They send `/computer on` in the chat and click **Turn On** (you can't
    do it for them). On a Mac, the Set Up Computer Use dialog asks for Screen Recording and Accessibility:

@@ -13,14 +13,17 @@
 //   ai-first.mjs check     [--folder DIR] [--json]       what's here, each item's size, and the Microsoft sign-in gate
 //   ai-first.mjs canvas    [--folder DIR] [--json]       copy the setup canvas into Copilot's extensions folder
 //   ai-first.mjs install   ITEM [--folder DIR] [--json]  git, node, gh, github, skills, skill_runs, skill_research,
-//                                                        skill_taste, excalidraw, resources, demo_tools
+//                                                        skill_taste, excalidraw, resources, demo_tools. Each does its
+//                                                        whole step; excalidraw installs its packages too (npm ci in
+//                                                        the clone, with no install scripts)
 //   ai-first.mjs env       [--folder DIR] [--format sh|ps|json]   the PATH line for this shell
 //   ai-first.mjs automation [--folder DIR] [--json]      the configureAutomation input for the weekly taste update
 //   ai-first.mjs record    KEY --value JSON [--folder DIR]   record what the agent did (taste_weekly, choices)
 //   ai-first.mjs uninstall [--folder DIR] [--yes] [--json]  list what the setup added; --yes removes it
 //
 // Environment: COPILOT_HOME (default ~/.copilot), AI_FIRST_WORKSHOP (the folder, default ~/ai-first-workshop), and
-// for testing only, AI_FIRST_IGNORE_SYSTEM_TOOLS=1 to act as if Git, Node.js and the GitHub CLI weren't installed.
+// for testing only, AI_FIRST_IGNORE_SYSTEM_TOOLS=1 to act as if Git, Node.js and the GitHub CLI weren't installed,
+// and AI_FIRST_TEST=1 to allow install excalidraw --skip-npm.
 // Exit codes: 0 ok, 1 failed (the reason is printed), 2 usage.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
@@ -1538,13 +1541,15 @@ async function installExcalidraw(ctx, { skipNpm = false, name: wanted = null, ow
 		await record(ctx, 'excalidraw', { pages });
 	}
 	if (!skipNpm) {
-		await npm(ctx, ['ci', '--no-audit', '--no-fund', '--cache', path.join(ctx.cacheDir, 'npm')], { cwd: dir });
+		// The packages come from the template's own lockfile, and no package's install script runs: the project needs
+		// none (esbuild finds its binary without its own).
+		await npm(ctx, ['ci', '--ignore-scripts', '--no-audit', '--no-fund', '--cache', path.join(ctx.cacheDir, 'npm')], { cwd: dir });
 		await record(ctx, 'excalidraw', { packages: true });
 	}
 	const [login, repo] = fullName.split('/');
 	return {
 		changed: true,
-		detail: `${fullName} in ${tilde(dir, ctx.home)}${pages ? '' : ' (turn on GitHub Pages later: Settings, Pages, Source: GitHub Actions)'}`,
+		detail: `${fullName} in ${tilde(dir, ctx.home)}${skipNpm ? '' : ', with its packages'}${pages ? '' : ' (turn on GitHub Pages later: Settings, Pages, Source: GitHub Actions)'}`,
 		repo: fullName,
 		live: `https://${login}.github.io/${repo}/`,
 	};
@@ -1979,6 +1984,12 @@ export async function main(argv = process.argv.slice(2)) {
 		} else if (command === 'install') {
 			if (!INSTALLERS[item]) {
 				process.stderr.write(`Unknown item ${JSON.stringify(item || '')}. Items: ${Object.keys(INSTALLERS).join(', ')}\n`);
+				return 2;
+			}
+			if (args['skip-npm'] && ctx.env.AI_FIRST_TEST !== '1') {
+				process.stderr.write('install excalidraw installs its packages itself, in the clone, so run it without --skip-npm '
+					+ '(that flag is only for this script\'s tests, with AI_FIRST_TEST=1). It\'s safe to run again: it picks up where '
+					+ 'it stopped.\n');
 				return 2;
 			}
 			await fsp.mkdir(ctx.folder, { recursive: true });
