@@ -77,8 +77,9 @@ isn't `~/ai-first-workshop`, and `--json` for JSON (`ok`, `detail`, and on failu
    `waiting`.
    - `confirmed`: go on to 2 with `flow.install` (the ids to set up) and `flow.selections`.
    - `gate`: they picked the Microsoft workshop. See "The Microsoft workshop" below.
-   - A chat message "I clicked Confirm on the setup checklist..." (the canvas sends it when you weren't waiting) means
-     the same as `confirmed`: `getState`, then go on.
+   - A chat message "I clicked Confirm on the setup checklist..." (the canvas sends it when you weren't waiting and
+     didn't check within about 25 seconds) means the same as `confirmed`: `getState`, then go on. If you're already
+     installing, carry on without answering it.
 
 ## 2. Install what they checked, in this order
 

@@ -17,10 +17,10 @@ function fixture(os = 'mac', change = (items) => items) {
 	return { run: async () => ({ data: structuredClone(data), script: 'fixture' }), data };
 }
 
-async function aiFirstModel({ os = 'mac', change, workshop = 'choose' } = {}) {
+async function aiFirstModel({ os = 'mac', change, workshop = 'choose', nudgeGraceMs } = {}) {
 	const runner = fixture(os, change);
 	const now = monotonicNow();
-	const model = new SetupModel({ store: new MemoryStore({ now }), runner, aiFirstRunner: runner, platform: os === 'mac' ? 'darwin' : 'win32', now });
+	const model = new SetupModel({ store: new MemoryStore({ now }), runner, aiFirstRunner: runner, platform: os === 'mac' ? 'darwin' : 'win32', now, nudgeGraceMs });
 	await model.load();
 	await model.setMeta({ title: 'Design systems workshop', subtitle: 'Team series', presenter: 'Your Name' });
 	await model.setWorkshop({ workshop, workshopDir: '/Users/you/ai-first-workshop' });
@@ -170,6 +170,38 @@ test('the agent\'s wait: picking Microsoft, Confirm, and the timeout', async () 
 	assert.equal((await model.waitForFlow({ timeoutMs: 5000 })).status, 'confirmed', 'it answers at once after Confirm');
 	assert.deepEqual(validateWaitInput({ timeoutSeconds: 30 }), { timeoutMs: 30000 });
 	assert.throws(() => validateWaitInput({ timeoutSeconds: 1 }));
+});
+
+test('the chat nudge after Confirm goes out only when the agent doesn\'t hear Confirm itself', async () => {
+	const confirmWith = async (beforeConfirm) => {
+		const { model } = await aiFirstModel({ nudgeGraceMs: 40 });
+		await model.flowAction({ action: 'pick', id: 'ai-first' });
+		for (const step of ['install', 'uninstall', 'after']) {
+			await model.flowAction({ action: 'step', step });
+		}
+		let nudges = 0;
+		model.on('nudge', () => {
+			nudges++;
+		});
+		const before = await beforeConfirm(model);
+		await model.flowAction({ action: 'confirm' });
+		assert.equal((await before?.wait)?.status ?? 'confirmed', 'confirmed');
+		return { model, count: async () => {
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			return nudges;
+		} };
+	};
+	const waited = await confirmWith(async (model) => {
+		const wait = model.waitForFlow({ timeoutMs: 5000 });
+		await new Promise((resolve) => setImmediate(resolve));
+		return { wait };
+	});
+	assert.equal(await waited.count(), 0, 'the agent was waiting');
+	const between = await confirmWith(async () => null);
+	assert.equal((await between.model.waitForFlow({ timeoutMs: 5000 })).status, 'confirmed');
+	assert.equal(await between.count(), 0, 'the agent\'s next wait came within the grace period');
+	const gone = await confirmWith(async () => null);
+	assert.equal(await gone.count(), 1, 'nobody heard Confirm, so the chat is asked once');
 });
 
 test('an open without workshop is the full setup, even after the AI-First path ran here', async () => {

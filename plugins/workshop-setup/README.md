@@ -166,7 +166,9 @@ welcome with the event's names over the Horizon band, then a few steps on a card
 
 Nothing is installed before Confirm. The agent calls `waitForConfirm` while the person reads, installs `flow.install`
 in order with `setStep` and `setItem` as above, and the page becomes the live checklist with the Computer Use and
-dictation Try it prompts. The checks come from `ai-first.mjs check --json`, run with VS Code's own runtime, so the
+dictation Try it prompts. When the agent wasn't waiting at Confirm and doesn't call `waitForConfirm` or `getState`
+within about 25 seconds (its turn ended), the canvas posts "I clicked Confirm on the setup checklist..." in the chat,
+so the setup carries on. The checks come from `ai-first.mjs check --json`, run with VS Code's own runtime, so the
 path needs no Python.
 
 ### When the setup skill calls what

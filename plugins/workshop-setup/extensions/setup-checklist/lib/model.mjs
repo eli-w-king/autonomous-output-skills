@@ -12,12 +12,16 @@ const RECHECK_AFTER_MS = 15000;
 const WATCH_EVERY_MS = 2000;
 
 export class SetupModel extends EventEmitter {
-	constructor({ store, runner, aiFirstRunner = null, platform = process.platform, now = () => new Date().toISOString(), log = () => {} }) {
+	constructor({ store, runner, aiFirstRunner = null, platform = process.platform, now = () => new Date().toISOString(), log = () => {}, nudgeGraceMs = 25000 }) {
 		super();
 		this.store = store;
 		this.runner = runner;
 		this.aiFirstRunner = aiFirstRunner;
 		this.waiters = 0;
+		// After Confirm: whether the agent has seen it (waitForFlow or getState), and the chat nudge for when it hasn't.
+		this.agentSawConfirm = false;
+		this.nudgeGraceMs = nudgeGraceMs;
+		this.nudgeTimer = null;
 		this.platform = platform;
 		this.now = now;
 		this.log = log;
@@ -55,12 +59,16 @@ export class SetupModel extends EventEmitter {
 		return view;
 	}
 
+	// What the agent reads (getState, refresh).
 	summary() {
 		const record = this.record || emptyRecord(this.now());
 		const out = summarize(this.view(), record);
 		if (record.aiFirst) {
 			out.path = usesAiFirst(record) ? 'ai-first' : 'full';
 			out.flow = flowSummary(record, osFromRecord(record, this.platform));
+			if (out.flow.confirmed) {
+				this.agentSawConfirm = true;
+			}
 		}
 		return out;
 	}
@@ -248,11 +256,27 @@ export class SetupModel extends EventEmitter {
 		} else {
 			throw new SetupError('invalid_input', 'Unknown step action.');
 		}
+		const agentWaiting = this.waiters > 0;
+		if (action === 'confirm') {
+			this.agentSawConfirm = false;
+		}
 		await this.save((record) => {
 			record.aiFirst = { ...emptyFlow(), ...(record.aiFirst || {}), ...next };
 		});
 		if (action === 'confirm') {
-			this.emit('confirmed', flowSummary(this.record, osFromRecord(this.record, this.platform)));
+			const summary = flowSummary(this.record, osFromRecord(this.record, this.platform));
+			this.emit('confirmed', summary);
+			// When the agent wasn't waiting for Confirm (its turn ended), the extension asks the chat to carry on. The
+			// grace period covers the moment between two waitForFlow calls, so the agent never hears it twice.
+			if (!agentWaiting && !this.agentSawConfirm) {
+				clearTimeout(this.nudgeTimer);
+				this.nudgeTimer = setTimeout(() => {
+					if (!this.agentSawConfirm) {
+						this.emit('nudge', summary);
+					}
+				}, this.nudgeGraceMs);
+				this.nudgeTimer.unref?.();
+			}
 		}
 		if (action === 'continue') {
 			this.lastCheckDone = 0;
@@ -281,6 +305,7 @@ export class SetupModel extends EventEmitter {
 		await this.ensureLoaded();
 		const start = this.flowStatus();
 		if (start === 'confirmed' || start === 'microsoft') {
+			this.agentSawConfirm ||= start === 'confirmed';
 			return this.flowResult(start);
 		}
 		return new Promise((resolve) => {
@@ -293,7 +318,9 @@ export class SetupModel extends EventEmitter {
 				clearTimeout(timer);
 				this.off('change', onChange);
 				this.waiters = Math.max(0, this.waiters - 1);
-				resolve(this.flowResult(this.flowStatus()));
+				const result = this.flowResult(this.flowStatus());
+				this.agentSawConfirm ||= result.status === 'confirmed';
+				resolve(result);
 			};
 			const onChange = () => {
 				const now = this.flowStatus();

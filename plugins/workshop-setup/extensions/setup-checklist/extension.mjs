@@ -21,10 +21,10 @@ const home = copilotHome();
 const model = new SetupModel({ store: new Store({ home }), runner: new CheckRunner({ copilotHome: home }), aiFirstRunner: new AiFirstRunner({ copilotHome: home }), log });
 const hub = new CanvasHub({ model, log });
 
-// When the person clicks Confirm and the agent isn't waiting for it (its turn ended), say so in the chat, so the
-// setup carries on without them typing anything.
-model.on('confirmed', () => {
-	if (model.waiters > 0 || typeof session?.send !== 'function') {
+// When the person clicks Confirm and the agent doesn't hear it (its turn ended), say so in the chat, so the setup
+// carries on without them typing anything. The model decides when (a short grace period after Confirm).
+model.on('nudge', () => {
+	if (typeof session?.send !== 'function') {
 		return;
 	}
 	session.send({ prompt: 'I clicked Confirm on the setup checklist. Go ahead and set up what I checked.', mode: 'enqueue' }).catch(() => {});
