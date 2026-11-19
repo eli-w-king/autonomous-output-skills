@@ -13,7 +13,10 @@ https://eli-w-king.github.io/ai-first-design-workshop/uninstall.html
 2. **Show the list first.** `<run> uninstall --json` lists every change the setup recorded, in order, and changes
    nothing. Show it in a few plain lines, plus what stays (the 16 settings, which they remove by hand at the end,
    their repo on GitHub, and their Copilot plan), and ask them to say yes. Nothing goes before they do.
-3. **Then remove it.** `<run> uninstall --yes --json`. It:
+3. **Then remove it.** First stop what runs from the folder: the Excalidraw server (`npm start`) and anything else
+   you started there. Ask them to close terminals and editor windows open in the folder (Windows can't delete a
+   folder a program is using). Then, from their home folder (`cd ~` in the same command), `<run> uninstall --yes
+   --json`. It:
    - removes the light skills it installed and puts back any earlier copy it saved (from
      `~/.copilot/skills-backup/ai-first-workshop/`); My taste goes with the rules it learned
    - removes the setup checklist and its saved progress
@@ -22,6 +25,10 @@ https://eli-w-king.github.io/ai-first-design-workshop/uninstall.html
    - undoes the git changes it made: the GitHub CLI sign-in helper, and the name and email it set
    - signs the GitHub CLI out and removes its settings, only when the setup created them
    - deletes the workshop folder last
+
+   When a program still has something in the folder open, the folder step fails with EBUSY or EPERM (the result
+   says which file). The record in `<folder>/.setup` goes last, so it's still there: ask them to close what's using
+   the folder, then run the same command again. It skips what's already done and carries on with the folder.
 
    It leaves VS Code's settings.json alone, and so do you: no edits from the terminal or with a file tool. Removing
    the workshop settings turns the terminal sandbox back on in the middle of your work, which stops the command

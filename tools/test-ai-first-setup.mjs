@@ -238,6 +238,39 @@ test('the copy\'s name skips the names they have, and no answer from GitHub is a
 	await assert.rejects(af.nextRepo(ctx, gh, 'offline'), /couldn't ask GitHub/);
 });
 
+test('an uninstall stopped by a folder in use keeps its record, and the next run never removes a restored skill again', { skip: process.platform === 'win32' }, async () => {
+	const home = await scratchHome('resume');
+	const ctx = context(home);
+	const theirs = path.join(ctx.skillsDir, 'autonomous-prototypes');
+	await fsp.mkdir(theirs, { recursive: true });
+	await fsp.writeFile(path.join(theirs, 'SKILL.md'), 'their own\n');
+	await fsp.mkdir(ctx.folder, { recursive: true });
+	await af.INSTALLERS.skills(ctx);
+	// Something in the folder that can't be deleted yet, the way a running program holds it on Windows.
+	const held = path.join(ctx.folder, 'excalidraw-case-study', 'node_modules');
+	await fsp.mkdir(held, { recursive: true });
+	await fsp.writeFile(path.join(held, 'busy.txt'), 'in use\n');
+	await fsp.chmod(held, 0o500);
+	const cwd = process.cwd();
+	try {
+		const first = await af.uninstall(ctx, { yes: true });
+		assert.equal(first.results.find((entry) => entry.id === 'folder').ok, false);
+		assert.equal(fs.readFileSync(path.join(theirs, 'SKILL.md'), 'utf8'), 'their own\n', 'their skill is back');
+		assert.ok(fs.existsSync(ctx.manifestFile), 'the record is deleted last, so it\'s still there');
+		const again = await af.uninstall(ctx);
+		assert.ok(again.already_removed.includes('skill:autonomous-prototypes'));
+		assert.deepEqual(again.steps.map((step) => step.id), ['folder']);
+		await fsp.chmod(held, 0o700);
+		const second = await af.uninstall(ctx, { yes: true });
+		assert.deepEqual(second.results.filter((entry) => entry.ok === false), []);
+	} finally {
+		process.chdir(cwd);
+		await fsp.chmod(held, 0o700).catch(() => {});
+	}
+	assert.equal(fs.existsSync(ctx.folder), false);
+	assert.equal(fs.readFileSync(path.join(theirs, 'SKILL.md'), 'utf8'), 'their own\n', 'still theirs after the second run');
+});
+
 test('install excalidraw refuses --skip-npm outside the script\'s tests, before it touches anything', async () => {
 	const home = await scratchHome('skipnpm');
 	const folder = path.join(home, 'ai-first-workshop');

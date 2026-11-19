@@ -20,8 +20,9 @@
  * <name>.jpg poster to --out, and prints JSON with the length, the size, console errors and a contact sheet to look
  * at. Narration is macOS say or Windows SAPI, or --audio with the person's own recording.
  *
- * Tools: ~/ai-first-workshop/tools/demo/demo-tools.json (or under $AI_FIRST_WORKSHOP) when the workshop setup wrote
- * it; otherwise Playwright from $PLAYWRIGHT_DIR, this folder, the workshop folder or the global npm folder, and
+ * Tools: <workshop folder>/tools/demo/demo-tools.json when the workshop setup wrote it. The folder is
+ * $AI_FIRST_WORKSHOP, else the one in <COPILOT_HOME or ~/.copilot>/ai-first-workshop.json (the setup writes it for a
+ * folder other than ~/ai-first-workshop), else ~/ai-first-workshop. Otherwise Playwright from $PLAYWRIGHT_DIR, this folder, the workshop folder or the global npm folder, and
  * ffmpeg from $FFMPEG, the workshop folder or PATH. Scratch files go to the system temp folder (or --scratch) and are
  * removed afterwards, except the contact sheet. Exit codes: 0 ok, 1 failed, 2 usage error.
  */
@@ -36,7 +37,16 @@ const MAC = process.platform === 'darwin';
 const RATE = 22050;
 const requireHere = createRequire(import.meta.url);
 const expand = p => (p === '~' || /^~[\\/]/.test(p || '')) ? path.join(os.homedir(), p.slice(1)) : p;
-const WORKSHOP = path.resolve(expand(process.env.AI_FIRST_WORKSHOP || path.join(os.homedir(), 'ai-first-workshop')));
+const COPILOT = process.env.COPILOT_HOME ? path.resolve(expand(process.env.COPILOT_HOME)) : path.join(os.homedir(), '.copilot');
+const pointedFolder = () => {
+	try {
+		const folder = JSON.parse(fs.readFileSync(path.join(COPILOT, 'ai-first-workshop.json'), 'utf8')).folder;
+		return typeof folder === 'string' && folder.trim() ? folder : null;
+	} catch {
+		return null;
+	}
+};
+const WORKSHOP = path.resolve(expand(process.env.AI_FIRST_WORKSHOP || pointedFolder() || path.join(os.homedir(), 'ai-first-workshop')));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const now = () => Date.now() / 1000;
 const firstLine = text => String(text || '').trim().split('\n')[0].slice(0, 300);

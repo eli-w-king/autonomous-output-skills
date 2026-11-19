@@ -8,7 +8,8 @@
 //
 // It runs on Node 18 or newer, or on VS Code Insiders' own runtime before Node is installed:
 //   macOS:   ELECTRON_RUN_AS_NODE=1 "/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Code - Insiders" ai-first.mjs ...
-//   Windows: $env:ELECTRON_RUN_AS_NODE='1'; & "$env:LOCALAPPDATA\Programs\Microsoft VS Code Insiders\Code - Insiders.exe" ai-first.mjs ...
+//   Windows: $env:ELECTRON_RUN_AS_NODE='1'; & "$env:LOCALAPPDATA\Programs\Microsoft VS Code Insiders\Code - Insiders.exe" ai-first.mjs ... 2>&1 | Out-String; Remove-Item Env:ELECTRON_RUN_AS_NODE
+//            (one line: PowerShell waits for Code - Insiders.exe and keeps its output only when it's piped)
 //
 //   ai-first.mjs check     [--folder DIR] [--json] [--repo-name]   what's here, each item's size, and the Microsoft
 //                                                        sign-in gate; --repo-name adds the name their Excalidraw copy
@@ -1446,6 +1447,10 @@ async function npm(ctx, args, { cwd, timeoutMs = 15 * 60 * 1000, env = {} } = {}
 	// npm runs in the folder itself, which has a package.json (checked above), so it never looks upward for a project.
 	// No --prefix: on the command line it also moves npm's global config, so a registry set there would be skipped.
 	const result = await run(node, [cli, ...args], { cwd, env: childEnv(ctx, env), timeoutMs });
+	if (result.code === 0) {
+		// The packages are in place; the download cache (tens of MB) is only worth keeping for a retry.
+		await fsp.rm(path.join(ctx.cacheDir, 'npm'), { recursive: true, force: true }).catch(() => {});
+	}
 	if (result.code !== 0) {
 		const lines = `${result.stderr}\n${result.stdout}`.split(/\r?\n/).map((line) => line.trim()).filter((line) => /err/i.test(line));
 		throw new SetupError(`npm ${args[0]} failed in ${tilde(cwd, ctx.home)}: ${lines.slice(-2).join(' ') || `exit ${result.code}`}`);
@@ -1638,10 +1643,17 @@ async function installDemoTools(ctx, { fetchImpl } = {}) {
 	};
 	await writeAtomic(path.join(dir, 'demo-tools.json'), JSON.stringify(info, null, 2) + '\n');
 	await record(ctx, 'demo_tools', { path: dir, browser: info.browserName, downloaded_browser: !browser });
-	// The demos skill's own check opens the browser and reads ffmpeg's encoders: the real proof.
+	// The demos skill looks in ~/ai-first-workshop; for any other folder, it reads this pointer.
+	if (path.resolve(ctx.folder) !== path.join(ctx.home, 'ai-first-workshop')) {
+		const pointer = path.join(ctx.copilotHome, 'ai-first-workshop.json');
+		await writeAtomic(pointer, JSON.stringify({ folder: ctx.folder }, null, 1) + '\n');
+		await record(ctx, 'pointer', { file: pointer });
+	}
+	// The demos skill's own check opens the browser and reads ffmpeg's encoders: the real proof. It finds the folder
+	// the way it will later, by itself.
 	const demos = [path.join(ctx.skillsDir, 'autonomous-demos', 'scripts', 'demo.mjs'), path.join(editionDir(ctx, 'autonomous-demos'), 'scripts', 'demo.mjs')].find((file) => exists(file));
 	if (demos) {
-		const result = await run(node.node, [demos, 'check'], { env: childEnv(ctx, { AI_FIRST_WORKSHOP: ctx.folder }), timeoutMs: 120000 });
+		const result = await run(node.node, [demos, 'check'], { env: childEnv(ctx), timeoutMs: 120000 });
 		let report = null;
 		try {
 			report = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
@@ -1805,6 +1817,9 @@ export async function uninstallPlan(ctx) {
 	const items = manifest.items;
 	const t = (file) => tilde(file, ctx.home);
 	const steps = [];
+	// Steps an earlier uninstall finished (it stopped at a folder still in use) aren't done twice: a skill put back
+	// from its backup must never be removed again.
+	const finished = new Set(manifest.uninstall?.done || []);
 	for (const [id, entry] of Object.entries(items)) {
 		if (id === 'skills' || id in OPTIONAL_SKILLS) {
 			for (const [name, info] of Object.entries(entry.installed || {})) {
@@ -1834,7 +1849,11 @@ export async function uninstallPlan(ctx) {
 	if (items.taste_weekly?.automationId) {
 		steps.push({ id: 'taste_weekly', text: `Delete the "${TASTE_AUTOMATION_NAME}" automation (the agent does this with deleteAutomation)`, automationId: items.taste_weekly.automationId, agent: true });
 	}
+	if (items.pointer?.file) {
+		steps.push({ id: 'pointer', text: `Remove ${t(items.pointer.file)}, which tells the demos skill where the workshop folder is`, file: items.pointer.file });
+	}
 	steps.push({ id: 'folder', text: `Delete ${t(ctx.folder)}: your local Excalidraw copy, the skills download, the resources and the tools the setup installed`, path: ctx.folder });
+	const remaining = steps.filter((step) => !finished.has(step.id));
 	// The workshop settings are the person's to remove, last, by hand. Removing them turns the terminal sandbox back on,
 	// which would stop an agent's command partway through.
 	const settings = vscodeSettingsFile(ctx);
@@ -1845,7 +1864,31 @@ export async function uninstallPlan(ctx) {
 		keep.push(`Your repo https://github.com/${items.excalidraw.repo} stays on GitHub. Delete it there if you want to.`);
 	}
 	keep.push('Cancel the free month of Copilot before it renews: github.com, Settings, Billing and licensing, Licensing.');
-	return { folder: ctx.folder, steps, keep, settings: { file: settings, keys: SETTINGS_KEYS, by_hand: true }, guide: UNINSTALL_URL };
+	return { folder: ctx.folder, steps: remaining, already_removed: steps.filter((step) => finished.has(step.id)).map((step) => step.id), keep, settings: { file: settings, keys: SETTINGS_KEYS, by_hand: true }, guide: UNINSTALL_URL };
+}
+
+// The workshop folder, with its record (.setup) last, so a folder that's still in use keeps the record for the next
+// try. EBUSY and EPERM on Windows (and EBUSY on a Mac) mean a program still has something in it open.
+async function removeWorkshopFolder(ctx, dir) {
+	try {
+		const names = (await fsp.readdir(dir).catch(() => [])).filter((name) => name !== '.setup');
+		for (const name of names) {
+			await fsp.rm(path.join(dir, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+		}
+		await fsp.rm(path.join(dir, '.setup'), { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+		await fsp.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+	} catch (error) {
+		if (['EBUSY', 'EPERM', 'ENOTEMPTY'].includes(error?.code)) {
+			throw new SetupError(`a program still has something in ${tilde(dir, ctx.home)} open (${error.code}${error.path ? `: ${tilde(error.path, ctx.home)}` : ''}). Stop the Excalidraw server (npm start) and anything else you started there, close terminals and windows open in that folder, then run the uninstall again; it carries on from here.`);
+		}
+		throw error;
+	}
+}
+
+async function markUninstalled(ctx, id) {
+	const manifest = await readManifest(ctx);
+	manifest.uninstall = { ...(manifest.uninstall || {}), done: [...new Set([...(manifest.uninstall?.done || []), id])] };
+	await writeManifest(ctx, manifest);
 }
 
 async function removeGitConfig(ctx, git, args) {
@@ -1902,13 +1945,18 @@ export async function uninstall(ctx, { yes = false } = {}) {
 					await run(gh.cli.file, ['auth', 'logout', '--hostname', 'github.com', ...(step.login ? ['--user', step.login] : [])], { env: childEnv(ctx), timeoutMs: 60000 });
 				}
 				await fsp.rm(step.dir, { recursive: true, force: true });
+			} else if (step.id === 'pointer') {
+				await fsp.rm(step.file, { force: true });
 			} else if (step.id === 'taste_weekly') {
 				results.push({ id: step.id, ok: null, detail: 'for the agent: deleteAutomation with this id', automationId: step.automationId });
 				continue;
 			} else if (step.id === 'folder') {
-				await fsp.rm(step.path, { recursive: true, force: true, maxRetries: 3 });
+				await removeWorkshopFolder(ctx, step.path);
+				results.push({ id: step.id, ok: true });
+				continue;
 			}
 			results.push({ id: step.id, ok: true });
+			await markUninstalled(ctx, step.id).catch(() => {});
 		} catch (error) {
 			results.push({ id: step.id, ok: false, detail: String(error.message || error).split('\n')[0] });
 		}
@@ -1955,13 +2003,24 @@ function parseArgs(argv) {
 	return out;
 }
 
+// A reader that went away (EPIPE, as when PowerShell stops reading) never turns a finished step into a crash.
+function out(text) {
+	try {
+		process.stdout.write(text);
+	} catch (error) {
+		if (error?.code !== 'EPIPE') {
+			throw error;
+		}
+	}
+}
+
 function print(value, json) {
 	if (json) {
-		process.stdout.write(JSON.stringify(value, null, 1) + '\n');
+		out(JSON.stringify(value, null, 1) + '\n');
 	} else if (typeof value === 'string') {
-		process.stdout.write(value + '\n');
+		out(value + '\n');
 	} else {
-		process.stdout.write((value.detail || JSON.stringify(value, null, 1)) + '\n');
+		out((value.detail || JSON.stringify(value, null, 1)) + '\n');
 	}
 }
 
@@ -2042,6 +2101,11 @@ export async function main(argv = process.argv.slice(2)) {
 
 const invoked = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (invoked) {
+	process.stdout.on('error', (error) => {
+		if (error?.code !== 'EPIPE') {
+			throw error;
+		}
+	});
 	main().then((code) => {
 		process.exitCode = code;
 	});

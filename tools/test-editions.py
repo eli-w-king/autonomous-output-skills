@@ -212,16 +212,20 @@ def check_taste(env):
         return {'type': 'user.message', 'timestamp': at(days), 'data': {'content': text, **extra.pop('data', {})}, **extra}
 
     brief = 'Build one variation of the toolbar, in parallel with other sessions. Read AGENTS.md first.'
+    # The Agents window gives every typed turn a parentAgentTaskId; other agents' text has a source like agent-<id>.
     write_session(env, 'one', '/work/excalidraw-case-study', [
-        said(1, '<current_datetime>now</current_datetime>The toolbar feels too busy. Keep it calm and left align the labels.'),
+        said(1, '<current_datetime>now</current_datetime>The toolbar feels too busy. Keep it calm and left align the labels.',
+             data={'parentAgentTaskId': 'turn-1'}),
         said(1, 'Continue with the plan.', data={'source': 'autopilot'}),
+        said(1, 'A note from the system about the tools.', data={'source': 'system', 'parentAgentTaskId': 'turn-2'}),
+        said(1, 'Hand off from another agent: check the build.', data={'source': 'agent-1234', 'parentAgentTaskId': 'turn-3'}),
         {'type': 'tool.execution_start', 'timestamp': at(1), 'data': {'toolName': 'create_session', 'arguments': {'prompt': brief}}},
         said(1, 'You are a sub-agent: review the diff.', agentId='sub-1'),
         said(30, 'An old note from last month about gradients.'),
     ])
     write_session(env, 'two', '/work/excalidraw-case-study.worktrees/calm', [
         said(1, brief),
-        said(0.5, 'Make the icons bigger, I love bold shapes.'),
+        said(0.5, 'Make the icons bigger, I love bold shapes.', data={'parentAgentTaskId': 'turn-4'}),
     ])
     write_session(env, 'three', '/work/ai-first-workshop', [
         said(0.2, "Weekly taste update. Use the my-taste skill's weekly update."),
@@ -233,7 +237,7 @@ def check_taste(env):
     r = env.run(node, script, 'messages', '--days', '7')
     kept = ['too busy', 'bold shapes']
     dropped = ['Continue with the plan', 'sub-agent', 'Build one variation', 'old note', 'Weekly taste update',
-               'automation session', 'current_datetime']
+               'automation session', 'current_datetime', 'note from the system', 'another agent']
     check(r.returncode == 0 and all(k in r.stdout for k in kept) and not any(d in r.stdout for d in dropped),
           f'taste.mjs messages keeps only what the person typed in the last 7 days ({r.stdout.strip()[-300:]})')
     original = (skill / 'SKILL.md').read_text(encoding='utf-8')

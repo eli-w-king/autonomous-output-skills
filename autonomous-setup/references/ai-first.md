@@ -43,12 +43,16 @@ installed:
 
 - **macOS (zsh):** `ELECTRON_RUN_AS_NODE=1 "/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Code - Insiders" "$HOME/ai-first-workshop/autonomous-output-skills/autonomous-setup/scripts/ai-first.mjs" check`
   (use `$HOME/Applications/...` when Insiders lives there).
-- **Windows (PowerShell, one at a time):** `$env:ELECTRON_RUN_AS_NODE = '1'`, then
-  `& "$env:LOCALAPPDATA\Programs\Microsoft VS Code Insiders\Code - Insiders.exe" "$HOME\ai-first-workshop\autonomous-output-skills\autonomous-setup\scripts\ai-first.mjs" check`,
-  then `Remove-Item Env:ELECTRON_RUN_AS_NODE` (a system-wide install is under `$env:ProgramFiles` instead).
+- **Windows (PowerShell): always this whole line, in one command.** Your shell calls don't keep environment
+  variables, so a separate `ELECTRON_RUN_AS_NODE` line opens the editor instead. And PowerShell doesn't wait for
+  `Code - Insiders.exe` or keep its output unless it's piped, so keep `2>&1 | Out-String`:
+  `$env:ELECTRON_RUN_AS_NODE='1'; & "$env:LOCALAPPDATA\Programs\Microsoft VS Code Insiders\Code - Insiders.exe" "$HOME\ai-first-workshop\autonomous-output-skills\autonomous-setup\scripts\ai-first.mjs" check 2>&1 | Out-String; Remove-Item Env:ELECTRON_RUN_AS_NODE`
+  (a system-wide install is under `$env:ProgramFiles` instead). Once `node --version` works there, plain
+  `node "<script>" check` is fine too.
 
-`<run>` below means that command up to and including the script's path. Add `--folder <folder>` when the folder
-isn't `~/ai-first-workshop`, and `--json` for JSON (`ok`, `detail`, and on failure `ok: false` with the reason).
+`<run> <args>` below means that command with `<args>` where `check` is: on Windows, before `2>&1 | Out-String`. Add
+`--folder <folder>` when the folder isn't `~/ai-first-workshop`, and `--json` for JSON (`ok`, `detail`, and on
+failure `ok: false` with the reason).
 
 | Command | What it does |
 | --- | --- |

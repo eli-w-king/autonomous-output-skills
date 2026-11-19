@@ -50,9 +50,11 @@ function start(hours) {
 		return 0;
 	}
 	const seconds = Math.round(hours * 3600);
-	let child;
+	let pid = 0;
 	if (MAC) {
-		child = spawn('caffeinate', ['-is', '-t', String(seconds)], { detached: true, stdio: 'ignore' });
+		const child = spawn('caffeinate', ['-is', '-t', String(seconds)], { detached: true, stdio: 'ignore' });
+		child.unref();
+		pid = child.pid || 0;
 	} else if (WIN) {
 		// 0x80000001: keep the system awake (ES_CONTINUOUS | ES_SYSTEM_REQUIRED) for as long as this process runs.
 		const script = [
@@ -60,18 +62,23 @@ function start(hours) {
 			'[void]$k::SetThreadExecutionState([uint32]2147483649)',
 			`Start-Sleep -Seconds ${seconds}`,
 		].join('\n');
-		child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand',
-			Buffer.from(script, 'utf16le').toString('base64')], { detached: true, stdio: 'ignore', windowsHide: true });
+		const encoded = Buffer.from(script, 'utf16le').toString('base64');
+		// Not spawn's detached: that gives PowerShell no console, and it exits before running anything. Start-Process
+		// gives it its own hidden window and hands back its process id.
+		const launcher = `$p = Start-Process -FilePath powershell.exe -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand','${encoded}'; $p.Id`;
+		const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', launcher], { encoding: 'utf8', windowsHide: true, timeout: 60000 });
+		pid = Number(String(r.stdout || '').trim().split(/\s+/).pop()) || 0;
 	} else {
 		print({ ok: false, error: 'keep-awake works on macOS and Windows' });
 		return 1;
 	}
-	child.unref();
-	if (!child.pid) {
-		print({ ok: false, error: 'could not start it' });
+	const state = { pid, started: new Date().toISOString(), until: new Date(Date.now() + seconds * 1000).toISOString() };
+	// Only say it's running once it is.
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+	if (!pid || !ours(state)) {
+		print({ ok: false, error: 'it started but stopped right away, so this laptop may still sleep', pid: pid || null });
 		return 1;
 	}
-	const state = { pid: child.pid, started: new Date().toISOString(), until: new Date(Date.now() + seconds * 1000).toISOString() };
 	fs.mkdirSync(HOME, { recursive: true });
 	fs.writeFileSync(STATE, JSON.stringify(state, null, 1) + '\n');
 	print({ ok: true, running: true, ...state });

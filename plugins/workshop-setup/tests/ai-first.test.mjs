@@ -3,6 +3,7 @@
 // Confirm, the wait the agent uses, the live list, and the first-time simulation on a Mac and a PC.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { SetupModel } from '../extensions/setup-checklist/lib/model.mjs';
 import { CanvasHub, fontsPresent } from '../extensions/setup-checklist/lib/server.mjs';
 import { MemoryStore, Simulation, firstAiFirstCheck, monotonicNow } from '../extensions/setup-checklist/lib/simulation.mjs';
@@ -38,7 +39,7 @@ test('nothing is picked at first, and the open input keeps the full setup the de
 	assert.equal(view.flow.pick, null);
 	assert.equal(view.flow.step, 'pick');
 	assert.deepEqual(view.flow.workshops.map((w) => w.id), ['ai-first', 'microsoft']);
-	assert.deepEqual(validateOpenInput({ workshop: 'choose', workshopDir: '~/ai-first-workshop' }, { home: '/Users/you' }), { workshop: 'choose', workshopDir: '/Users/you/ai-first-workshop' });
+	assert.deepEqual(validateOpenInput({ workshop: 'choose', workshopDir: '~/ai-first-workshop' }, { home: '/Users/you' }), { workshop: 'choose', workshopDir: path.join('/Users/you', 'ai-first-workshop') });
 	assert.throws(() => validateOpenInput({ workshop: 'full' }));
 	assert.deepEqual(validateOpenInput({}), {});
 });

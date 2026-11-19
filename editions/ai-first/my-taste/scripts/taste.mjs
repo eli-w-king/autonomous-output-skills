@@ -3,9 +3,10 @@
  * this skill's folder.
  *
  *   node taste.mjs messages [--days 7 | --since <date>] [--max-chars 60000] [--per-message 1500]
- *       What the person typed to their agents, newest first. Left out: sub-agents, autopilot, text another session
- *       sent (create_session, send_message and the like), and automations: any session whose first message starts
- *       with "Weekly taste update" or has "[my-taste]".
+ *       What the person typed to their agents, newest first. Left out: sub-agents and other agents (an agentId, or a
+ *       source starting with "agent"), autopilot, system messages, text another session sent (create_session,
+ *       send_message and the like), and automations: any session whose first message starts with "Weekly taste
+ *       update" or has "[my-taste]". (The Agents window gives every turn a parentAgentTaskId, so that's no sign.)
  *   node taste.mjs backup                     copy SKILL.md to backups/SKILL-<time>.md here; prints the path
  *   node taste.mjs check                      the front matter and sections are intact, and no em or en dashes
  *   node taste.mjs restore                    put the newest backup back (the current file is backed up first)
@@ -103,8 +104,8 @@ function messages(opts) {
 				first = false;
 			}
 			const source = String(data.source || '');
-			if (automation || AUTOMATION.some(r => r.test(text)) || source === 'autopilot' || source.startsWith('agent')
-				|| e.agentId || data.parentAgentTaskId) {
+			if (automation || AUTOMATION.some(r => r.test(text)) || source === 'autopilot' || source === 'system'
+				|| source.startsWith('agent') || e.agentId) {
 				continue;
 			}
 			const at = Date.parse(e.timestamp || '');
