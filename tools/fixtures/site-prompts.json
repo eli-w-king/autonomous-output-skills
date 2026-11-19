@@ -1,0 +1,115 @@
+{
+ "source": "https://github.com/eli-w-king/ai-first-design-workshop, content/pages/modules",
+ "prompts": [
+  {
+   "file": "another-computer.md",
+   "label": "Prompt 16.1",
+   "text": "Start this work on my other computer, and have it report back here."
+  },
+  {
+   "file": "another-computer.md",
+   "label": "Prompt 16.2",
+   "text": "Start the overnight plan on my other computer, and have its sessions report back here."
+  },
+  {
+   "file": "automated-research.md",
+   "label": "Prompt 13.1",
+   "text": "Use the autonomous-research skill to draft an unmoderated study of my favorite toolbar against Excalidraw's original. Six participants who draw diagrams at least weekly. Two tasks: draw a simple flowchart, then find and use a tool you haven't used yet. Write the screener, the tasks and the questions to workshop/practice/study-draft.md. Don't launch or recruit anything."
+  },
+  {
+   "file": "automated-research.md",
+   "label": "Prompt 13.2",
+   "text": "Use the autonomous-research skill to draft an unmoderated study of <the design I picked>. Who: <the people to recruit>. What I want to learn: <one or two questions>. Write the screener, the tasks and the questions to a file in this repo. Don't launch or recruit anything."
+  },
+  {
+   "file": "demo-videos.md",
+   "label": "Prompt 6, ship it",
+   "text": "My favorite is <name>. Make it the default toolbar. Then, in parallel where you can: use the autonomous-demos skill to record a short narrated demo video of drawing a few shapes with it, open a pull request in my repo with all four variations, fill in the page for everyone in review/ with the four variations, the video and the pull request, and turn on GitHub Pages. When the video and the page are in the pull request, merge it, wait for Pages to publish, and give me the links."
+  },
+  {
+   "file": "mark-up.md",
+   "label": "Prompt 2",
+   "text": "Here's my marked-up screenshot. Use it and the user testing notes in workshop/brief.md to fix what confused people about the toolbar. Make the change on a new branch. Keep it small, just the toolbar change, so I can see it right away. Don't test drawing yet, we'll do that next."
+  },
+  {
+   "file": "open-on-localhost.md",
+   "label": "Prompt 1",
+   "text": "Now open my Excalidraw case study. Move this chat there, run it on localhost and show it to me in the integrated browser."
+  },
+  {
+   "file": "overnight.md",
+   "label": "Prompt 15.1",
+   "text": "Use the autonomous-runs skill to plan an overnight run: three new versions of my favorite toolbar from the practice findings in workshop/practice/, a demo video of each, and the page for everyone updated as a draft pull request. Keep a status file up to date as you go. Show me the plan first."
+  },
+  {
+   "file": "overnight.md",
+   "label": "Prompt 15.2",
+   "text": "I'm going to sleep. Keep my laptop awake, start the plan, and run at most two sessions at once. Don't merge or publish anything."
+  },
+  {
+   "file": "overnight.md",
+   "label": "Prompt 15.3",
+   "text": "Good morning. What happened overnight? Show me the summary, the videos and the draft pull request."
+  },
+  {
+   "file": "overnight.md",
+   "label": "Prompt 15.4",
+   "text": "Use the autonomous-runs skill to plan tonight's work on <my project>: <what you want waiting in the morning>. Keep a status file up to date, and don't send, merge or publish anything. Show me the plan first."
+  },
+  {
+   "file": "page-for-everyone.md",
+   "label": "Prompt 7",
+   "text": "Open the pull request, the video, my live Excalidraw and the page for everyone."
+  },
+  {
+   "file": "parallel-sessions.md",
+   "label": "Prompt 4",
+   "text": "The PM team came back with workshop/pm-follow-up.md. Use the autonomous-variations skill to build the four toolbars it asks for. Start four sessions under this one, one per direction. Each one starts from this branch, works on its own branch, adds only its own toolbar file and keeps the canvas clear. When all four are done, put them together in one lab I can switch between in the integrated browser, and give me the link."
+  },
+  {
+   "file": "self-improvement.md",
+   "label": "Prompt 12.1",
+   "text": "/automate Create a weekly automation that keeps my-taste current. Every Monday morning, it reads the past week's sessions here, where I corrected an agent or asked for something different, adds anything new to my-taste, and shows me what changed. Set it to Autopilot with Allow all, so it never waits for me."
+  },
+  {
+   "file": "self-improvement.md",
+   "label": "Prompt 12.2",
+   "text": "/automate Every Friday at 4 PM, look at what changed in <my repo> this week, check the main screens at phone width in the integrated browser, and write me a short list of anything that looks off. Don't change any files."
+  },
+  {
+   "file": "synthesis.md",
+   "label": "Prompt 14.1",
+   "text": "Synthesize the practice research in workshop/practice/: the study results, the design review transcript and the feedback document. Give me the top findings, each with real quotes and how many of the six participants it came from. Then build the next iteration of my favorite toolbar on a new branch, open a draft pull request in my repo, and add a short findings page to review/. Don't merge it."
+  },
+  {
+   "file": "synthesis.md",
+   "label": "Prompt 14.2",
+   "text": "Synthesize <my study results and feedback, attached or in this folder>. I'm deciding <the decision>. Give me the top findings with real quotes and counts, say \"no data found\" where there isn't any, then build the next iteration on a new branch and open a draft pull request. Keep it private: don't publish anything."
+  },
+  {
+   "file": "taste.md",
+   "label": "Prompt 11.1",
+   "text": "Use the my-taste skill to learn from tonight's Excalidraw sessions: my marked-up screenshot, the steers I sent, the toolbar I picked and why. Add what you learn to my-taste as short rules, each with where it came from. Show me the rules before you save them."
+  },
+  {
+   "file": "taste.md",
+   "label": "Prompt 11.2",
+   "text": "Build my taste with the my-taste skill. Read my sessions here from the last few weeks, where I corrected an agent or asked for something different, and <a folder of my design notes or critiques>. Merge what you find into my-taste as rules, each with where it came from and when. Keep it on this laptop: nothing gets published."
+  },
+  {
+   "file": "test-in-the-browser.md",
+   "label": "Prompt 3",
+   "text": "Draw a few shapes in the integrated browser to test it. If something's broken, find the cause, fix it, and show me a shape drawn after the fix. Then commit the toolbar change and the fix."
+  },
+  {
+   "file": "variation-labs.md",
+   "label": "Prompt 5a, steer",
+   "text": "Give every button a tooltip with its name and keyboard shortcut."
+  },
+  {
+   "file": "variation-labs.md",
+   "label": "Prompt 5b, queue",
+   "text": "When you're done, tell me in three bullets what makes this toolbar different."
+  }
+ ]
+}

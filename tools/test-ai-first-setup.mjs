@@ -271,6 +271,23 @@ test('an uninstall stopped by a folder in use keeps its record, and the next run
 	assert.equal(fs.readFileSync(path.join(theirs, 'SKILL.md'), 'utf8'), 'their own\n', 'still theirs after the second run');
 });
 
+test('every prompt in resources/prompts.md is word for word one of the workshop site\'s', async () => {
+	const pinned = JSON.parse(await fsp.readFile(path.join(REPO, 'tools', 'fixtures', 'site-prompts.json'), 'utf8'));
+	if (process.env.AI_FIRST_SITE) {
+		// With the site's checkout at hand, the pinned copy has to match it too.
+		const { sitePrompts } = await import('./sync-site-prompts.mjs');
+		assert.deepEqual(pinned.prompts, sitePrompts(af.expandHome(process.env.AI_FIRST_SITE)),
+			'the site\'s prompts changed: run node tools/sync-site-prompts.mjs --site <its checkout>');
+	}
+	const site = new Set(pinned.prompts.map((prompt) => prompt.text));
+	const text = (await fsp.readFile(path.join(REPO, 'autonomous-setup', 'ai-first', 'resources', 'prompts.md'), 'utf8')).replace(/\r\n/g, '\n');
+	const blocks = [...text.matchAll(/```text\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+	assert.equal(blocks.length, 8);
+	for (const block of blocks) {
+		assert.ok(site.has(block), `not on the site word for word: ${block.slice(0, 90)}`);
+	}
+});
+
 test('install excalidraw refuses --skip-npm outside the script\'s tests, before it touches anything', async () => {
 	const home = await scratchHome('skipnpm');
 	const folder = path.join(home, 'ai-first-workshop');

@@ -22,7 +22,7 @@ screenshot in the chat input, choose **Mark Up**, circle what confused testers, 
 and a crop, then **Done**.
 
 ```text
-Here's my marked-up screenshot. Use it and the user testing notes in workshop/brief.md to fix what confused people about the toolbar. Make the change on a new branch, and keep it small so I can see it right away.
+Here's my marked-up screenshot. Use it and the user testing notes in workshop/brief.md to fix what confused people about the toolbar. Make the change on a new branch. Keep it small, just the toolbar change, so I can see it right away. Don't test drawing yet, we'll do that next.
 ```
 
 ## 3. Test it in the browser
@@ -36,7 +36,7 @@ Draw a few shapes in the integrated browser to test it. If something's broken, f
 Read `workshop/pm-follow-up.md` (fictional): the PM team wants four very different toolbars.
 
 ```text
-The PM team came back with workshop/pm-follow-up.md. Use the autonomous-variations skill to build the four toolbars it asks for. Start four sessions under this one, one per direction. Each one starts from this branch, works on its own branch and adds only its own toolbar file. When all four are done, put them together in one lab I can switch between in the integrated browser, and give me the link.
+The PM team came back with workshop/pm-follow-up.md. Use the autonomous-variations skill to build the four toolbars it asks for. Start four sessions under this one, one per direction. Each one starts from this branch, works on its own branch, adds only its own toolbar file and keeps the canvas clear. When all four are done, put them together in one lab I can switch between in the integrated browser, and give me the link.
 ```
 
 ## 5. Steer and queue while they build

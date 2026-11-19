@@ -79,7 +79,7 @@ export const AF_ITEMS = [
 		test: {
 			prompt: {
 				mac: 'Use Computer Use to write a short joke in a new note in Notes.',
-				win: 'Use Computer Use to open Notepad and write a short joke. Don\'t save it.',
+				win: 'Write a short joke in a new note in Notepad.',
 				other: 'Use Computer Use to open a text editor and write a short joke. Don\'t save it.',
 			},
 		},
