@@ -57,9 +57,15 @@ function lines(file) {
 	}
 }
 
+// The project a session ran in, by its folder's name. A chat with no workspace runs in a folder named for its id
+// (<COPILOT_HOME>/chats/<id>): that's just "chat", so no session id ends up in what gets shown or shared.
 function project(dir) {
 	const cwd = lines(path.join(dir, 'workspace.yaml')).map(l => /^cwd:\s*(.*)$/.exec(l)).find(Boolean);
-	return cwd ? path.basename(cwd[1].trim().replace(/^['"]|['"]$/g, '')) : '';
+	if (!cwd) { return ''; }
+	const folder = cwd[1].trim().replace(/^['"]|['"]$/g, '');
+	const name = path.basename(folder);
+	const chat = path.basename(path.dirname(folder)) === 'chats' || /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(name);
+	return chat ? 'chat' : name;
 }
 
 function messages(opts) {

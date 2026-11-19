@@ -227,6 +227,9 @@ def check_taste(env):
         said(1, brief),
         said(0.5, 'Make the icons bigger, I love bold shapes.', data={'parentAgentTaskId': 'turn-4'}),
     ])
+    write_session(env, 'four', '/home/you/.copilot/chats/3fa489ec-5504-4a58-b101-cc5c1edaebf6', [
+        said(0.3, 'Give the empty state a friendlier line.', data={'parentAgentTaskId': 'turn-5'}),
+    ])
     write_session(env, 'three', '/work/ai-first-workshop', [
         said(0.2, "Weekly taste update. Use the my-taste skill's weekly update."),
         said(0.2, 'A later message in the automation session.'),
@@ -235,9 +238,9 @@ def check_taste(env):
     shutil.copytree(SOURCE / 'editions' / EDITION / 'my-taste', skill)
     script = skill / 'scripts' / 'taste.mjs'
     r = env.run(node, script, 'messages', '--days', '7')
-    kept = ['too busy', 'bold shapes']
+    kept = ['too busy', 'bold shapes', '(chat): Give the empty state']
     dropped = ['Continue with the plan', 'sub-agent', 'Build one variation', 'old note', 'Weekly taste update',
-               'automation session', 'current_datetime', 'note from the system', 'another agent']
+               'automation session', 'current_datetime', 'note from the system', 'another agent', '3fa489ec']
     check(r.returncode == 0 and all(k in r.stdout for k in kept) and not any(d in r.stdout for d in dropped),
           f'taste.mjs messages keeps only what the person typed in the last 7 days ({r.stdout.strip()[-300:]})')
     original = (skill / 'SKILL.md').read_text(encoding='utf-8')
